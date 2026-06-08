@@ -1,0 +1,207 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ─── Enums ───────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  SOLD_OUT
+  CLOSED
+  DESIGNING
+  READY_FOR_PRINT
+  PRINTING
+  MAILED
+  CANCELLED
+}
+
+enum PostcardSide {
+  FRONT
+  BACK
+}
+
+enum SpotType {
+  PREMIUM
+  LARGE
+  STANDARD
+  SMALL
+}
+
+enum SpotStatus {
+  OPEN
+  HELD
+  SOLD
+  UNAVAILABLE
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  REFUNDED
+  CANCELLED
+  EXPIRED
+}
+
+enum ApprovalStatus {
+  PENDING
+  NEEDS_REVIEW
+  APPROVED
+  REJECTED
+}
+
+// ─── Models ──────────────────────────────────────────────────────────────────
+
+model AdminUser {
+  id             String   @id @default(cuid())
+  supabaseUserId String   @unique
+  email          String   @unique
+  role           UserRole @default(ADMIN)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model BusinessCategory {
+  id                       String         @id @default(cuid())
+  name                     String
+  slug                     String         @unique
+  description              String?
+  allowsMultipleAdvertisers Boolean       @default(false)
+  defaultSpotType          SpotType       @default(STANDARD)
+  defaultPrice             Int            @default(0) // in cents
+  isActive                 Boolean        @default(true)
+  createdAt                DateTime       @default(now())
+  updatedAt                DateTime       @updatedAt
+
+  campaignSpots CampaignSpot[]
+}
+
+model Campaign {
+  id                 String         @id @default(cuid())
+  name               String
+  slug               String
+  city               String
+  state              String
+  county             String?
+  zipCode            String?
+  mailingQuantity    Int
+  status             CampaignStatus @default(DRAFT)
+  description        String?        @db.Text
+  estimatedMailDate  DateTime?
+  frontBackgroundUrl String?
+  backBackgroundUrl  String?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+
+  spots  CampaignSpot[]
+  orders Order[]
+
+  @@unique([state, city, slug])
+}
+
+model CampaignSpot {
+  id               String       @id @default(cuid())
+  campaignId       String
+  categoryId       String
+  label            String
+  side             PostcardSide
+  spotType         SpotType     @default(STANDARD)
+  price            Int          // in cents
+  x                Float        // percentage 0-100
+  y                Float        // percentage 0-100
+  width            Float        // percentage 0-100
+  height           Float        // percentage 0-100
+  status           SpotStatus   @default(OPEN)
+  heldUntil        DateTime?
+  heldBySessionId  String?
+  sortOrder        Int          @default(0)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+
+  campaign Campaign         @relation(fields: [campaignId], references: [id])
+  category BusinessCategory @relation(fields: [categoryId], references: [id])
+  orders   Order[]
+
+  @@index([campaignId])
+  @@index([categoryId])
+}
+
+model Advertiser {
+  id              String   @id @default(cuid())
+  contactName     String
+  businessName    String
+  email           String   @unique
+  phone           String
+  website         String?
+  businessAddress String?
+  heardAboutUs    String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orders Order[]
+}
+
+model Order {
+  id                       String      @id @default(cuid())
+  campaignId               String
+  campaignSpotId           String
+  advertiserId             String
+  status                   OrderStatus @default(PENDING)
+  amount                   Int         // in cents
+  stripeCheckoutSessionId  String?     @unique
+  stripePaymentIntentId    String?
+  creativeSubmissionToken  String      @unique
+  paidAt                   DateTime?
+  refundedAt               DateTime?
+  refundReason             String?
+  createdAt                DateTime    @default(now())
+  updatedAt                DateTime    @updatedAt
+
+  campaign           Campaign            @relation(fields: [campaignId], references: [id])
+  campaignSpot       CampaignSpot        @relation(fields: [campaignSpotId], references: [id])
+  advertiser         Advertiser          @relation(fields: [advertiserId], references: [id])
+  creativeSubmission CreativeSubmission?
+
+  @@index([campaignId])
+  @@index([campaignSpotId])
+  @@index([advertiserId])
+}
+
+model CreativeSubmission {
+  id               String         @id @default(cuid())
+  orderId          String         @unique
+  businessName     String?
+  logoUrl          String?
+  additionalImages Json?          // string[] of URLs
+  headline         String?        @db.VarChar(80)
+  offerDeal        String?        @db.VarChar(160)
+  description      String?        @db.VarChar(300)
+  cta              String?        @db.VarChar(60)
+  phone            String?
+  website          String?
+  address          String?
+  notes            String?        @db.VarChar(1000)
+  wantsAiHelp      Boolean        @default(false)
+  aiPrompt         String?        @db.Text
+  approvalStatus   ApprovalStatus @default(PENDING)
+  approvalNotes    String?
+  submittedAt      DateTime?
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}

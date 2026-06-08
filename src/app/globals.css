@@ -1,26 +1,67 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
 
-@theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-stone-bg: var(--stone-bg);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+:root {
+  --radius: 0.25rem;
+  --background: oklch(0.992 0.003 80);
+  --foreground: oklch(0.18 0.01 50);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.18 0.01 50);
+  --primary: oklch(0.58 0.18 40);
+  --primary-foreground: oklch(0.99 0.003 80);
+  --secondary: oklch(0.96 0.005 80);
+  --secondary-foreground: oklch(0.18 0.01 50);
+  --muted: oklch(0.18 0.01 50 / 60%);
+  --muted-foreground: oklch(0.18 0.01 50 / 60%);
+  --accent: oklch(0.96 0.005 80);
+  --accent-foreground: oklch(0.18 0.01 50);
+  --border: oklch(0.18 0.01 50 / 10%);
+  --input: oklch(0.18 0.01 50 / 12%);
+  --ring: oklch(0.58 0.18 40);
+  --stone-bg: oklch(0.97 0.005 75);
+
+  /* Retain old custom vars just in case they are used in dashboard */
+  --brand-primary: #1e3a5f;
+  --brand-secondary: #2563eb;
+  --brand-accent: #f59e0b;
+  --brand-success: #10b981;
+  --brand-danger: #ef4444;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-background);
+  color: var(--color-foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
