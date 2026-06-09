@@ -14,43 +14,30 @@ export interface SpotTemplate {
 }
 
 export const spots9x12: SpotTemplate[] = [
-  // Front Left standard stack - Column 1: 3 slots (Standard)
-  { label: "Plumber", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 2, width: 20, height: 30, sortOrder: 1, categorySlug: "plumbing" },
-  { label: "Electrician", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 35, width: 20, height: 30, sortOrder: 2, categorySlug: "electrical" },
-  { label: "Garage Doors", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 68, width: 20, height: 30, sortOrder: 3, categorySlug: "home-cleaning" },
+  // Front: 32px padding, 472px groups, 160px protected center spine.
+  { label: "Plumber", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2.6667, y: 3.5556, width: 19.1667, height: 29.4444, sortOrder: 1, categorySlug: "plumbing" },
+  { label: "Electrician", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2.6667, y: 35.2222, width: 19.1667, height: 29.4444, sortOrder: 2, categorySlug: "electrical" },
+  { label: "Garage Doors", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2.6667, y: 66.8889, width: 19.1667, height: 29.4444, sortOrder: 3, categorySlug: "home-cleaning" },
+  { label: "HVAC Services", side: "FRONT", spotType: "STANDARD", price: 49000, x: 22.8333, y: 3.5556, width: 19.1667, height: 29.4444, sortOrder: 4, categorySlug: "hvac" },
+  { label: "Pest Control", side: "FRONT", spotType: "STANDARD", price: 49000, x: 22.8333, y: 35.2222, width: 19.1667, height: 29.4444, sortOrder: 5, categorySlug: "pest-control" },
+  { label: "Pool Service", side: "FRONT", spotType: "STANDARD", price: 49000, x: 22.8333, y: 66.8889, width: 19.1667, height: 29.4444, sortOrder: 6, categorySlug: "home-cleaning" },
+  { label: "Roofer", side: "FRONT", spotType: "STANDARD", price: 49000, x: 58, y: 3.5556, width: 19.1667, height: 29.4444, sortOrder: 7, categorySlug: "roofing" },
+  { label: "Landscaper", side: "FRONT", spotType: "STANDARD", price: 49000, x: 58, y: 35.2222, width: 19.1667, height: 29.4444, sortOrder: 8, categorySlug: "landscaping" },
+  { label: "Concrete Project", side: "FRONT", spotType: "STANDARD", price: 49000, x: 58, y: 66.8889, width: 19.1667, height: 29.4444, sortOrder: 9, categorySlug: "pressure-washing" },
+  { label: "Junk Hauling", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78.1667, y: 3.5556, width: 19.1667, height: 29.4444, sortOrder: 10, categorySlug: "junk-removal" },
+  { label: "Remodeling", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78.1667, y: 35.2222, width: 19.1667, height: 29.4444, sortOrder: 11, categorySlug: "carpet-cleaning" },
+  { label: "Tree Care", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78.1667, y: 66.8889, width: 19.1667, height: 29.4444, sortOrder: 12, categorySlug: "pest-control" },
 
-  // Front Left standard stack - Column 2: 3 slots (Standard)
-  { label: "HVAC Services", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 2, width: 20, height: 30, sortOrder: 4, categorySlug: "hvac" },
-  { label: "Pest Control", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 35, width: 20, height: 30, sortOrder: 5, categorySlug: "pest-control" },
-  { label: "Pool Service", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 68, width: 20, height: 30, sortOrder: 6, categorySlug: "home-cleaning" },
-
-  // Front Divider Spine - Center: 1 slot for Venue/Event
-  { label: "Featured Venue / Event", side: "FRONT", spotType: "STANDARD", price: 49000, x: 45, y: 35, width: 10, height: 30, sortOrder: 7, categorySlug: "events-venues" },
-
-  // Front Right standard stack - Column 4: 3 slots (Standard)
-  { label: "Roofer", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 2, width: 20, height: 30, sortOrder: 8, categorySlug: "roofing" },
-  { label: "Concrete Project", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 35, width: 20, height: 30, sortOrder: 9, categorySlug: "pressure-washing" },
-  { label: "Remodeling", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 68, width: 20, height: 30, sortOrder: 10, categorySlug: "carpet-cleaning" },
-
-  // Front Right standard stack - Column 5: 3 slots (Standard)
-  { label: "Landscaper", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 2, width: 20, height: 30, sortOrder: 11, categorySlug: "landscaping" },
-  { label: "Junk Hauling", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 35, width: 20, height: 30, sortOrder: 12, categorySlug: "junk-removal" },
-  { label: "Tree Care", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 68, width: 20, height: 30, sortOrder: 13, categorySlug: "pest-control" },
-
-  // Back Top Row: 4 standard slots
-  { label: "HVAC Services", side: "BACK", spotType: "STANDARD", price: 59000, x: 2, y: 2, width: 23, height: 35, sortOrder: 14, categorySlug: "hvac" },
-  { label: "Dentist", side: "BACK", spotType: "STANDARD", price: 59000, x: 26, y: 2, width: 23, height: 35, sortOrder: 15, categorySlug: "dentistry" },
-  { label: "Fence Builder", side: "BACK", spotType: "STANDARD", price: 59000, x: 50, y: 2, width: 23, height: 35, sortOrder: 16, categorySlug: "real-estate" },
-  { label: "House Cleaning", side: "BACK", spotType: "STANDARD", price: 59000, x: 74, y: 2, width: 23, height: 35, sortOrder: 17, categorySlug: "home-cleaning" },
-
-  // Back Middle Row: 1 Premium Spot
-  { label: "Premium Center Back Spot", side: "BACK", spotType: "PREMIUM", price: 149000, x: 2, y: 40, width: 47, height: 21, sortOrder: 18, categorySlug: "restaurant" },
-
-  // Back Bottom Row: 4 standard slots
-  { label: "Solar Energy", side: "BACK", spotType: "STANDARD", price: 59000, x: 2, y: 63, width: 23, height: 35, sortOrder: 19, categorySlug: "auto-repair" },
-  { label: "Painter", side: "BACK", spotType: "STANDARD", price: 59000, x: 26, y: 63, width: 23, height: 35, sortOrder: 20, categorySlug: "pressure-washing" },
-  { label: "Water Heaters", side: "BACK", spotType: "STANDARD", price: 59000, x: 50, y: 63, width: 23, height: 35, sortOrder: 21, categorySlug: "plumbing" },
-  { label: "Gutter Care", side: "BACK", spotType: "STANDARD", price: 59000, x: 74, y: 63, width: 23, height: 35, sortOrder: 22, categorySlug: "roofing" }
+  // Back: four larger standards, protected middle row, four larger standards.
+  { label: "Windows", side: "BACK", spotType: "STANDARD", price: 59000, x: 2.6667, y: 3.5556, width: 22.9167, height: 25.5556, sortOrder: 13, categorySlug: "real-estate" },
+  { label: "Handyman", side: "BACK", spotType: "STANDARD", price: 59000, x: 26.5833, y: 3.5556, width: 22.9167, height: 25.5556, sortOrder: 14, categorySlug: "home-cleaning" },
+  { label: "Fence Builder", side: "BACK", spotType: "STANDARD", price: 59000, x: 50.5, y: 3.5556, width: 22.9167, height: 25.5556, sortOrder: 15, categorySlug: "real-estate" },
+  { label: "House Cleaning", side: "BACK", spotType: "STANDARD", price: 59000, x: 74.4167, y: 3.5556, width: 22.9167, height: 25.5556, sortOrder: 16, categorySlug: "home-cleaning" },
+  { label: "Premium Center Back Spot", side: "BACK", spotType: "PREMIUM", price: 149000, x: 27.5, y: 31.3333, width: 40, height: 36.2222, sortOrder: 17, categorySlug: "restaurant" },
+  { label: "Painter", side: "BACK", spotType: "STANDARD", price: 59000, x: 2.6667, y: 69.7778, width: 22.9167, height: 26.6667, sortOrder: 18, categorySlug: "pressure-washing" },
+  { label: "Water Heaters", side: "BACK", spotType: "STANDARD", price: 59000, x: 26.5833, y: 69.7778, width: 22.9167, height: 26.6667, sortOrder: 19, categorySlug: "plumbing" },
+  { label: "Gutter Care", side: "BACK", spotType: "STANDARD", price: 59000, x: 50.5, y: 69.7778, width: 22.9167, height: 26.6667, sortOrder: 20, categorySlug: "roofing" },
+  { label: "Pressure Washing", side: "BACK", spotType: "STANDARD", price: 59000, x: 74.4167, y: 69.7778, width: 22.9167, height: 26.6667, sortOrder: 21, categorySlug: "pressure-washing" },
 ]
 
 export const spots6x11: SpotTemplate[] = [

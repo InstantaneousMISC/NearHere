@@ -13,73 +13,39 @@ export default function SlotMap({ type }: SlotMapProps) {
         {/* Front Blueprint */}
         <div className="space-y-1">
           <div className="text-center font-bold text-warm text-[8px]">Front Side (12/9 Ratio)</div>
-          <div className="border border-rule bg-paper aspect-[12/9] p-1.5 grid gap-1 relative" style={{ gridTemplateColumns: "1fr 1fr 0.8fr 1fr 1fr" }}>
-            {/* Column 1: Left Standard Stack 1 */}
-            <div className="grid grid-rows-3 gap-1">
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 1)
+          <div
+            className="relative grid aspect-[12/9] gap-[3px] border border-rule bg-paper p-1.5"
+            style={{ gridTemplateColumns: "472fr 160fr 472fr" }}
+          >
+            {(["Left", "Right"] as const).map((group, groupIndex) => (
+              <div
+                key={group}
+                className="grid grid-cols-2 grid-rows-3 gap-x-[2px] gap-y-[3px]"
+                style={{ gridColumn: groupIndex === 0 ? 1 : 3 }}
+              >
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-center border border-press/20 bg-slate-50 p-1 text-center text-[6px] font-bold leading-tight text-warm"
+                  >
+                    F-{groupIndex === 0 ? "L" : "R"}{index + 1}
+                    <br />
+                    $490
+                  </div>
+                ))}
               </div>
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 1)
-              </div>
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 1)
-              </div>
-            </div>
+            ))}
 
-            {/* Column 2: Left Standard Stack 2 */}
-            <div className="grid grid-rows-3 gap-1">
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 2)
+            <div className="col-start-2 row-start-1 flex flex-col items-center justify-between overflow-hidden border border-press bg-press p-1 text-center text-paper">
+              <div className="text-[7px] font-bold">
+                Near<span className="text-nh-red">Here</span>
               </div>
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 2)
+              <div className="text-[5px] font-bold leading-tight">
+                BRAND SPINE
+                <br />
+                COMMUNITY SPOTLIGHT
               </div>
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 2)
-              </div>
-            </div>
-
-            {/* Center Spine / Divider Spine (Column 3) */}
-            <div className="bg-press text-paper p-1 flex flex-col justify-between items-center text-center border border-press relative select-none overflow-hidden gap-1">
-              <div className="text-[7px] font-bold tracking-tighter text-nh-red">
-                <span className="text-paper">Near</span>Here
-              </div>
-              
-              {/* Divider Spot */}
-              <div className="border-2 border-dashed border-paper/40 bg-paper/10 flex items-center justify-center font-bold text-[5.5px] text-paper text-center p-0.5 leading-tight h-[45%] shrink-0">
-                Divider Venue/Event
-              </div>
-
-              <div className="text-[5px] font-mono leading-none opacity-80 scale-90">
-                QR CODE
-              </div>
-            </div>
-
-            {/* Column 4: Right Standard Stack 1 */}
-            <div className="grid grid-rows-3 gap-1">
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 4)
-              </div>
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 4)
-              </div>
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 4)
-              </div>
-            </div>
-
-            {/* Column 5: Right Standard Stack 2 */}
-            <div className="grid grid-rows-3 gap-1">
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 5)
-              </div>
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 5)
-              </div>
-              <div className="border border-press/20 bg-slate-50 flex items-center justify-center font-bold text-[7px] text-warm text-center p-1 leading-tight">
-                Standard Slot (Col 5)
-              </div>
+              <div className="text-[5px] leading-tight">GENERAL QR</div>
             </div>
           </div>
         </div>
@@ -87,7 +53,10 @@ export default function SlotMap({ type }: SlotMapProps) {
         {/* Back Blueprint */}
         <div className="space-y-1">
           <div className="text-center font-bold text-warm text-[8px]">Back Side (12/9 Ratio)</div>
-          <div className="border border-rule bg-paper aspect-[12/9] p-1.5 grid grid-rows-3 gap-1 relative">
+          <div
+            className="relative grid aspect-[12/9] gap-[3px] border border-rule bg-paper p-1.5"
+            style={{ gridTemplateRows: "230fr 326fr 240fr" }}
+          >
             {/* Top row: 4 ads */}
             <div className="grid grid-cols-4 gap-1">
               {Array.from({ length: 4 }).map((_, i) => (
@@ -97,13 +66,21 @@ export default function SlotMap({ type }: SlotMapProps) {
               ))}
             </div>
 
-            {/* Middle row: Premium spotlight & mailing panel */}
-            <div className="grid grid-cols-4 gap-1">
-              <div className="col-span-2 border-2 border-nh-red bg-nh-red/5 flex items-center justify-center font-bold text-[7px] text-nh-red text-center p-1">
-                ⭐ Premium Center Back Spot
+            {/* Middle row: brand message, premium placement, and mailing panel */}
+            <div
+              className="grid gap-[3px]"
+              style={{ gridTemplateColumns: "280fr 480fr 338fr" }}
+            >
+              <div className="flex items-center justify-center border border-press bg-press p-1 text-center text-[6px] font-bold text-paper">
+                NearHere Message
               </div>
-              <div className="col-span-2 border border-dashed border-nh-red/30 bg-nh-red/5 flex items-center justify-center font-bold text-[8px] text-nh-red text-center p-1">
-                📬 Protected Address / Mailing Area
+              <div className="flex items-center justify-center border-2 border-[#C9993E] bg-[#C9993E]/5 p-1 text-center text-[7px] font-bold text-[#C9993E]">
+                Premium Center Back
+                <br />
+                $1,490
+              </div>
+              <div className="flex items-center justify-center border border-dashed border-nh-red/30 bg-nh-red/5 p-1 text-center text-[7px] font-bold text-nh-red">
+                Protected Mailing Area
               </div>
             </div>
 
@@ -122,15 +99,15 @@ export default function SlotMap({ type }: SlotMapProps) {
         <div className="grid grid-cols-2 gap-2 pt-2 border-t border-rule text-[8px] font-bold text-press">
           <div className="flex items-center gap-2">
             <span className="w-3.5 h-3.5 border border-press/20 bg-slate-50 inline-block shrink-0" />
-            <span>Standard Slot (Front & Back)</span>
+            <span>Front $490 / Back $590</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3.5 h-3.5 border-2 border-nh-red bg-nh-red/5 inline-block shrink-0" />
-            <span>Premium Spotlight ($1,490 Back Center)</span>
+            <span>Premium Center Back ($1,490)</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3.5 h-3.5 border-2 border-dashed border-press/40 bg-slate-50 inline-block shrink-0" />
-            <span>Divider Event/Venue Spot (Front Center)</span>
+            <span>Doubles stay within valid row pairs</span>
           </div>
           <div className="flex items-center gap-2">
             <span className="w-3.5 h-3.5 border border-dashed border-nh-red/30 bg-nh-red/5 inline-block shrink-0" />

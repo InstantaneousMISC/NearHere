@@ -5,6 +5,8 @@ import { trpc } from "@/components/providers"
 import { formatPrice, formatDate } from "@/lib/utils"
 import Link from "next/link"
 import { ApprovalStatus } from "@prisma/client"
+import { getFriendlyApprovalStatusLabel, getFriendlyApprovalStatusBadgeClass } from "@/lib/statusHelper"
+
 
 interface OrderDetailPageProps {
   params: Promise<{
@@ -520,19 +522,6 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                 <div className="space-y-1">
                   <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block">
                     Current Approval Status
-                  </span>
-                  <span
-                    className={`inline-block text-xs font-extrabold px-3.5 py-1.5 rounded-xl uppercase tracking-wider border ${
-                      order.creativeSubmission.approvalStatus === "APPROVED"
-                        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-                        : order.creativeSubmission.approvalStatus === "NEEDS_REVIEW"
-                        ? "bg-amber-50 text-amber-700 border-amber-100"
-                        : order.creativeSubmission.approvalStatus === "REJECTED"
-                        ? "bg-red-50 text-red-700 border-red-100"
-                        : "bg-blue-50 text-blue-700 border-blue-100"
-                    }`}
-                  >
-                    {order.creativeSubmission.approvalStatus}
                   </span>
                 </div>
 

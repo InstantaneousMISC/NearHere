@@ -15,6 +15,19 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // Protect /business/* routes — redirect unauthenticated users to login
+  if (pathname.startsWith('/business')) {
+    if (pathname.startsWith('/business/claim')) {
+      return response
+    }
+    if (!user) {
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/auth/login'
+      loginUrl.searchParams.set('redirectTo', pathname)
+      return NextResponse.redirect(loginUrl)
+    }
+  }
+
   // If user is already authenticated and visiting /auth/login, redirect to /admin
   if (pathname === '/auth/login') {
     if (user) {

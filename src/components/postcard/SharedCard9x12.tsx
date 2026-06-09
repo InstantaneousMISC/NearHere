@@ -1,9 +1,50 @@
 import React from "react"
-import AdvertiserBlock from "./AdvertiserBlock"
-import InteractiveSpotCell from "./InteractiveSpotCell"
-import MailingPanel from "./MailingPanel"
-import QRPlaceholder from "./QRPlaceholder"
-import { mock9x12AdvertisersFront, mock9x12AdvertisersBack, MockAdvertiser } from "@/lib/mockPostcardData"
+import QRCodeImage from "./QRCodeImage"
+import {
+  SharedCard9x12Ad,
+  SharedCard9x12Available,
+} from "./SharedCard9x12Ad"
+import {
+  TEMPLATE_1_PRICING,
+  template1BackSlots,
+  template1FrontSlots,
+  type AdvertiserSlot,
+} from "@/lib/nearHereSharedCard9x12"
+
+type DatabaseSpot = {
+  id: string
+  label: string
+  side: "FRONT" | "BACK"
+  spotType: "PREMIUM" | "LARGE" | "STANDARD" | "SMALL"
+  price: number
+  x: number
+  y: number
+  width: number
+  height: number
+  sortOrder: number
+  status: "OPEN" | "HELD" | "SOLD" | "UNAVAILABLE"
+  categoryId: string
+  category: {
+    id: string
+    name: string
+    slug?: string
+  }
+  orders?: Array<{
+    status: string
+    creativeSubmission?: {
+      businessName?: string | null
+      description?: string | null
+      offerDeal?: string | null
+      phone?: string | null
+      website?: string | null
+      logoUrl?: string | null
+    } | null
+    qrCodes?: Array<{
+      slug: string
+      destinationPath?: string | null
+    }>
+  }>
+}
 
 interface SharedCard9x12Props {
   view?: "front" | "back"
@@ -11,285 +52,569 @@ interface SharedCard9x12Props {
   locationLabel?: string
   homesCount?: string
   headline?: string
-  advertisersFront?: {
-    left: MockAdvertiser[]
-    right: MockAdvertiser[]
-    divider?: MockAdvertiser
-  }
-  advertisersBack?: {
-    top: MockAdvertiser[]
-    bottom: MockAdvertiser[]
-    premium?: MockAdvertiser
-  }
   generalQrCodeUrl?: string
   brandMessage?: string
-  spots?: any[]
-  onSpotClick?: (spot: any) => void
+  spots?: DatabaseSpot[]
+  onSpotClick?: (spot: DatabaseSpot) => void
+  premiumAdvertiser?: AdvertiserSlot | null
   cardSkin?: string
+}
+
+const normalizeWebsite = (value: string) =>
+  value.replace(/^https?:\/\//i, "").replace(/^www\./i, "").replace(/\/$/, "")
+
+const buildAdvertiserFromSpot = (
+  spot: DatabaseSpot,
+  positionId: string
+): AdvertiserSlot | null => {
+  const paidOrder = spot.orders?.find((order) => order.status === "PAID")
+  const creative = paidOrder?.creativeSubmission
+  if (spot.status !== "SOLD" || !creative) return null
+
+  const qrCode = paidOrder?.qrCodes?.[0]
+  const appUrl =
+    typeof window !== "undefined"
+      ? window.location.origin
+      : process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+  const listingPath =
+    qrCode?.destinationPath ||
+    `/b/${spot.category.slug || spot.category.name.toLowerCase().replace(/\s+/g, "-")}`
+  const websiteUrl = creative.website || `${appUrl}${listingPath}`
+
+  return {
+    id: `sold-${spot.id}`,
+    templateId: "nearhere-shared-card-9x12",
+    side: spot.side === "FRONT" ? "front" : "back",
+    positionId,
+    slotType:
+      spot.spotType === "PREMIUM"
+        ? "premiumCenterBack"
+        : spot.spotType === "LARGE"
+          ? spot.side === "FRONT"
+            ? "frontDouble"
+            : "backDouble"
+          : spot.side === "FRONT"
+            ? "frontStandard"
+            : "backStandard",
+    category: spot.category.name.toUpperCase(),
+    businessName: creative.businessName || spot.label,
+    description:
+      creative.description ||
+      "Trusted local service and straightforward help for homeowners nearby.",
+    offer: creative.offerDeal || "LOCAL OFFER",
+    offerSubtext: "Ask for current details",
+    phone: creative.phone || "(210) 555-0100",
+    websiteUrl,
+    displayWebsite: normalizeWebsite(websiteUrl),
+    qrCodeUrl: qrCode ? `${appUrl}/q/${qrCode.slug}` : `${appUrl}${listingPath}`,
+    qrLabel: "Scan details",
+    redemptionNote: "Mention this card.",
+    accentColor: spot.spotType === "PREMIUM" ? "#D13F1F" : "#0B2F4A",
+    iconType: spot.category.name.slice(0, 2).toUpperCase(),
+    logoUrl: creative.logoUrl || undefined,
+    price: spot.price / 100,
+  }
+}
+
+const getFrontPosition = (spot: DatabaseSpot) => {
+  const side = spot.x < 43 ? "L" : "R"
+  const column = side === "L" ? (spot.x < 15 ? 1 : 2) : spot.x < 70 ? 1 : 2
+  const row = spot.y < 20 ? 1 : spot.y < 52 ? 2 : 3
+  const ordinal = column === 1 ? row : row + 3
+  return `F-${side}${ordinal}`
+}
+
+const getBackPosition = (spot: DatabaseSpot) => {
+  if (spot.spotType === "PREMIUM") return "B-PC"
+  const row = spot.y < 50 ? "T" : "B"
+  const column = Math.max(1, Math.min(4, Math.round((spot.x - 2.66) / 23.92) + 1))
+  return `B-${row}${column}`
+}
+
+const frontGridStyle = (
+  positionId: string,
+  isDouble: boolean
+): React.CSSProperties => {
+  const index = Number(positionId.slice(-1))
+  const column = index > 3 ? 2 : 1
+  const row = index > 3 ? index - 3 : index
+  return {
+    gridColumn: isDouble ? "1 / span 2" : column,
+    gridRow: row,
+  }
+}
+
+const backGridStyle = (
+  positionId: string,
+  isDouble: boolean
+): React.CSSProperties => ({
+  gridColumn: isDouble
+    ? `${Number(positionId.slice(-1))} / span 2`
+    : Number(positionId.slice(-1)),
+})
+
+function MailingPanel9x12({ locationLabel }: { locationLabel: string }) {
+  const city = locationLabel.split(",")[0]?.trim() || "CONVERSE"
+  return (
+    <section
+      className="flex h-[326px] w-[338px] flex-col justify-between border border-[#211D1C] bg-[#FAF8F4] p-[18px] text-[#211D1C]"
+      style={{ fontFamily: '"JetBrains Mono", "SF Mono", Consolas, monospace' }}
+    >
+      <div className="flex justify-between gap-[18px]">
+        <div className="text-[8px] font-bold uppercase leading-[1.35] tracking-[0.08em] text-[#77706A]">
+          <div>NearHere</div>
+          <div>Local Community Mail</div>
+          <div>Converse, Texas</div>
+        </div>
+        <div className="w-[92px] border-2 border-[#211D1C] p-[7px] text-center text-[8px] font-black uppercase leading-[1.2]">
+          <div>PRSRT STD</div>
+          <div>ECRWSS</div>
+          <div className="mt-[3px]">U.S. POSTAGE</div>
+          <div>PAID</div>
+          <div>NEARHERE</div>
+        </div>
+      </div>
+
+      <div className="border-l-4 border-[#D13F1F] py-[6px] pl-[15px] text-left">
+        <div className="text-[8px] font-bold uppercase tracking-[0.1em] text-[#77706A]">
+          Deliver to
+        </div>
+        <div className="mt-[5px] text-[14px] font-black uppercase tracking-[0.04em]">
+          Local Postal Customer
+        </div>
+        <div className="mt-[3px] text-[12px] font-bold uppercase tracking-[0.05em]">
+          {city}, TX 78109
+        </div>
+      </div>
+
+      <div>
+        <div className="flex h-[28px] items-end gap-[2px]">
+          {Array.from({ length: 73 }).map((_, index) => (
+            <span
+              key={index}
+              className="w-[1px] bg-[#211D1C]"
+              style={{ height: `${8 + ((index * 7) % 20)}px` }}
+            />
+          ))}
+        </div>
+        <div className="mt-[3px] text-[7px] tracking-[0.15em] text-[#77706A]">
+          *NH001*{city.replace(/\s/g, "")}*TX78109*
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function CenterSpine({
+  locationLabel,
+  homesCount,
+  headline,
+  brandMessage,
+  generalQrCodeUrl,
+}: {
+  locationLabel: string
+  homesCount: string
+  headline: string
+  brandMessage: string
+  generalQrCodeUrl: string
+}) {
+  return (
+    <aside
+      className="flex h-[835px] w-[160px] flex-col items-center overflow-hidden bg-[#211D1C] px-[13px] py-[16px] text-center text-[#FAF8F4]"
+      style={{ fontFamily: '"Inter", system-ui, sans-serif' }}
+    >
+      <div
+        className="text-[25px] font-black tracking-[-0.06em]"
+        style={{
+          fontFamily:
+            '"Archivo Narrow", "Oswald", "Arial Narrow", Impact, sans-serif',
+        }}
+      >
+        <span>Near</span><span className="text-[#D13F1F]">Here</span>
+      </div>
+      <div
+        className="mt-[8px] text-[8.5px] font-bold uppercase tracking-[0.12em] text-[#FAF8F4]"
+        style={{ fontFamily: '"JetBrains Mono", "SF Mono", monospace' }}
+      >
+        {locationLabel}
+      </div>
+      <div
+        className="mt-[4px] text-[9px] font-bold uppercase tracking-[0.1em] text-[#C9993E]"
+        style={{ fontFamily: '"JetBrains Mono", "SF Mono", monospace' }}
+      >
+        {homesCount}
+      </div>
+
+      <div className="mt-[23px] border-y border-[#FAF8F4]/25 py-[16px]">
+        <h2
+          className="whitespace-pre-line text-[25px] font-black uppercase leading-[0.88] tracking-[-0.035em]"
+          style={{
+            fontFamily:
+              '"Archivo Narrow", "Oswald", "Arial Narrow", Impact, sans-serif',
+          }}
+        >
+          {headline.replaceAll(" ", "\n")}
+        </h2>
+        <p className="mt-[12px] text-[10px] font-bold uppercase leading-[1.15] tracking-[0.06em] text-[#D13F1F]">
+          {brandMessage}
+        </p>
+      </div>
+
+      <div className="mt-[20px] w-full border border-[#C9993E] bg-[#FAF8F4] px-[10px] py-[13px] text-[#211D1C]">
+        <div
+          className="text-[9px] font-black uppercase tracking-[0.1em] text-[#D13F1F]"
+          style={{ fontFamily: '"JetBrains Mono", "SF Mono", monospace' }}
+        >
+          Community Spotlight
+        </div>
+        <div
+          className="mt-[8px] text-[16px] font-black uppercase leading-[0.92]"
+          style={{
+            fontFamily:
+              '"Archivo Narrow", "Oswald", "Arial Narrow", Impact, sans-serif',
+          }}
+        >
+          Converse<br />Farmers<br />Market
+        </div>
+        <p className="mt-[9px] text-[9.2px] font-medium leading-[1.2] text-[#77706A]">
+          Saturday mornings at City Park. Local produce, makers, food vendors &amp; family fun.
+        </p>
+        <div
+          className="mt-[9px] text-[8.6px] font-black uppercase tracking-[0.08em] text-[#C9993E]"
+          style={{ fontFamily: '"JetBrains Mono", "SF Mono", monospace' }}
+        >
+          Free Local Feature
+        </div>
+      </div>
+
+      <div
+        className="mt-[18px] text-[14px] font-black uppercase leading-[0.95] tracking-[0.04em]"
+        style={{
+          fontFamily:
+            '"Archivo Narrow", "Oswald", "Arial Narrow", Impact, sans-serif',
+        }}
+      >
+        One Business<br />Per Category
+      </div>
+
+      <div className="mt-auto bg-white p-[6px]">
+        <QRCodeImage
+          value={generalQrCodeUrl}
+          size={66}
+          accentColor="#211D1C"
+          className="!border-0 !p-0"
+        />
+      </div>
+      <div
+        className="mt-[6px] text-[7.4px] font-bold uppercase leading-[1.15] tracking-[0.04em] text-[#FAF8F4]"
+        style={{ fontFamily: '"JetBrains Mono", "SF Mono", monospace' }}
+      >
+        Scan to explore more<br />local offers &amp; services
+      </div>
+    </aside>
+  )
+}
+
+function PremiumHouseMessage({
+  onClick,
+}: {
+  onClick?: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={!onClick}
+      className={`flex h-[326px] w-[480px] flex-col justify-between border-2 border-[#C9993E] bg-[#FAF8F4] p-[28px] text-left text-[#211D1C] ${
+        onClick ? "cursor-pointer hover:bg-[#C9993E]/5" : "cursor-default"
+      }`}
+      style={{ fontFamily: '"Inter", system-ui, sans-serif' }}
+    >
+      <div>
+        <div
+          className="text-[10px] font-black uppercase tracking-[0.12em] text-[#C9993E]"
+          style={{ fontFamily: '"JetBrains Mono", "SF Mono", monospace' }}
+        >
+          Premium Center Back Spot · ${TEMPLATE_1_PRICING.premiumCenterBack.toLocaleString()}
+        </div>
+        <h3
+          className="mt-[20px] max-w-[390px] text-[32px] font-black uppercase leading-[0.92] tracking-[-0.035em]"
+          style={{
+            fontFamily:
+              '"Archivo Narrow", "Oswald", "Arial Narrow", Impact, sans-serif',
+          }}
+        >
+          Thank You for Supporting Local Businesses.
+        </h3>
+        <p className="mt-[16px] max-w-[405px] text-[14px] font-medium leading-[1.35] text-[#77706A]">
+          NearHere helps neighbors discover trusted services, local offers, and community favorites near home.
+        </p>
+      </div>
+      <div className="border-t border-[#E7E0D8] pt-[14px]">
+        <p className="text-[11px] font-bold uppercase leading-[1.3] tracking-[0.045em] text-[#D13F1F]">
+          Scan any business QR code, call, or mention this card to redeem an offer.
+        </p>
+        {onClick && (
+          <p
+            className="mt-[8px] text-[8px] font-bold uppercase tracking-[0.1em] text-[#211D1C]"
+            style={{ fontFamily: '"JetBrains Mono", "SF Mono", monospace' }}
+          >
+            Select premium placement
+          </p>
+        )}
+      </div>
+    </button>
+  )
 }
 
 export default function SharedCard9x12({
   view = "front",
-  campaignName = "NearHere shared postcard",
   locationLabel = "CONVERSE, TEXAS",
   homesCount = "10,000 HOMES",
   headline = "TRUSTED LOCAL SERVICES NEAR YOU",
-  advertisersFront = mock9x12AdvertisersFront,
-  advertisersBack = mock9x12AdvertisersBack,
-  generalQrCodeUrl = "/qr/general-converse",
-  brandMessage = "Support local. Discover nearby.",
+  generalQrCodeUrl = "/q/nearhere-converse",
+  brandMessage = "SUPPORT LOCAL. DISCOVER NEARBY.",
   spots,
   onSpotClick,
-  cardSkin = "cream"
+  premiumAdvertiser = null,
 }: SharedCard9x12Props) {
-  const isFront = view === "front"
+  const hasDatabaseSpots = Boolean(spots?.length)
+  const frontDatabaseSpots = (spots || []).filter(
+    (spot) => spot.side === "FRONT" && (spot.x < 43 || spot.x >= 56)
+  )
+  const backDatabaseSpots = (spots || []).filter(
+    (spot) => spot.side === "BACK"
+  )
+  const premiumSpot = backDatabaseSpots.find(
+    (spot) => spot.spotType === "PREMIUM"
+  )
 
-  // Partition database spots by physical coordinate filters (robust against sorting/shifts)
-  const hasDbSpots = spots && spots.length > 0
-  const frontSpots = hasDbSpots ? spots.filter(s => s.side === "FRONT").sort((a, b) => a.sortOrder - b.sortOrder) : []
-  const backSpots = hasDbSpots ? spots.filter(s => s.side === "BACK").sort((a, b) => a.sortOrder - b.sortOrder) : []
-
-  // Front layout columns filtered by X coordinates
-  const col1Spots = hasDbSpots ? frontSpots.filter(s => s.x < 10) : []
-  const col2Spots = hasDbSpots ? frontSpots.filter(s => s.x >= 10 && s.x < 30) : []
-  const dividerSpot = hasDbSpots ? frontSpots.find(s => s.x >= 30 && s.x < 50) : undefined
-  const col4Spots = hasDbSpots ? frontSpots.filter(s => s.x >= 50 && s.x < 70) : []
-  const col5Spots = hasDbSpots ? frontSpots.filter(s => s.x >= 70) : []
-
-  // Back layout rows and premium spot filtered by Y and type
-  const topSpots = hasDbSpots ? backSpots.filter(s => s.y < 20) : []
-  const bottomSpots = hasDbSpots ? backSpots.filter(s => s.y > 50) : []
-  const premiumSpot = hasDbSpots ? backSpots.find(s => s.spotType === "PREMIUM") : undefined
-
-  // Helper to resolve slot container height dynamically (handles Double spots)
-  const getSpotHeightClass = (spot: any) => {
-    if (spot.spotType === "LARGE") return "h-[66%] min-h-0"
-    return "h-[32%] min-h-0"
-  }
-
-  const getSpotVariant = (spot: any) => {
-    if (spot.spotType === "LARGE") return "double"
-    return "standard"
-  }
-
-  // Skin styling overrides mapped to local CSS variables
-  const skinStyles: Record<string, React.CSSProperties & { [key: string]: string }> = {
-    cream: {
-      "--nh-paper-white": "#FAF8F4",
-      "--nh-press-gray": "#211D1C",
-      "--nh-border-gray": "#E7E0D8",
-    },
-    dark: {
-      "--nh-paper-white": "#211D1C",
-      "--nh-press-gray": "#FAF8F4",
-      "--nh-border-gray": "#3D3533",
-    },
-    minimalist: {
-      "--nh-paper-white": "#FFFFFF",
-      "--nh-press-gray": "#1A1A1A",
-      "--nh-border-gray": "#E2E8F0",
+  const renderDatabaseSpot = (
+    spot: DatabaseSpot,
+    positionId: string,
+    placement: string
+  ) => {
+    const advertiser = buildAdvertiserFromSpot(spot, positionId)
+    if (advertiser) {
+      return (
+        <SharedCard9x12Ad
+          advertiser={advertiser}
+          premium={spot.spotType === "PREMIUM"}
+        />
+      )
     }
-  }
 
-  const activeStyles = skinStyles[cardSkin] || skinStyles.cream
+    return (
+      <SharedCard9x12Available
+        label={spot.category.name}
+        price={spot.price / 100}
+        placement={placement}
+        held={spot.status === "HELD"}
+        onClick={onSpotClick ? () => onSpotClick(spot) : undefined}
+      />
+    )
+  }
 
   return (
-    <div 
-      className="relative w-full aspect-[12/9] bg-paper border border-press/80 shadow-[0_20px_50px_-20px_rgba(33,29,28,0.3)] p-[1.5%] rounded-none select-none flex flex-col justify-between"
-      style={activeStyles}
+    <div
+      className={`nearhere-template-9x12 nh-shared-card-9x12 ${
+        view === "back" ? "back" : "front"
+      } relative h-[900px] w-[1200px] shrink-0 overflow-hidden rounded-[8px] border border-[#E7E0D8] bg-[#FAF8F4] p-[32px] text-[#211D1C]`}
+      style={{
+        aspectRatio: "12 / 9",
+        boxSizing: "border-box",
+        fontFamily: '"Inter", system-ui, sans-serif',
+        ["--nh-font-headline" as string]:
+          '"Archivo Narrow", "Oswald", "Arial Narrow", Impact, sans-serif',
+        ["--nh-font-body" as string]: '"Inter", system-ui, sans-serif',
+        ["--nh-font-mono" as string]:
+          '"JetBrains Mono", "SF Mono", Consolas, monospace',
+      }}
     >
-      {isFront ? (
-        // ================= FRONT SIDE =================
-        <div className="w-full h-full grid gap-2 overflow-hidden" style={{ gridTemplateColumns: "1fr 1fr 0.8fr 1fr 1fr" }}>
-          {/* Column 1 (Left Standard Stack 1) */}
-          <div className="flex flex-col justify-between h-full gap-2">
-            {hasDbSpots ? (
-              col1Spots.map((spot) => (
-                <div key={spot.id} className={getSpotHeightClass(spot)}>
-                  <InteractiveSpotCell spot={spot} variant={getSpotVariant(spot)} onClick={onSpotClick} />
-                </div>
-              ))
-            ) : (
-              advertisersFront.left.slice(0, 3).map((ad) => (
-                <div key={ad.id} className="h-[32%] min-h-0">
-                  <AdvertiserBlock {...ad} variant="standard" />
-                </div>
-              ))
-            )}
-          </div>
+      {view === "front" ? (
+        <div
+          className="front-layout grid h-full w-full grid-cols-[472px_160px_472px] gap-[16px]"
+        >
+          {(["L", "R"] as const).map((group) => {
+            const databaseGroup = frontDatabaseSpots.filter((spot) =>
+              group === "L" ? spot.x < 43 : spot.x >= 56
+            )
+            const staticGroup = template1FrontSlots.filter((slot) =>
+              slot.positionId.startsWith(`F-${group}`)
+            )
 
-          {/* Column 2 (Left Standard Stack 2) */}
-          <div className="flex flex-col justify-between h-full gap-2">
-            {hasDbSpots ? (
-              col2Spots.map((spot) => (
-                <div key={spot.id} className={getSpotHeightClass(spot)}>
-                  <InteractiveSpotCell spot={spot} variant={getSpotVariant(spot)} onClick={onSpotClick} />
-                </div>
-              ))
-            ) : (
-              advertisersFront.left.slice(3, 6).map((ad) => (
-                <div key={ad.id} className="h-[32%] min-h-0">
-                  <AdvertiserBlock {...ad} variant="standard" />
-                </div>
-              ))
-            )}
-          </div>
+            return (
+              <div
+                key={group}
+                className={`ad-group grid h-[835px] w-[472px] grid-cols-[230px_230px] grid-rows-[265px_265px_265px] gap-x-[12px] gap-y-[20px] ${
+                  group === "R" ? "col-start-3" : ""
+                }`}
+              >
+                {hasDatabaseSpots
+                  ? databaseGroup.map((spot) => {
+                      const positionId = getFrontPosition(spot)
+                      const isDouble =
+                        spot.spotType === "LARGE" || spot.width > 25
+                      return (
+                        <div
+                          key={spot.id}
+                          style={frontGridStyle(positionId, isDouble)}
+                        >
+                          {renderDatabaseSpot(
+                            spot,
+                            positionId,
+                            isDouble ? "Front Double Slot" : "Front Standard Slot"
+                          )}
+                        </div>
+                      )
+                    })
+                  : staticGroup.map((advertiser) => (
+                      <div
+                        key={advertiser.id}
+                        style={frontGridStyle(
+                          advertiser.positionId,
+                          advertiser.slotType === "frontDouble"
+                        )}
+                      >
+                        <SharedCard9x12Ad advertiser={advertiser} />
+                      </div>
+                    ))}
+              </div>
+            )
+          })}
 
-          {/* Branded Center Spine */}
-          <div className="bg-press text-paper p-1.5 flex flex-col justify-between items-center text-center h-full border border-press relative select-none overflow-hidden">
-            {/* Top Brand Block */}
-            <div className="w-full flex flex-col items-center">
-              <div className="font-headline font-black text-xl tracking-tighter text-nh-red flex items-center gap-0.5">
-                <span className="text-paper">Near</span>Here
-              </div>
-              <div className="text-[5px] md:text-[6px] font-mono tracking-widest text-rule uppercase mt-0.5 leading-none truncate max-w-full">
-                {locationLabel}
-              </div>
-              <div className="text-[5px] md:text-[6px] font-mono text-gold uppercase font-bold tracking-widest leading-none mt-1">
-                {homesCount}
-              </div>
-            </div>
-
-            {/* Middle: Divider Event/Venue slot or Brand Message */}
-            {dividerSpot ? (
-              <div className="w-full my-1 min-h-[90px] shrink-0 text-press">
-                <InteractiveSpotCell spot={dividerSpot} variant="half" onClick={onSpotClick} />
-              </div>
-            ) : (advertisersFront as any).divider ? (
-              <div className="w-full my-1 min-h-[90px] shrink-0 text-press">
-                <AdvertiserBlock {...(advertisersFront as any).divider} variant="half" />
-              </div>
-            ) : (
-              <div className="my-2 space-y-1">
-                <div className="bg-nh-red text-paper font-mono text-[6px] md:text-[7px] uppercase tracking-wider px-1 py-0.5 font-bold leading-none select-none inline-block">
-                  ONE MERCHANT PER CATEGORY
-                </div>
-                <h3 className="font-headline font-black text-sm md:text-base leading-none tracking-tight uppercase text-paper mt-1">
-                  {headline}
-                </h3>
-                <p className="text-[7px] md:text-[8px] text-warm leading-tight mt-1 italic">
-                  {brandMessage}
-                </p>
-              </div>
-            )}
-
-            {/* Bottom General QR Explorer */}
-            <div className="w-full flex flex-col items-center space-y-1 mt-auto">
-              <div className="scale-75 md:scale-90 origin-bottom">
-                <QRPlaceholder size="sm" label="" accentColor="var(--nh-paper-white)" />
-              </div>
-              <span className="text-[5px] md:text-[7px] font-mono uppercase tracking-widest text-warm leading-tight font-bold">
-                EXPLORE ONLINE
-              </span>
-              <span className="text-[4px] md:text-[6px] text-rule leading-none uppercase text-center max-w-[80px]">
-                Scan for full category list & details
-              </span>
-            </div>
-          </div>
-
-          {/* Column 4 (Right Standard Stack 1) */}
-          <div className="flex flex-col justify-between h-full gap-2">
-            {hasDbSpots ? (
-              col4Spots.map((spot) => (
-                <div key={spot.id} className={getSpotHeightClass(spot)}>
-                  <InteractiveSpotCell spot={spot} variant={getSpotVariant(spot)} onClick={onSpotClick} />
-                </div>
-              ))
-            ) : (
-              advertisersFront.right.slice(0, 3).map((ad) => (
-                <div key={ad.id} className="h-[32%] min-h-0">
-                  <AdvertiserBlock {...ad} variant="standard" />
-                </div>
-              ))
-            )}
-          </div>
-
-          {/* Column 5 (Right Standard Stack 2) */}
-          <div className="flex flex-col justify-between h-full gap-2">
-            {hasDbSpots ? (
-              col5Spots.map((spot) => (
-                <div key={spot.id} className={getSpotHeightClass(spot)}>
-                  <InteractiveSpotCell spot={spot} variant={getSpotVariant(spot)} onClick={onSpotClick} />
-                </div>
-              ))
-            ) : (
-              advertisersFront.right.slice(3, 6).map((ad) => (
-                <div key={ad.id} className="h-[32%] min-h-0">
-                  <AdvertiserBlock {...ad} variant="standard" />
-                </div>
-              ))
-            )}
+          <div className="col-start-2 row-start-1">
+            <CenterSpine
+              locationLabel={locationLabel}
+              homesCount={homesCount}
+              headline={headline}
+              brandMessage={brandMessage}
+              generalQrCodeUrl={generalQrCodeUrl}
+            />
           </div>
         </div>
       ) : (
-        // ================= BACK SIDE =================
-        <div className="w-full h-full flex flex-col justify-between gap-2 overflow-hidden">
-          {/* Top row - 4 standard ads (Height: 37%) */}
-          <div className="h-[37%] grid grid-cols-4 gap-2 min-h-0">
-            {hasDbSpots ? (
-              topSpots.map((spot) => (
-                <div key={spot.id} className="h-full">
-                  <InteractiveSpotCell spot={spot} variant={getSpotVariant(spot)} onClick={onSpotClick} />
-                </div>
-              ))
-            ) : (
-              advertisersBack.top.slice(0, 4).map((ad) => (
-                <div key={ad.id} className="h-full">
-                  <AdvertiserBlock {...ad} variant="standard" />
-                </div>
-              ))
-            )}
+        <div className="back-layout grid h-full w-full grid-rows-[230px_326px_240px] gap-[20px]">
+          <div className="back-top grid grid-cols-[275px_275px_275px_275px] gap-[12px]">
+            {hasDatabaseSpots
+              ? backDatabaseSpots
+                  .filter(
+                    (spot) => spot.spotType !== "PREMIUM" && spot.y < 50
+                  )
+                  .map((spot) => {
+                    const positionId = getBackPosition(spot)
+                    const isDouble =
+                      spot.spotType === "LARGE" || spot.width > 30
+                    return (
+                      <div
+                        key={spot.id}
+                        style={backGridStyle(positionId, isDouble)}
+                      >
+                        {renderDatabaseSpot(
+                          spot,
+                          positionId,
+                          isDouble ? "Back Double Slot" : "Back Standard Slot"
+                        )}
+                      </div>
+                    )
+                  })
+              : template1BackSlots
+                  .filter((slot) => slot.positionId.startsWith("B-T"))
+                  .map((advertiser) => (
+                    <div
+                      key={advertiser.id}
+                      style={backGridStyle(
+                        advertiser.positionId,
+                        advertiser.slotType === "backDouble"
+                      )}
+                    >
+                      <SharedCard9x12Ad advertiser={advertiser} />
+                    </div>
+                  ))}
           </div>
 
-          {/* Middle row - info block + protected address (Height: 26%) */}
-          <div className="h-[26%] grid grid-cols-4 gap-2 min-h-0">
-            {/* Branded info block or Premium Center Back Spot */}
-            {hasDbSpots && premiumSpot ? (
-              <div className="col-span-2 h-full">
-                <InteractiveSpotCell spot={premiumSpot} variant="premium" onClick={onSpotClick} />
+          <div className="back-middle grid grid-cols-[280px_480px_338px] gap-[18px]">
+            <section className="flex h-[326px] w-[280px] flex-col justify-between border border-[#E7E0D8] bg-[#211D1C] p-[24px] text-[#FAF8F4]">
+              <div>
+                <div
+                  className="text-[10px] font-bold uppercase tracking-[0.12em] text-[#C9993E]"
+                  style={{ fontFamily: '"JetBrains Mono", "SF Mono", monospace' }}
+                >
+                  NearHere Community Mail
+                </div>
+                <h3
+                  className="mt-[18px] text-[30px] font-black uppercase leading-[0.92] tracking-[-0.035em]"
+                  style={{
+                    fontFamily:
+                      '"Archivo Narrow", "Oswald", "Arial Narrow", Impact, sans-serif',
+                  }}
+                >
+                  Trusted Local Help, Delivered.
+                </h3>
+                <p className="mt-[16px] text-[13px] font-medium leading-[1.35] text-[#FAF8F4]/75">
+                  One trusted business per category, selected for homeowners across {locationLabel.split(",")[0]}.
+                </p>
               </div>
-            ) : (advertisersBack as any).premium ? (
-              <div className="col-span-2 h-full">
-                <AdvertiserBlock {...(advertisersBack as any).premium} variant="premium" />
+              <div className="border-t border-white/20 pt-[14px] text-[10px] font-bold uppercase tracking-[0.06em] text-[#D13F1F]">
+                Call · Scan · Visit · Mention this card
               </div>
+            </section>
+
+            {hasDatabaseSpots && premiumSpot ? (
+              premiumSpot.status === "SOLD" ? (
+                renderDatabaseSpot(premiumSpot, "B-PC", "Premium Center Back")
+              ) : (
+                <PremiumHouseMessage
+                  onClick={
+                    onSpotClick ? () => onSpotClick(premiumSpot) : undefined
+                  }
+                />
+              )
+            ) : premiumAdvertiser ? (
+              <SharedCard9x12Ad advertiser={premiumAdvertiser} premium />
             ) : (
-              <div className="col-span-2 border border-rule bg-paper p-3 flex flex-col justify-between text-left font-sans select-none overflow-hidden h-full">
-                <div>
-                  <h4 className="font-headline font-extrabold uppercase text-[10px] md:text-xs text-nh-red tracking-wider leading-none">
-                    THANK YOU FOR SUPPORTING LOCAL BUSINESSES!
-                  </h4>
-                  <p className="text-[8px] md:text-[9px] text-warm leading-tight mt-1 font-medium max-w-md line-clamp-3">
-                    NearHere delivers curated local offers, trusted merchant services, and exclusive savings directly to {locationLabel.split(',')[0]} homes.
-                  </p>
-                </div>
-                <div className="flex justify-between items-center pt-1.5 border-t border-dashed border-rule mt-1 text-[7px] md:text-[8px] font-mono text-press uppercase font-bold leading-none">
-                  <span>FOLLOW NEARHERE • nearhere.com</span>
-                  <span className="text-nh-red">📍 local support</span>
-                </div>
-              </div>
+              <PremiumHouseMessage />
             )}
 
-            {/* Mailing Panel */}
-            <div className="col-span-2 h-full">
-              <MailingPanel cityStateZip={locationLabel} />
-            </div>
+            <MailingPanel9x12 locationLabel={locationLabel} />
           </div>
 
-          {/* Bottom row - 4 standard ads (Height: 37%) */}
-          <div className="h-[37%] grid grid-cols-4 gap-2 min-h-0">
-            {hasDbSpots ? (
-              bottomSpots.map((spot) => (
-                <div key={spot.id} className="h-full">
-                  <InteractiveSpotCell spot={spot} variant={getSpotVariant(spot)} onClick={onSpotClick} />
-                </div>
-              ))
-            ) : (
-              advertisersBack.bottom.slice(0, 4).map((ad) => (
-                <div key={ad.id} className="h-full">
-                  <AdvertiserBlock {...ad} variant="standard" />
-                </div>
-              ))
-            )}
+          <div className="back-bottom grid grid-cols-[275px_275px_275px_275px] gap-[12px]">
+            {hasDatabaseSpots
+              ? backDatabaseSpots
+                  .filter(
+                    (spot) => spot.spotType !== "PREMIUM" && spot.y >= 50
+                  )
+                  .map((spot) => {
+                    const positionId = getBackPosition(spot)
+                    const isDouble =
+                      spot.spotType === "LARGE" || spot.width > 30
+                    return (
+                      <div
+                        key={spot.id}
+                        style={backGridStyle(positionId, isDouble)}
+                      >
+                        {renderDatabaseSpot(
+                          spot,
+                          positionId,
+                          isDouble ? "Back Double Slot" : "Back Standard Slot"
+                        )}
+                      </div>
+                    )
+                  })
+              : template1BackSlots
+                  .filter((slot) => slot.positionId.startsWith("B-B"))
+                  .map((advertiser) => (
+                    <div
+                      key={advertiser.id}
+                      style={backGridStyle(
+                        advertiser.positionId,
+                        advertiser.slotType === "backDouble"
+                      )}
+                    >
+                      <SharedCard9x12Ad advertiser={advertiser} />
+                    </div>
+                  ))}
           </div>
         </div>
       )}

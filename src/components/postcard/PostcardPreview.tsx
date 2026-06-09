@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import SharedCard9x12 from "./SharedCard9x12"
 import CommunityCard6x11 from "./CommunityCard6x11"
@@ -15,6 +15,7 @@ interface PostcardSpot {
   y: number
   width: number
   height: number
+  sortOrder: number
   status: "OPEN" | "HELD" | "SOLD" | "UNAVAILABLE"
   categoryId: string
   category: {
@@ -44,6 +45,8 @@ export default function PostcardPreview({
 }: PostcardPreviewProps) {
   const router = useRouter()
   const [activeSide, setActiveSide] = useState<"FRONT" | "BACK">("FRONT")
+  const sharedCardFrameRef = useRef<HTMLDivElement>(null)
+  const [sharedCardScale, setSharedCardScale] = useState(1)
 
   const cityName = city.charAt(0).toUpperCase() + city.slice(1)
   const stateName = state.charAt(0).toUpperCase() + state.slice(1)
@@ -52,6 +55,23 @@ export default function PostcardPreview({
   const campaignRecord = spots.length > 0 ? (spots[0] as any).campaign : null
   const quantity = campaignRecord?.mailingQuantity ?? 10000
   const homesCount = `${new Intl.NumberFormat().format(quantity)} HOMES`
+
+  useEffect(() => {
+    if (cardSize === "6x11") return
+
+    const frame = sharedCardFrameRef.current
+    if (!frame) return
+
+    const updateScale = () => {
+      setSharedCardScale(Math.min(frame.clientWidth / 1200, 1))
+    }
+
+    updateScale()
+    const observer = new ResizeObserver(updateScale)
+    observer.observe(frame)
+
+    return () => observer.disconnect()
+  }, [cardSize])
 
   const handleSpotClick = (spot: PostcardSpot) => {
     if (spot.status === "SOLD") {
@@ -62,7 +82,12 @@ export default function PostcardPreview({
   }
 
   return (
-    <div id="preview" className="w-full max-w-4xl mx-auto space-y-6">
+    <div
+      id="preview"
+      className={`mx-auto w-full space-y-6 ${
+        cardSize === "6x11" ? "max-w-4xl" : "max-w-[1200px]"
+      }`}
+    >
       {/* Side Selector Tabs */}
       <div className="flex justify-center">
         <div className="border border-press bg-paper p-1 flex gap-1 font-mono text-[10px] uppercase tracking-wider font-bold">
@@ -91,10 +116,9 @@ export default function PostcardPreview({
         </div>
       </div>
 
-      {/* aspect ratio postcard view wrapper with horizontal scroll for mobile screens */}
-      <div className="w-full overflow-x-auto pb-4 md:overflow-x-visible">
-        <div className="min-w-[700px] md:min-w-0">
-          {cardSize === "6x11" ? (
+      {cardSize === "6x11" ? (
+        <div className="w-full overflow-x-auto pb-4 md:overflow-x-visible">
+          <div className="min-w-[700px] md:min-w-0">
             <CommunityCard6x11
               view={activeSide === "FRONT" ? "front" : "back"}
               locationLabel={`${cityName.toUpperCase()}, ${stateName.toUpperCase()}`}
@@ -103,7 +127,18 @@ export default function PostcardPreview({
               onSpotClick={handleSpotClick}
               cardSkin={cardSkin}
             />
-          ) : (
+          </div>
+        </div>
+      ) : (
+        <div
+          ref={sharedCardFrameRef}
+          className="relative w-full overflow-hidden"
+          style={{ height: `${900 * sharedCardScale}px` }}
+        >
+          <div
+            className="absolute left-0 top-0 h-[900px] w-[1200px] origin-top-left"
+            style={{ transform: `scale(${sharedCardScale})` }}
+          >
             <SharedCard9x12
               view={activeSide === "FRONT" ? "front" : "back"}
               locationLabel={`${cityName.toUpperCase()}, ${stateName.toUpperCase()}`}
@@ -112,9 +147,9 @@ export default function PostcardPreview({
               onSpotClick={handleSpotClick}
               cardSkin={cardSkin}
             />
-          )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

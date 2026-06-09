@@ -41,6 +41,10 @@ export default function InteractiveSpotCell({
     const creative = paidOrder?.creativeSubmission
 
     if (creative) {
+      const qrCode = paidOrder?.qrCodes?.[0]
+      const appUrl = typeof window !== "undefined" ? window.location.origin : (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000")
+      const qrCodeUrl = qrCode ? `${appUrl}/q/${qrCode.slug}` : ""
+
       return (
         <div 
           onClick={onClick ? () => onClick(spot) : undefined}
@@ -52,7 +56,7 @@ export default function InteractiveSpotCell({
             description={creative.description || "Curated local provider."}
             offer={creative.offerDeal || "Exclusive Deal"}
             phone={creative.phone || "Call Merchant"}
-            qrCodeUrl={creative.website || ""}
+            qrCodeUrl={qrCodeUrl}
             variant={variant}
             imageUrl={creative.logoUrl || undefined}
           />

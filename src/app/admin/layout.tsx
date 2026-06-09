@@ -23,6 +23,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { name: "Campaigns", href: "/admin/campaigns", icon: "📬" },
     { name: "Categories", href: "/admin/categories", icon: "📁" },
     { name: "Orders", href: "/admin/orders", icon: "💳" },
+    { name: "Creative Reviews", href: "/admin/creative-review", icon: "🎨" },
   ]
 
   return (

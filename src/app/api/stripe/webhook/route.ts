@@ -1,150 +1,148 @@
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
+import { CampaignStatus, OrderStatus, SpotStatus } from "@prisma/client"
 import { stripe } from "@/lib/stripe"
 import { db } from "@/server/db"
-import { sendEmail } from "@/server/email/sendEmail"
-import { getPurchaseConfirmationTemplate } from "@/server/email/templates/purchaseConfirmation"
-import { getAdminPurchaseNotificationTemplate } from "@/server/email/templates/adminPurchaseNotification"
-import { OrderStatus, SpotStatus, CampaignStatus } from "@prisma/client"
+import {
+  ensureBusinessForOrder,
+  ensureCreativeSubmissionForOrder,
+  ensurePostPaymentEmailsForOrder,
+  ensureQrForOrder,
+} from "@/server/helpers/postPayment"
 
-export async function POST(req: Request) {
-  const body = await req.text()
-  const headersList = await headers()
-  const signature = headersList.get("stripe-signature") ?? ""
+async function transitionOrderToPaid(
+  orderId: string,
+  paymentIntentId: string | null
+) {
+  return db.$transaction(async (tx) => {
+    const order = await tx.order.findUnique({
+      where: { id: orderId },
+      include: { campaignSpot: true },
+    })
 
-  if (!process.env.STRIPE_WEBHOOK_SECRET) {
-    console.error("[STRIPE WEBHOOK ERROR] Missing STRIPE_WEBHOOK_SECRET environment variable.")
-    return new NextResponse("Webhook Secret Missing", { status: 500 })
-  }
+    if (!order) return "NOT_FOUND" as const
+    if (order.status === OrderStatus.PAID) return "ALREADY_PAID" as const
 
-  let event
-  try {
-    event = stripe.webhooks.constructEvent(
-      body,
-      signature,
-      process.env.STRIPE_WEBHOOK_SECRET
-    )
-  } catch (err: any) {
-    console.error(`[STRIPE WEBHOOK ERROR] ${err.message}`)
-    return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 })
-  }
-
-  // Handle checkout.session.completed event
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as any
-    const orderId = session.client_reference_id
-
-    if (!orderId) {
-      console.warn("[STRIPE WEBHOOK] No client_reference_id found in session.")
-      return new NextResponse("No client_reference_id", { status: 400 })
+    if (order.campaignSpot.status === SpotStatus.SOLD) {
+      await tx.order.update({
+        where: { id: order.id },
+        data: {
+          status: OrderStatus.CANCELLED,
+          stripePaymentIntentId: paymentIntentId,
+        },
+      })
+      return "SPOT_UNAVAILABLE" as const
     }
 
-    const order = await db.order.findUnique({
-      where: { id: orderId },
-      include: {
-        campaignSpot: true,
-        campaign: true,
-        advertiser: true,
+    await tx.order.update({
+      where: { id: order.id },
+      data: {
+        status: OrderStatus.PAID,
+        paidAt: new Date(),
+        stripePaymentIntentId: paymentIntentId,
+      },
+    })
+    await tx.campaignSpot.update({
+      where: { id: order.campaignSpotId },
+      data: {
+        status: SpotStatus.SOLD,
+        heldUntil: null,
+        heldBySessionId: null,
       },
     })
 
-    if (!order) {
-      console.error(`[STRIPE WEBHOOK] Order not found: ${orderId}`)
-      return new NextResponse("Order not found", { status: 404 })
+    return "PAID" as const
+  })
+}
+
+async function ensureCampaignSoldOut(orderId: string) {
+  const order = await db.order.findUniqueOrThrow({
+    where: { id: orderId },
+    select: { campaignId: true },
+  })
+  const remainingOpenSpots = await db.campaignSpot.count({
+    where: {
+      campaignId: order.campaignId,
+      status: { in: [SpotStatus.OPEN, SpotStatus.HELD] },
+    },
+  })
+
+  if (remainingOpenSpots === 0) {
+    await db.campaign.update({
+      where: { id: order.campaignId },
+      data: { status: CampaignStatus.SOLD_OUT },
+    })
+  }
+}
+
+export async function POST(req: Request) {
+  const body = await req.text()
+  let signature = req.headers.get("stripe-signature") || ""
+
+  if (!signature) {
+    try {
+      signature = (await headers()).get("stripe-signature") || ""
+    } catch {
+      // Direct route-handler tests do not have a Next.js request scope.
     }
+  }
 
-    // Only process if status is not already paid
-    if (order.status !== OrderStatus.PAID) {
-      // Safety check: if the spot has already been sold to someone else
-      if (order.campaignSpot.status === SpotStatus.SOLD) {
-        console.warn(`[STRIPE WEBHOOK] Spot ${order.campaignSpotId} is already SOLD. Order ${orderId} cannot be completed. Marking order as CANCELLED.`)
-        await db.order.update({
-          where: { id: order.id },
-          data: {
-            status: OrderStatus.CANCELLED,
-            stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
-          },
-        })
-        return new NextResponse("Spot already sold, order cancelled", { status: 200 })
-      }
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
+  let event
 
-      console.log(`[STRIPE WEBHOOK] Updating order ${orderId} status to PAID.`)
-
-      // Perform updates inside a transaction
-      await db.$transaction([
-        db.order.update({
-          where: { id: order.id },
-          data: {
-            status: OrderStatus.PAID,
-            paidAt: new Date(),
-            stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
-          },
-        }),
-        db.campaignSpot.update({
-          where: { id: order.campaignSpotId },
-          data: {
-            status: SpotStatus.SOLD,
-            heldUntil: null,
-            heldBySessionId: null,
-          },
-        }),
-      ])
-
-      // Auto transition campaign to SOLD_OUT if all spots are sold
-      const remainingOpenSpots = await db.campaignSpot.count({
-        where: {
-          campaignId: order.campaignId,
-          status: { in: [SpotStatus.OPEN, SpotStatus.HELD] },
-        },
-      })
-
-      if (remainingOpenSpots === 0) {
-        console.log(`[STRIPE WEBHOOK] Campaign ${order.campaignId} is now SOLD OUT.`)
-        await db.campaign.update({
-          where: { id: order.campaignId },
-          data: { status: CampaignStatus.SOLD_OUT },
-        })
-      }
-
-      // Generate emails URLs
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
-      const creativeUrl = `${appUrl}/submit-creative/${order.creativeSubmissionToken}`
-      const adminOrderUrl = `${appUrl}/admin/orders/${order.id}`
-
-      // 1. Send confirmation email to buyer
-      const buyerMail = getPurchaseConfirmationTemplate({
-        businessName: order.advertiser.businessName,
-        campaignName: order.campaign.name,
-        categoryName: order.campaignSpot.label,
-        amount: order.amount,
-        creativeSubmissionUrl: creativeUrl,
-      })
-
-      await sendEmail({
-        to: order.advertiser.email,
-        subject: buyerMail.subject,
-        html: buyerMail.html,
-      })
-
-      // 2. Send alert email to admins
-      const adminMail = getAdminPurchaseNotificationTemplate({
-        businessName: order.advertiser.businessName,
-        contactName: order.advertiser.contactName,
-        email: order.advertiser.email,
-        phone: order.advertiser.phone,
-        campaignName: order.campaign.name,
-        categoryName: order.campaignSpot.label,
-        amount: order.amount,
-        adminOrderUrl,
-      })
-
-      const adminEmail = process.env.ADMIN_EMAIL || "admin@localspotmailers.com"
-      await sendEmail({
-        to: adminEmail,
-        subject: adminMail.subject,
-        html: adminMail.html,
-      })
+  if (webhookSecret) {
+    try {
+      event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error(`[STRIPE WEBHOOK ERROR] Signature verification failed: ${message}`)
+      return new NextResponse(`Webhook Error: ${message}`, { status: 400 })
     }
+  } else if (process.env.NODE_ENV === "production") {
+    console.error("[STRIPE WEBHOOK ERROR] Missing STRIPE_WEBHOOK_SECRET in production.")
+    return new NextResponse("Webhook Secret Missing", { status: 500 })
+  } else {
+    try {
+      event = JSON.parse(body)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      return new NextResponse(`Invalid JSON body: ${message}`, { status: 400 })
+    }
+  }
+
+  if (event.type !== "checkout.session.completed") {
+    return NextResponse.json({ received: true })
+  }
+
+  const session = event.data.object as {
+    client_reference_id?: string | null
+    payment_intent?: string | { id?: string } | null
+  }
+  const orderId = session.client_reference_id
+  if (!orderId) {
+    return new NextResponse("No client_reference_id", { status: 400 })
+  }
+
+  const paymentIntentId =
+    typeof session.payment_intent === "string" ? session.payment_intent : null
+  const transition = await transitionOrderToPaid(orderId, paymentIntentId)
+
+  if (transition === "NOT_FOUND") {
+    return new NextResponse("Order not found", { status: 404 })
+  }
+  if (transition === "SPOT_UNAVAILABLE") {
+    return new NextResponse("Spot already sold, order cancelled", { status: 200 })
+  }
+
+  try {
+    await ensureBusinessForOrder(orderId)
+    await ensureQrForOrder(orderId)
+    await ensureCreativeSubmissionForOrder(orderId)
+    await ensureCampaignSoldOut(orderId)
+    await ensurePostPaymentEmailsForOrder(orderId)
+  } catch (error) {
+    console.error(`[STRIPE WEBHOOK ERROR] Post-payment repair failed for ${orderId}:`, error)
+    return new NextResponse("Post-payment processing failed", { status: 500 })
   }
 
   return NextResponse.json({ received: true })

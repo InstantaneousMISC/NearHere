@@ -2,9 +2,11 @@ import { z } from "zod"
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init"
 import { ApprovalStatus } from "@prisma/client"
 import { TRPCError } from "@trpc/server"
-import { sendEmail } from "@/server/email/sendEmail"
+import { sendLifecycleEmailOnce } from "@/server/email/sendLifecycleEmailOnce"
 import { getCreativeSubmissionReceivedTemplate } from "@/server/email/templates/creativeSubmissionReceived"
-import { getCreativeApprovalStatusTemplate } from "@/server/email/templates/creativeApprovalStatus"
+import { getNeedsChangesTemplate } from "@/server/email/templates/needsChanges"
+import { getApprovedForPrintTemplate } from "@/server/email/templates/approvedForPrint"
+import { getPrintedMailedNotificationTemplate } from "@/server/email/templates/printedMailedNotification"
 
 export const creativeRouter = createTRPCRouter({
   // Public procedures
@@ -68,6 +70,65 @@ export const creativeRouter = createTRPCRouter({
         })
       }
 
+      // Check if existing creative submission is locked
+      const existingSubmission = order.creativeSubmission
+      const campaign = order.campaign
+
+      const isLocked = (existingSubmission && (
+        existingSubmission.approvalStatus === ApprovalStatus.APPROVED ||
+        existingSubmission.approvalStatus === ApprovalStatus.PRINTED ||
+        existingSubmission.approvalStatus === ApprovalStatus.MAILED
+      )) || (
+        campaign.status === "READY_FOR_PRINT" ||
+        campaign.status === "PRINTING" ||
+        campaign.status === "MAILED"
+      )
+
+      if (isLocked) {
+        if (existingSubmission) {
+          const nameChanged = input.businessName !== undefined && input.businessName !== existingSubmission.businessName
+          const logoChanged = input.logoUrl !== undefined && input.logoUrl !== (existingSubmission.logoUrl || "")
+          const headlineChanged = input.headline !== undefined && input.headline !== (existingSubmission.headline || "")
+          const offerChanged = input.offerDeal !== undefined && input.offerDeal !== (existingSubmission.offerDeal || "")
+          const descChanged = input.description !== undefined && input.description !== (existingSubmission.description || "")
+          const ctaChanged = input.cta !== undefined && input.cta !== (existingSubmission.cta || "")
+          const phoneChanged = input.phone !== undefined && input.phone !== (existingSubmission.phone || "")
+          const websiteChanged = input.website !== undefined && input.website !== (existingSubmission.website || "")
+          const addressChanged = input.address !== undefined && input.address !== (existingSubmission.address || "")
+
+          if (
+            nameChanged || logoChanged || headlineChanged || offerChanged ||
+            descChanged || ctaChanged || phoneChanged || websiteChanged || addressChanged
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Cannot modify print-sensitive fields once the postcard creative is approved, printed, or mailed.",
+            })
+          }
+        } else {
+          // If no existing submission exists, compare against advertiser defaults
+          const nameChanged = input.businessName !== undefined && input.businessName !== order.advertiser.businessName
+          const logoChanged = input.logoUrl !== undefined && input.logoUrl !== ""
+          const headlineChanged = input.headline !== undefined && input.headline !== ""
+          const offerChanged = input.offerDeal !== undefined && input.offerDeal !== ""
+          const descChanged = input.description !== undefined && input.description !== ""
+          const ctaChanged = input.cta !== undefined && input.cta !== ""
+          const phoneChanged = input.phone !== undefined && input.phone !== order.advertiser.phone
+          const websiteChanged = input.website !== undefined && input.website !== (order.advertiser.website || "")
+          const addressChanged = input.address !== undefined && input.address !== (order.advertiser.businessAddress || "")
+
+          if (
+            nameChanged || logoChanged || headlineChanged || offerChanged ||
+            descChanged || ctaChanged || phoneChanged || websiteChanged || addressChanged
+          ) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Cannot set print-sensitive fields once the postcard campaign is approved, printed, or mailed.",
+            })
+          }
+        }
+      }
+
       // Create or update the creative submission
       const now = new Date()
       const submission = await ctx.db.creativeSubmission.upsert({
@@ -87,8 +148,12 @@ export const creativeRouter = createTRPCRouter({
           wantsAiHelp: input.wantsAiHelp,
           aiPrompt: input.aiPrompt,
           submittedAt: now,
-          // Reset approval status to pending on update
-          approvalStatus: ApprovalStatus.PENDING,
+          // Reset approval status to pending on update unless it is locked
+          approvalStatus: existingSubmission && (
+            existingSubmission.approvalStatus === ApprovalStatus.APPROVED ||
+            existingSubmission.approvalStatus === ApprovalStatus.PRINTED ||
+            existingSubmission.approvalStatus === ApprovalStatus.MAILED
+          ) ? existingSubmission.approvalStatus : ApprovalStatus.PENDING,
         },
         create: {
           orderId: order.id,
@@ -110,7 +175,52 @@ export const creativeRouter = createTRPCRouter({
         },
       })
 
-      // Send creative submission confirmation email to buyer
+      // Update the Business profile associated with the advertiser / order
+      try {
+        let business = await ctx.db.business.findFirst({
+          where: {
+            OR: [
+              { advertiserId: order.advertiserId },
+              { qrCodes: { some: { orderId: order.id } } }
+            ]
+          }
+        })
+
+        if (business) {
+          await ctx.db.business.update({
+            where: { id: business.id },
+            data: {
+              name: input.businessName || business.name,
+              logoUrl: input.logoUrl || business.logoUrl,
+              description: input.description || business.description,
+              phone: input.phone || business.phone,
+              website: input.website || business.website,
+              address: input.address || business.address,
+            }
+          })
+        } else {
+          const { generateSlug } = await import("@/server/helpers/generateSlug")
+          const businessSlug = await generateSlug(input.businessName || order.advertiser.businessName || "business", ctx.db)
+          await ctx.db.business.create({
+            data: {
+              advertiserId: order.advertiserId,
+              name: input.businessName || order.advertiser.businessName,
+              slug: businessSlug,
+              logoUrl: input.logoUrl || null,
+              description: input.description || null,
+              phone: input.phone || order.advertiser.phone,
+              email: order.advertiser.email,
+              website: input.website || order.advertiser.website,
+              address: input.address || order.advertiser.businessAddress,
+              status: "ACTIVE"
+            }
+          })
+        }
+      } catch (err) {
+        console.error("[CREATIVE SUBMISSION] Failed to update associated Business profile:", err)
+      }
+
+      // Send creative submission confirmation email to buyer (idempotent)
       try {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
         const creativeUrl = `${appUrl}/submit-creative/${order.creativeSubmissionToken}`
@@ -121,8 +231,11 @@ export const creativeRouter = createTRPCRouter({
           creativeSubmissionUrl: creativeUrl,
         })
 
-        await sendEmail({
-          to: order.advertiser.email,
+        await sendLifecycleEmailOnce({
+          toEmail: order.advertiser.email,
+          templateKey: "creative_submission_received",
+          entityType: "creative_submission",
+          entityId: submission.id,
           subject: mail.subject,
           html: mail.html,
         })
@@ -143,13 +256,23 @@ export const creativeRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const submission = await ctx.db.creativeSubmission.update({
-        where: { id: input.submissionId },
-        data: {
-          approvalStatus: input.approvalStatus,
-          approvalNotes: input.approvalNotes,
-        },
-      })
+      const [submission, reviewEvent] = await ctx.db.$transaction([
+        ctx.db.creativeSubmission.update({
+          where: { id: input.submissionId },
+          data: {
+            approvalStatus: input.approvalStatus,
+            approvalNotes: input.approvalNotes,
+          },
+        }),
+        ctx.db.creativeReviewEvent.create({
+          data: {
+            creativeSubmissionId: input.submissionId,
+            status: input.approvalStatus,
+            notes: input.approvalNotes,
+            adminEmail: ctx.adminUser.email,
+          },
+        }),
+      ])
 
       // Fetch order and advertiser details to send email
       const order = await ctx.db.order.findUnique({
@@ -165,20 +288,71 @@ export const creativeRouter = createTRPCRouter({
         try {
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
           const creativeUrl = `${appUrl}/submit-creative/${order.creativeSubmissionToken}`
-          const mail = getCreativeApprovalStatusTemplate({
-            businessName: submission.businessName || order.advertiser.businessName,
-            campaignName: order.campaign.name,
-            categoryName: order.campaignSpot.label,
-            status: submission.approvalStatus,
-            notes: submission.approvalNotes || undefined,
-            creativeSubmissionUrl: creativeUrl,
-          })
+          const businessName = submission.businessName || order.advertiser.businessName
 
-          await sendEmail({
-            to: order.advertiser.email,
-            subject: mail.subject,
-            html: mail.html,
-          })
+          // Find the business for merchant dashboard URL
+          const merchantDashboardUrl = `${appUrl}/business/dashboard`
+
+          // Use status-specific templates for each lifecycle phase
+          const status = input.approvalStatus
+
+          if (
+            status === ApprovalStatus.NEEDS_REVIEW ||
+            status === ApprovalStatus.REJECTED
+          ) {
+            // "Needs Changes" — ask merchant to revise creative
+            const mail = getNeedsChangesTemplate({
+              businessName,
+              campaignName: order.campaign.name,
+              categoryName: order.campaignSpot.label,
+              notes: input.approvalNotes || "Please review and update your submission.",
+              creativeSubmissionUrl: creativeUrl,
+            })
+
+            await sendLifecycleEmailOnce({
+              toEmail: order.advertiser.email,
+              templateKey: "needs_changes",
+              entityType: "creative_review_event",
+              entityId: reviewEvent.id,
+              subject: mail.subject,
+              html: mail.html,
+            })
+          } else if (status === ApprovalStatus.APPROVED) {
+            // "Approved for Print" — creative is locked
+            const mail = getApprovedForPrintTemplate({
+              businessName,
+              campaignName: order.campaign.name,
+              categoryName: order.campaignSpot.label,
+              merchantDashboardUrl,
+            })
+
+            await sendLifecycleEmailOnce({
+              toEmail: order.advertiser.email,
+              templateKey: "approved_for_print",
+              entityType: "creative_submission",
+              entityId: submission.id,
+              subject: mail.subject,
+              html: mail.html,
+            })
+          } else if (status === ApprovalStatus.PRINTED || status === ApprovalStatus.MAILED) {
+            // "Printed" or "Mailed" notifications
+            const mail = getPrintedMailedNotificationTemplate({
+              businessName,
+              campaignName: order.campaign.name,
+              categoryName: order.campaignSpot.label,
+              status: status as "PRINTED" | "MAILED",
+              merchantDashboardUrl,
+            })
+
+            await sendLifecycleEmailOnce({
+              toEmail: order.advertiser.email,
+              templateKey: status === ApprovalStatus.PRINTED ? "printed_notification" : "mailed_notification",
+              entityType: "creative_submission",
+              entityId: submission.id,
+              subject: mail.subject,
+              html: mail.html,
+            })
+          }
         } catch (err) {
           console.error("[EMAIL ERROR] Failed to send creative approval status email:", err)
         }
@@ -186,4 +360,31 @@ export const creativeRouter = createTRPCRouter({
 
       return submission
     }),
+
+  getSoldSpotsForReview: adminProcedure.query(async ({ ctx }) => {
+    return await ctx.db.order.findMany({
+      where: { status: "PAID" },
+      include: {
+        campaign: true,
+        campaignSpot: {
+          include: { category: true },
+        },
+        advertiser: true,
+        creativeSubmission: true,
+        qrCodes: {
+          include: {
+            business: {
+              include: {
+                links: true,
+              },
+            },
+            _count: {
+              select: { scans: true },
+            },
+          },
+        },
+      },
+      orderBy: { paidAt: "desc" },
+    })
+  }),
 })

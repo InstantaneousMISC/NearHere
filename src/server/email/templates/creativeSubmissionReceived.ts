@@ -1,3 +1,5 @@
+import { escapeHtml } from "../escapeHtml"
+
 export function getCreativeSubmissionReceivedTemplate(params: {
   businessName: string
   campaignName: string
@@ -5,6 +7,11 @@ export function getCreativeSubmissionReceivedTemplate(params: {
   creativeSubmissionUrl: string
 }) {
   const subject = `Ad details received for ${params.businessName}!`
+
+  const businessName = escapeHtml(params.businessName)
+  const campaignName = escapeHtml(params.campaignName)
+  const categoryName = escapeHtml(params.categoryName)
+  const creativeSubmissionUrl = escapeHtml(params.creativeSubmissionUrl)
 
   const html = `
     <!DOCTYPE html>
@@ -32,18 +39,18 @@ export function getCreativeSubmissionReceivedTemplate(params: {
         </div>
         <div class="content">
           <p>Hi there,</p>
-          <p>Thank you! We have successfully received your creative details and business assets for the <strong>${params.categoryName}</strong> spot on <strong>${params.campaignName}</strong>.</p>
+          <p>Thank you! We have successfully received your creative details and business assets for the <strong>${categoryName}</strong> spot on <strong>${campaignName}</strong>.</p>
           
           <div class="details-box">
-            <div class="details-row"><span>Business Name:</span><span>${params.businessName}</span></div>
-            <div class="details-row"><span>Campaign:</span><span>${params.campaignName}</span></div>
-            <div class="details-row"><span>Category:</span><span>${params.categoryName}</span></div>
+            <div class="details-row"><span>Business Name:</span><span>${businessName}</span></div>
+            <div class="details-row"><span>Campaign:</span><span>${campaignName}</span></div>
+            <div class="details-row"><span>Category:</span><span>${categoryName}</span></div>
           </div>
 
           <p>Our design team is reviewing your details to assemble the card layout. If we need any modifications or higher-resolution files, we will reach out directly. Otherwise, you can check the status or edit your details using the button below:</p>
           
           <div style="text-align: center;">
-            <a href="${params.creativeSubmissionUrl}" class="cta-button">View/Edit Submission</a>
+            <a href="${creativeSubmissionUrl}" class="cta-button">View/Edit Submission</a>
           </div>
         </div>
         <div class="footer">

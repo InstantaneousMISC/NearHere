@@ -6,7 +6,7 @@ export const leadRouter = createTRPCRouter({
     .input(
       z.object({
         businessName: z.string().optional(),
-        email: z.string().email(),
+        email: z.string().email().transform(val => val.trim().toLowerCase()),
         zipCode: z.string().min(5).max(10),
         campaignId: z.string().optional(),
         categoryId: z.string().optional(),
@@ -16,7 +16,7 @@ export const leadRouter = createTRPCRouter({
       const lead = await ctx.db.lead.create({
         data: {
           businessName: input.businessName || null,
-          email: input.email.toLowerCase(),
+          email: input.email,
           zipCode: input.zipCode,
           campaignId: input.campaignId || null,
           categoryId: input.categoryId || null,

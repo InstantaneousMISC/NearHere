@@ -13,6 +13,9 @@ interface CreativeFormProps {
       website: string | null
       businessAddress: string | null
     }
+    campaign?: {
+      status: string
+    }
   }
   initialData: {
     businessName: string | null
@@ -28,6 +31,7 @@ interface CreativeFormProps {
     notes: string | null
     wantsAiHelp: boolean
     aiPrompt: string | null
+    approvalStatus?: string | null
   } | null
 }
 
@@ -36,6 +40,14 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
     initialData?.businessName || order.advertiser.businessName || ""
   )
   const [logoUrl, setLogoUrl] = useState(initialData?.logoUrl || "")
+
+  const isPrintedOrMailed = 
+    order.campaign?.status === "PRINTING" || 
+    order.campaign?.status === "MAILED" || 
+    order.campaign?.status === "READY_FOR_PRINT" ||
+    initialData?.approvalStatus === "APPROVED" || 
+    initialData?.approvalStatus === "PRINTED" || 
+    initialData?.approvalStatus === "MAILED"
   
   // Parse additional images if they exist
   let parsedImages: string[] = []
@@ -161,6 +173,12 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
 
   return (
     <form onSubmit={handleFormSubmit} className="space-y-8">
+      {isPrintedOrMailed && (
+        <div className="rounded-none bg-amber-500/10 border border-amber-500/20 p-4 text-sm text-amber-800 font-medium font-sans">
+          ⚠️ One or more of your postcard campaigns has already been printed or mailed. Changes here may update your digital landing page, but they will not change the physical postcard.
+        </div>
+      )}
+
       {error && (
         <div className="rounded-none bg-red-500/10 border border-red-500/20 px-4 py-3.5 text-sm text-red-500 font-medium font-mono uppercase tracking-wide">
           ⚠️ {error}
@@ -189,11 +207,11 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               id="businessName"
               type="text"
               required
-              disabled={saveLoading}
+              disabled={saveLoading || isPrintedOrMailed}
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
               placeholder="Display name on the card"
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -203,12 +221,12 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               Business Logo (PNG, JPG, SVG - Max 4MB)
             </label>
             <div className="flex items-center gap-4">
-              <label className="cursor-pointer inline-flex items-center justify-center bg-stone-bg hover:bg-stone-bg/85 border border-border text-foreground font-mono text-[10px] uppercase font-bold tracking-widest px-4 py-3 rounded-none transition-colors">
+              <label className={`cursor-pointer inline-flex items-center justify-center bg-stone-bg hover:bg-stone-bg/85 border border-border text-foreground font-mono text-[10px] uppercase font-bold tracking-widest px-4 py-3 rounded-none transition-colors ${isPrintedOrMailed ? "opacity-50 cursor-not-allowed" : ""}`}>
                 {isLogoUploading ? "Uploading..." : logoUrl ? "Change Logo" : "Upload Logo"}
                 <input
                   type="file"
                   accept="image/*"
-                  disabled={isLogoUploading || saveLoading}
+                  disabled={isLogoUploading || saveLoading || isPrintedOrMailed}
                   onChange={handleLogoChange}
                   className="hidden"
                 />
@@ -242,11 +260,11 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               id="headline"
               type="text"
               maxLength={80}
-              disabled={saveLoading}
+              disabled={saveLoading || isPrintedOrMailed}
               value={headline}
               onChange={(e) => setHeadline(e.target.value)}
               placeholder="e.g. Your Local Plumber Experts!"
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -262,11 +280,11 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               id="offerDeal"
               maxLength={160}
               rows={2}
-              disabled={saveLoading}
+              disabled={saveLoading || isPrintedOrMailed}
               value={offerDeal}
               onChange={(e) => setOfferDeal(e.target.value)}
               placeholder="e.g. $50 OFF any service call! Mention this card. Expires 12/31."
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
             <div className="rounded-none bg-primary/5 border border-primary/20 p-3 mt-1.5 text-[11px] text-muted-foreground leading-relaxed font-sans">
               💡 <span className="font-bold text-foreground">Pro-tip for maximum return:</span> We highly recommend offering a clear deal (such as <span className="font-semibold text-primary">"$50 OFF"</span>, <span className="font-semibold text-primary">"10% Discount"</span>, or a <span className="font-semibold text-primary">"Free Inspection"</span>). Direct-mail coupons create strong local value for homeowners and dramatically increase your booking rate.
@@ -285,11 +303,11 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               id="description"
               maxLength={300}
               rows={3}
-              disabled={saveLoading}
+              disabled={saveLoading || isPrintedOrMailed}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="e.g. Friendly technicians, 24/7 emergency service, family-owned since 1999."
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -305,11 +323,11 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               id="cta"
               type="text"
               maxLength={60}
-              disabled={saveLoading}
+              disabled={saveLoading || isPrintedOrMailed}
               value={cta}
               onChange={(e) => setCta(e.target.value)}
               placeholder="e.g. Call today to book your appointment!"
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
         </div>
@@ -330,10 +348,10 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
             <input
               id="displayPhone"
               type="tel"
-              disabled={saveLoading}
+              disabled={saveLoading || isPrintedOrMailed}
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -345,10 +363,10 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
             <input
               id="displayWebsite"
               type="url"
-              disabled={saveLoading}
+              disabled={saveLoading || isPrintedOrMailed}
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
 
@@ -360,10 +378,10 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
             <input
               id="displayAddress"
               type="text"
-              disabled={saveLoading}
+              disabled={saveLoading || isPrintedOrMailed}
               value={address}
               onChange={(e) => setAddress(e.target.value)}
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
         </div>

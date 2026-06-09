@@ -175,7 +175,7 @@ export default function EditCampaignPage({ params }: EditCampaignPageProps) {
               onChange={e => setCardSize(e.target.value as "9x12" | "6x11")}
               className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             >
-              <option value="9x12">9x12 Shared Card (Style A: Premium Grid, Spine, 20 slots)</option>
+              <option value="9x12">9x12 NearHere Shared Card (Premium Grid, 21 paid placements)</option>
               <option value="6x11">6x11 Community Card (Style B: Spotlight Rail, 12 slots)</option>
             </select>
             <span className="text-[10px] text-slate-400 block">

@@ -31,20 +31,26 @@ function SuccessContent() {
     )
   }
 
-  // Fetch the order using the Stripe session ID
-  const { data: order, error, isLoading } = trpc.order.getByStripeSessionId.useQuery({
-    sessionId,
-  })
+  // Fetch the order using the Stripe session ID (polling until paid & business generated)
+  const { data: order, error, isLoading } = trpc.order.getByStripeSessionId.useQuery(
+    { sessionId },
+    {
+      refetchInterval: (data) => {
+        const resolvedData = (data as any)?.state?.data || data
+        return resolvedData?.status === "PAID" && resolvedData?.business ? false : 2000
+      },
+    }
+  )
 
   if (isLoading) {
     return (
       <>
         <CampaignNav isCheckoutPage={true} />
         <div className="flex items-center justify-center py-24 px-4 sm:px-6 lg:px-8 font-sans">
-          <div className="w-full max-w-lg bg-card border border-border shadow-2xl p-8 sm:p-10 rounded-none">
+          <div className="w-full max-w-lg bg-[#FAF8F4] border-2 border-[#211D1C] p-8 sm:p-10 rounded-none text-center">
             <div className="flex flex-col items-center justify-center py-16 space-y-4">
-              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
-              <p className="text-muted-foreground font-mono uppercase tracking-wider text-xs">Verifying payment status...</p>
+              <div className="w-12 h-12 border-4 border-[#D13F1F] border-t-transparent rounded-full animate-spin" />
+              <p className="text-xs font-mono uppercase tracking-wider text-[#77706A]">Verifying reservation & payment status...</p>
             </div>
           </div>
         </div>
@@ -57,14 +63,14 @@ function SuccessContent() {
       <>
         <CampaignNav isCheckoutPage={true} />
         <div className="flex items-center justify-center py-24 px-4 sm:px-6 lg:px-8 font-sans">
-          <div className="w-full max-w-lg bg-card border border-border shadow-2xl p-8 sm:p-10 rounded-none text-center space-y-4">
+          <div className="w-full max-w-lg bg-[#FAF8F4] border-2 border-[#211D1C] p-8 sm:p-10 rounded-none text-center space-y-4">
             <h2 className="text-xl font-mono font-bold text-red-500 uppercase tracking-wider">Verification Failed</h2>
-            <p className="text-muted-foreground text-sm font-sans">
+            <p className="text-xs text-[#77706A] leading-relaxed">
               We couldn't load your order details. A confirmation email was sent to your inbox if payment succeeded.
             </p>
             <Link
               href="/"
-              className="inline-flex items-center justify-center bg-foreground text-background border border-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary font-bold tracking-wider uppercase text-xs px-5 py-2.5 transition-colors cursor-pointer rounded-none"
+              className="inline-flex items-center justify-center bg-[#211D1C] hover:bg-[#FAF8F4] text-[#FAF8F4] hover:text-[#211D1C] border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-2.5 transition-colors cursor-pointer"
             >
               Return Home
             </Link>
@@ -75,6 +81,10 @@ function SuccessContent() {
   }
 
   const submitCreativeUrl = `/submit-creative/${order.creativeSubmissionToken}`
+  const business = order.business as any
+  const claimUrl = business?.ownerUserId 
+    ? "/business/dashboard" 
+    : `/business/claim/${business?.claimToken}`
 
   return (
     <>
@@ -84,63 +94,80 @@ function SuccessContent() {
         slug={order.campaign.slug} 
         isCheckoutPage={true} 
       />
-      <div className="flex items-center justify-center py-24 px-4 sm:px-6 lg:px-8 font-sans">
-        <div className="w-full max-w-lg bg-card border border-border shadow-2xl p-8 sm:p-10 rounded-none text-center space-y-6">
+      <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8 font-sans">
+        <div className="w-full max-w-xl bg-white border-2 border-[#211D1C] p-8 sm:p-10 rounded-none text-center space-y-6 shadow-[0_15px_40px_rgba(33,29,28,0.06)]">
           {/* Success Icon */}
-          <div className="inline-flex items-center justify-center w-20 h-20 bg-primary/5 border border-primary text-primary text-4xl mb-4 font-mono rounded-none">
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[#FDF9F2] border border-[#C9993E] text-[#C9993E] text-3xl font-mono">
             ✓
           </div>
 
-          <div className="space-y-2">
-            <h1 className="text-3xl font-extrabold text-foreground tracking-tight uppercase">
-              Space Reserved!
+          <div className="space-y-1.5">
+            <h1 className="text-2xl font-headline font-black text-[#211D1C] tracking-tight uppercase leading-none">
+              Postcard Space Reserved!
             </h1>
-            <p className="text-sm text-muted-foreground font-sans">
-              Thank you. Your payment was processed successfully.
+            <p className="text-xs text-[#77706A]">
+              Thank you. Your payment was verified and processed successfully.
             </p>
           </div>
 
+          {/* Onboarding Checklist Box */}
+          <div className="bg-[#FAF8F4] border border-[#E7E0D8] p-4 text-left space-y-3">
+            <h4 className="font-mono text-[9px] font-bold text-[#77706A] uppercase tracking-widest leading-none">
+              Onboarding Checklist & Status
+            </h4>
+            <ul className="text-xs font-medium text-[#211D1C] space-y-2.5">
+              <li className="flex items-center gap-2">
+                <span className="text-[#C9993E] font-bold">✓</span> 
+                <span>Payment complete ({formatPrice(order.amount)})</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-orange-500 font-bold">⏳</span> 
+                <span>QR code & digital landing page are being compiled</span>
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="text-[#77706A]">○</span> 
+                <span>Ad details & postcard creative assets pending submission</span>
+              </li>
+            </ul>
+          </div>
+
           {/* Order Summary Card */}
-          <div className="max-w-md mx-auto bg-stone-bg border border-border rounded-none p-6 text-left space-y-4 font-sans">
-            <h3 className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">
-              Reservation Details
+          <div className="bg-[#FAF8F4] border border-[#E7E0D8] p-5 text-left space-y-3 font-mono text-xs">
+            <h3 className="text-[9px] font-bold text-[#77706A] uppercase tracking-widest">
+              Reservation Summary
             </h3>
-            <div className="space-y-2.5 text-xs font-mono">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground uppercase tracking-wider">Business</span>
-                <span className="font-sans font-bold text-foreground">{order.advertiser.businessName}</span>
+            <div className="space-y-2">
+              <div className="flex justify-between border-b border-[#E7E0D8] pb-1">
+                <span className="text-[#77706A] uppercase">Business</span>
+                <span className="font-sans font-bold text-[#211D1C]">{order.advertiser.businessName}</span>
+              </div>
+              <div className="flex justify-between border-b border-[#E7E0D8] pb-1">
+                <span className="text-[#77706A] uppercase">Campaign</span>
+                <span className="font-sans font-bold text-[#211D1C]">{order.campaign.name}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground uppercase tracking-wider">Campaign</span>
-                <span className="font-sans font-bold text-foreground">{order.campaign.name}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground uppercase tracking-wider">Industry</span>
-                <span className="font-bold text-primary bg-primary/5 border border-primary px-2 py-0.5 rounded-none text-xs">
-                  {order.campaignSpot.label}
-                </span>
-              </div>
-              <div className="flex justify-between border-t border-border pt-3 mt-2">
-                <span className="text-muted-foreground font-bold uppercase tracking-wider">Amount Paid</span>
-                <span className="font-extrabold text-foreground text-sm font-sans">{formatPrice(order.amount)}</span>
+                <span className="text-[#77706A] uppercase">Category</span>
+                <span className="font-bold text-[#D13F1F] uppercase">{order.campaignSpot.label}</span>
               </div>
             </div>
           </div>
 
-          {/* Call to Action Box */}
-          <div className="max-w-md mx-auto bg-stone-bg border border-foreground rounded-none p-6 space-y-4 text-center">
-            <h3 className="text-base font-mono font-bold text-primary uppercase tracking-wider flex items-center justify-center gap-2">
-              🎨 Next: Submit Creative
-            </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed font-sans">
-              Your industry category is locked, but we need your ad assets (logo, copy, offers) to design the postcard. Submit your assets now to avoid delays.
-            </p>
+          {/* Action Row */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div>
+              <Link
+                href={claimUrl}
+                className="w-full inline-flex items-center justify-center bg-[#D13F1F] hover:bg-[#B53A1A] text-paper border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-3.5 transition-colors cursor-pointer"
+              >
+                🎨 Set Up Business Profile
+              </Link>
+            </div>
             <div>
               <Link
                 href={submitCreativeUrl}
-                className="w-full inline-flex items-center justify-center bg-foreground text-background border border-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary font-bold tracking-wider uppercase text-sm px-6 py-3.5 transition-colors cursor-pointer rounded-none"
+                className="w-full inline-flex items-center justify-center bg-[#211D1C] hover:bg-[#FAF8F4] text-[#FAF8F4] hover:text-[#211D1C] border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-3.5 transition-colors cursor-pointer"
               >
-                Submit Ad Details Now
+                📝 Submit Postcard Creative
               </Link>
             </div>
           </div>

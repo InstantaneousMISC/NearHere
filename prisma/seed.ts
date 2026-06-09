@@ -1,4 +1,5 @@
-import { PrismaClient, SpotType, PostcardSide } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
+import { spots9x12 as spots } from "../src/server/helpers/templateSpots";
 
 const prisma = new PrismaClient();
 
@@ -31,58 +32,6 @@ const categories: CategoryDef[] = [
 ];
 
 // ─── Spot Definitions ────────────────────────────────────────────────────────
-
-interface SpotDef {
-  label: string;
-  categorySlug: string;
-  side: PostcardSide;
-  spotType: SpotType;
-  price: number; // cents
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-}
-
-const spots: SpotDef[] = [
-  // Front Column 1 (Standard)
-  { label: "Plumber", categorySlug: "plumbing", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 2, width: 20, height: 30 },
-  { label: "Electrician", categorySlug: "electrical", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 35, width: 20, height: 30 },
-  { label: "Garage Doors", categorySlug: "home-cleaning", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 68, width: 20, height: 30 },
-
-  // Front Column 2 (Standard)
-  { label: "HVAC Services", categorySlug: "hvac", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 2, width: 20, height: 30 },
-  { label: "Pest Control", categorySlug: "pest-control", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 35, width: 20, height: 30 },
-  { label: "Pool Service", categorySlug: "home-cleaning", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 68, width: 20, height: 30 },
-
-  // Front Divider Spine - Center (Venue/Event)
-  { label: "Featured Venue / Event", categorySlug: "events-venues", side: "FRONT", spotType: "STANDARD", price: 49000, x: 45, y: 35, width: 10, height: 30 },
-
-  // Front Column 4 (Standard)
-  { label: "Roofer", categorySlug: "roofing", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 2, width: 20, height: 30 },
-  { label: "Concrete Project", categorySlug: "pressure-washing", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 35, width: 20, height: 30 },
-  { label: "Remodeling", categorySlug: "carpet-cleaning", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 68, width: 20, height: 30 },
-
-  // Front Column 5 (Standard)
-  { label: "Landscaper", categorySlug: "landscaping", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 2, width: 20, height: 30 },
-  { label: "Junk Hauling", categorySlug: "junk-removal", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 35, width: 20, height: 30 },
-  { label: "Tree Care", categorySlug: "pest-control", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 68, width: 20, height: 30 },
-
-  // Back Top Row (Standard)
-  { label: "HVAC Services", categorySlug: "hvac", side: "BACK", spotType: "STANDARD", price: 59000, x: 2, y: 2, width: 23, height: 35 },
-  { label: "Dentist", categorySlug: "dentistry", side: "BACK", spotType: "STANDARD", price: 59000, x: 26, y: 2, width: 23, height: 35 },
-  { label: "Fence Builder", categorySlug: "real-estate", side: "BACK", spotType: "STANDARD", price: 59000, x: 50, y: 2, width: 23, height: 35 },
-  { label: "House Cleaning", categorySlug: "home-cleaning", side: "BACK", spotType: "STANDARD", price: 59000, x: 74, y: 2, width: 23, height: 35 },
-
-  // Back Middle Row (Premium Spotlight)
-  { label: "Premium Center Back Spot", categorySlug: "restaurant", side: "BACK", spotType: "PREMIUM", price: 149000, x: 2, y: 40, width: 47, height: 21 },
-
-  // Back Bottom Row (Standard)
-  { label: "Solar Energy", categorySlug: "auto-repair", side: "BACK", spotType: "STANDARD", price: 59000, x: 2, y: 63, width: 23, height: 35 },
-  { label: "Painter", categorySlug: "pressure-washing", side: "BACK", spotType: "STANDARD", price: 59000, x: 26, y: 63, width: 23, height: 35 },
-  { label: "Water Heaters", categorySlug: "plumbing", side: "BACK", spotType: "STANDARD", price: 59000, x: 50, y: 63, width: 23, height: 35 },
-  { label: "Gutter Care", categorySlug: "roofing", side: "BACK", spotType: "STANDARD", price: 59000, x: 74, y: 63, width: 23, height: 35 }
-];;
 
 // ─── Main Seed Function ──────────────────────────────────────────────────────
 
@@ -198,7 +147,7 @@ async function main() {
         status,
         heldUntil,
         heldBySessionId,
-        sortOrder: i + 1,
+        sortOrder: spot.sortOrder,
       },
     });
 

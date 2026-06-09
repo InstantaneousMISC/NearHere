@@ -1,3 +1,4 @@
+import { getFriendlyApprovalStatusLabel, getFriendlyApprovalStatusBadgeClass } from "@/lib/statusHelper"
 import { notFound } from "next/navigation"
 import { db } from "@/server/db"
 import CreativeForm from "@/components/creative/CreativeForm"
@@ -30,25 +31,14 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
   }
 
   // Determine current status label
-  let statusText = "Not Submitted"
-  let statusColor = "bg-stone-bg border-border text-muted-foreground"
+  const statusText = order.creativeSubmission 
+    ? getFriendlyApprovalStatusLabel(order.creativeSubmission.approvalStatus)
+    : "Not Submitted"
 
-  if (order.creativeSubmission) {
-    const status = order.creativeSubmission.approvalStatus
-    if (status === "APPROVED") {
-      statusText = "Approved"
-      statusColor = "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
-    } else if (status === "NEEDS_REVIEW") {
-      statusText = "Needs Review / Revision"
-      statusColor = "bg-primary/10 text-primary border-primary/20"
-    } else if (status === "REJECTED") {
-      statusText = "Rejected"
-      statusColor = "bg-red-500/10 text-red-600 border-red-500/20"
-    } else {
-      statusText = "Submitted & Pending Review"
-      statusColor = "bg-primary/5 text-primary border-primary/10"
-    }
-  }
+  const statusColor = order.creativeSubmission
+    ? getFriendlyApprovalStatusBadgeClass(order.creativeSubmission.approvalStatus)
+    : "bg-stone-bg border-border text-muted-foreground"
+
 
   return (
     <main className="min-h-screen bg-background text-foreground">

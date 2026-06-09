@@ -1,73 +1,75 @@
 import assert from "assert"
+import {
+  TEMPLATE_1_DOUBLE_POSITIONS,
+  TEMPLATE_1_PRICING,
+} from "@/lib/nearHereSharedCard9x12"
 import { spots9x12 } from "./templateSpots"
 
-console.log("🧪 Running templateSpots.test.ts...")
+console.log("Running templateSpots.test.ts...")
 
 try {
-  // 1. Total Spots count assertion
-  assert.strictEqual(spots9x12.length, 22, "9x12 template must contain exactly 22 spots in total.")
-  console.log("✅ Total spots count is exactly 22.")
+  assert.strictEqual(
+    spots9x12.length,
+    21,
+    "9x12 Template 1 must contain 21 paid placements."
+  )
 
-  // 2. Premium slot assertions
-  const premiumSpots = spots9x12.filter(s => s.spotType === "PREMIUM")
-  assert.strictEqual(premiumSpots.length, 1, "Should have exactly 1 Premium spot.")
-  const premium = premiumSpots[0]!
-  assert.strictEqual(premium.side, "BACK", "Premium spot must be on the BACK side.")
-  assert.strictEqual(premium.price, 149000, "Premium spot price must be $1,490 (149000 cents).")
-  assert.strictEqual(premium.categorySlug, "restaurant", "Premium spot default category slug must be 'restaurant'.")
-  console.log("✅ Premium Center Back spot is configured correctly.")
+  const front = spots9x12.filter((spot) => spot.side === "FRONT")
+  const backStandard = spots9x12.filter(
+    (spot) => spot.side === "BACK" && spot.spotType === "STANDARD"
+  )
+  const premium = spots9x12.find((spot) => spot.spotType === "PREMIUM")
 
-  // 3. Divider event/venue slot assertions
-  const dividerSpots = spots9x12.filter(s => s.categorySlug === "events-venues")
-  assert.strictEqual(dividerSpots.length, 1, "Should have exactly 1 divider event/venue slot.")
-  const divider = dividerSpots[0]!
-  assert.strictEqual(divider.side, "FRONT", "Divider slot must be on the FRONT side.")
-  assert.strictEqual(divider.price, 49000, "Divider slot price must be $490 (49000 cents).")
-  assert.strictEqual(divider.x, 45, "Divider slot X coordinate must be at 45 (center spine).")
-  assert.strictEqual(divider.width, 10, "Divider slot width must be 10 (spine divider width).")
-  console.log("✅ Front Divider Spine event/venue spot is configured correctly.")
+  assert.strictEqual(front.length, 12, "Front must contain 12 standard positions.")
+  assert.strictEqual(
+    backStandard.length,
+    8,
+    "Back must contain eight standard positions."
+  )
+  assert.ok(premium, "Premium Center Back placement is required.")
+  assert.strictEqual(premium.side, "BACK")
+  assert.strictEqual(premium.x, 27.5)
+  assert.strictEqual(premium.y, 31.3333)
+  assert.strictEqual(premium.width, 40)
+  assert.strictEqual(premium.height, 36.2222)
 
-  // 4. Regular slots count assertions
-  const regularSpots = spots9x12.filter(s => s.spotType !== "PREMIUM" && s.categorySlug !== "events-venues")
-  assert.strictEqual(regularSpots.length, 20, "Should have exactly 20 regular standard/large slots.")
-  
-  // Front regular slots count
-  const frontRegular = regularSpots.filter(s => s.side === "FRONT")
-  assert.strictEqual(frontRegular.length, 12, "Should have exactly 12 regular slots on the FRONT.")
-  
-  // Verify Column distributions based on coordinates
-  const col1 = frontRegular.filter(s => s.x < 10)
-  const col2 = frontRegular.filter(s => s.x >= 10 && s.x < 30)
-  const col4 = frontRegular.filter(s => s.x >= 50 && s.x < 70)
-  const col5 = frontRegular.filter(s => s.x >= 70)
-  assert.strictEqual(col1.length, 3, "Column 1 must have exactly 3 slots.")
-  assert.strictEqual(col2.length, 3, "Column 2 must have exactly 3 slots.")
-  assert.strictEqual(col4.length, 3, "Column 4 must have exactly 3 slots.")
-  assert.strictEqual(col5.length, 3, "Column 5 must have exactly 3 slots.")
-  
-  // Back regular slots count
-  const backRegular = regularSpots.filter(s => s.side === "BACK")
-  assert.strictEqual(backRegular.length, 8, "Should have exactly 8 regular slots on the BACK.")
-  
-  // Verify Back Row distributions based on Y coordinates
-  const backTop = backRegular.filter(s => s.y < 20)
-  const backBottom = backRegular.filter(s => s.y > 50)
-  assert.strictEqual(backTop.length, 4, "Back Top row must have exactly 4 slots.")
-  assert.strictEqual(backBottom.length, 4, "Back Bottom row must have exactly 4 slots.")
+  assert.ok(
+    front.every(
+      (spot) => spot.price === TEMPLATE_1_PRICING.frontStandard * 100
+    ),
+    "Every front standard must cost $490."
+  )
+  assert.ok(
+    backStandard.every(
+      (spot) => spot.price === TEMPLATE_1_PRICING.backStandard * 100
+    ),
+    "Every back standard must cost $590."
+  )
+  assert.strictEqual(
+    premium.price,
+    TEMPLATE_1_PRICING.premiumCenterBack * 100
+  )
+  assert.strictEqual(TEMPLATE_1_PRICING.frontDouble, 950)
+  assert.strictEqual(TEMPLATE_1_PRICING.backDouble, 1090)
 
-  console.log("✅ Regular spots (12 Front standard, 8 Back standard) are configured correctly.")
-  
-  // 5. Pricing verification for regular spots
-  const frontStandard = frontRegular.every(s => s.price === 49000)
-  assert.ok(frontStandard, "All front regular standard spots must be priced at $490 (49000 cents).")
-  
-  const backStandard = backRegular.every(s => s.price === 59000)
-  assert.ok(backStandard, "All back regular standard spots must be priced at $590 (59000 cents).")
-  console.log("✅ Spot pricing alignment is correct ($490 Front Standard, $590 Back Standard).")
+  assert.strictEqual(
+    spots9x12.some(
+      (spot) => spot.side === "FRONT" && spot.x >= 43 && spot.x <= 57
+    ),
+    false,
+    "The 160px center spine must not be sellable."
+  )
 
-  console.log("\n🎉 All templateSpots test assertions passed successfully!")
+  assert.deepStrictEqual(TEMPLATE_1_DOUBLE_POSITIONS.back, [
+    ["B-T1", "B-T2"],
+    ["B-T3", "B-T4"],
+    ["B-B1", "B-B2"],
+    ["B-B3", "B-B4"],
+  ])
+
+  console.log("All Template 1 spot geometry and pricing assertions passed.")
 } catch (error) {
-  console.error("❌ Test failed:")
+  console.error("Template 1 spot test failed:")
   console.error(error)
   process.exit(1)
 }

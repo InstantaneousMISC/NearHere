@@ -1,5 +1,6 @@
 import React from "react"
 import QRPlaceholder from "./QRPlaceholder"
+import QRCodeImage from "./QRCodeImage"
 
 interface AdvertiserBlockProps {
   category: string
@@ -87,8 +88,19 @@ export default function AdvertiserBlock({
             </div>
 
             {/* Unique QR Code */}
-            <div className="shrink-0 scale-65 md:scale-75 origin-right">
-              <QRPlaceholder size="sm" label="Scan for offer" accentColor={accentColor} />
+            <div className="shrink-0 scale-65 md:scale-75 origin-right flex flex-col items-center">
+              {qrCodeUrl ? (
+                <>
+                  <QRCodeImage value={qrCodeUrl} size={48} accentColor={accentColor} />
+                  {qrLabel && (
+                    <span className="text-[5px] md:text-[6px] uppercase tracking-wider text-warm text-center max-w-[80px] font-bold mt-1 leading-none">
+                      {qrLabel}
+                    </span>
+                  )}
+                </>
+              ) : (
+                <QRPlaceholder size="sm" label="Scan for offer" accentColor={accentColor} />
+              )}
             </div>
           </div>
         </div>
@@ -147,8 +159,12 @@ export default function AdvertiserBlock({
             </div>
 
             {/* Unique QR Code */}
-            <div className="shrink-0 scale-[0.55] md:scale-65 origin-right">
-              <QRPlaceholder size="sm" label="" accentColor={accentColor} />
+            <div className="shrink-0 scale-[0.55] md:scale-65 origin-right flex flex-col items-center">
+              {qrCodeUrl ? (
+                <QRCodeImage value={qrCodeUrl} size={40} accentColor={accentColor} />
+              ) : (
+                <QRPlaceholder size="sm" label="" accentColor={accentColor} />
+              )}
             </div>
           </div>
         </div>
@@ -222,8 +238,17 @@ export default function AdvertiserBlock({
               </div>
 
               {/* Spotlight QR */}
-              <div className="shrink-0 scale-65 md:scale-75 origin-right">
-                <QRPlaceholder size="sm" label="Scan to order" accentColor="#D13F1F" />
+              <div className="shrink-0 scale-65 md:scale-75 origin-right flex flex-col items-center">
+                {qrCodeUrl ? (
+                  <>
+                    <QRCodeImage value={qrCodeUrl} size={48} accentColor="#D13F1F" />
+                    <span className="text-[5px] md:text-[6px] uppercase tracking-wider text-warm text-center max-w-[80px] font-bold mt-1 leading-none">
+                      Scan to order
+                    </span>
+                  </>
+                ) : (
+                  <QRPlaceholder size="sm" label="Scan to order" accentColor="#D13F1F" />
+                )}
               </div>
             </div>
           </div>
@@ -279,8 +304,12 @@ export default function AdvertiserBlock({
         </div>
 
         {/* Right: Tiny QR code */}
-        <div className="shrink-0 scale-[0.55] md:scale-65 origin-right">
-          <QRPlaceholder size="sm" label="" accentColor={accentColor} />
+        <div className="shrink-0 scale-[0.55] md:scale-65 origin-right flex flex-col items-center">
+          {qrCodeUrl ? (
+            <QRCodeImage value={qrCodeUrl} size={40} accentColor={accentColor} />
+          ) : (
+            <QRPlaceholder size="sm" label="" accentColor={accentColor} />
+          )}
         </div>
       </div>
 

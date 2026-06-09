@@ -9,6 +9,7 @@ import InteractivePostcardArea from '@/components/campaign/InteractivePostcardAr
 import HowItWorks from '@/components/campaign/HowItWorks'
 import FAQ from '@/components/campaign/FAQ'
 import CampaignFooter from '@/components/campaign/CampaignFooter'
+import { TEMPLATE_1_PRICING } from '@/lib/nearHereSharedCard9x12'
 
 export async function generateMetadata({
   params,
@@ -41,6 +42,84 @@ export default async function CampaignPage({
   const cityName = campaign.city.charAt(0).toUpperCase() + campaign.city.slice(1)
   const stateName = campaign.state.charAt(0).toUpperCase() + campaign.state.slice(1)
   const mailingQuantity = campaign.mailingQuantity
+  const isTemplate1 = campaign.cardSize === "9x12"
+  const pricingPlans = isTemplate1
+    ? [
+        {
+          name: "Front Standard",
+          price: `$${TEMPLATE_1_PRICING.frontStandard.toLocaleString()}`,
+          badge: null,
+          desc: "230px x 265px front placement in the Premium Grid.",
+          items: ["4.9 cents per home", "Unique advertiser QR", "Category exclusivity"],
+          cta: "Reserve Front",
+          href: "#categories",
+        },
+        {
+          name: "Back Standard",
+          price: `$${TEMPLATE_1_PRICING.backStandard.toLocaleString()}`,
+          badge: null,
+          desc: "Larger 275px back placement above or below the mailing row.",
+          items: ["5.9 cents per home", "Larger advertiser area", "Unique advertiser QR"],
+          cta: "Reserve Back",
+          href: "#categories",
+        },
+        {
+          name: "Front Double",
+          price: `$${TEMPLATE_1_PRICING.frontDouble.toLocaleString()}`,
+          badge: null,
+          desc: "Two adjacent front positions within one advertiser group.",
+          items: ["9.5 cents per home", "472px wide creative", "Same-row placement"],
+          cta: "Reserve Double",
+          href: "#categories",
+        },
+        {
+          name: "Back Double",
+          price: `$${TEMPLATE_1_PRICING.backDouble.toLocaleString()}`,
+          badge: null,
+          desc: "Two adjacent back positions in a valid top or bottom pair.",
+          items: ["10.9 cents per home", "562px wide creative", "Same-row placement"],
+          cta: "Reserve Double",
+          href: "#categories",
+        },
+        {
+          name: "Premium Center Back",
+          price: `$${TEMPLATE_1_PRICING.premiumCenterBack.toLocaleString()}`,
+          badge: "Best Placement",
+          desc: "The largest paid placement centered beside the mailing panel.",
+          items: ["14.9 cents per home", "480px x 326px creative", "Highest-value back position"],
+          cta: "Reserve Premium",
+          href: "#categories",
+        },
+      ]
+    : [
+        {
+          name: "Standard Feature",
+          price: "$295",
+          badge: null,
+          desc: "One featured card on the next NearHere Drop.",
+          items: ["Featured postcard space", "QR to local page", `${mailingQuantity.toLocaleString()} nearby homes`, "Category exclusivity"],
+          cta: "Reserve Category",
+          href: "#categories",
+        },
+        {
+          name: "Premium Feature",
+          price: "$495",
+          badge: "Most Popular",
+          desc: "Larger placement plus digital follow-up.",
+          items: ["2× postcard space", "Priority grid position", "NearHere Local Page", "Engagement reporting"],
+          cta: "Reserve Premium",
+          href: "#categories",
+        },
+        {
+          name: "Annual Partner",
+          price: "$2,400",
+          badge: null,
+          desc: "Year-round category lock across all drops.",
+          items: ["Reserved for 12 months", "All drops included", "Dedicated local page", "Priority on new areas"],
+          cta: "Talk to Us",
+          href: "#categories",
+        },
+      ]
 
   return (
     <main className="min-h-screen bg-paper text-press">
@@ -212,37 +291,9 @@ export default async function CampaignPage({
             <h2 className="headline-xl text-4xl md:text-5xl mt-4 font-bold">Simple, transparent featured space.</h2>
             <p className="mt-4 text-press/70 max-w-xl mx-auto text-sm">One price per category, per drop. No hidden fees. No long contracts.</p>
           </div>
-          <div className="grid md:grid-cols-3 border border-rule bg-paper">
-            {[
-              {
-                name: "Standard Feature",
-                price: "$295",
-                badge: null,
-                desc: "One featured card on the next NearHere Drop.",
-                items: ["Featured postcard space", "QR to local page", `${mailingQuantity.toLocaleString()} nearby homes`, "Category exclusivity"],
-                cta: "Reserve Category",
-                href: "#categories",
-              },
-              {
-                name: "Premium Feature",
-                price: "$495",
-                badge: "Most Popular",
-                desc: "Larger placement plus digital follow-up.",
-                items: ["2× postcard space", "Priority grid position", "NearHere Local Page", "Engagement reporting"],
-                cta: "Reserve Premium",
-                href: "#categories",
-              },
-              {
-                name: "Annual Partner",
-                price: "$2,400",
-                badge: null,
-                desc: "Year-round category lock across all drops.",
-                items: ["Reserved for 12 months", "All drops included", "Dedicated local page", "Priority on new areas"],
-                cta: "Talk to Us",
-                href: "#categories",
-              },
-            ].map((p, i) => (
-              <div key={p.name} className={`p-8 bg-paper ${i !== 2 ? "md:border-r border-rule" : ""} ${i === 1 ? "bg-muted/40" : ""} border-b md:border-b-0 last:border-b-0 flex flex-col justify-between`}>
+          <div className={`grid border border-rule bg-paper ${isTemplate1 ? "gap-px bg-rule md:grid-cols-2 xl:grid-cols-5" : "md:grid-cols-3"}`}>
+            {pricingPlans.map((p, i) => (
+              <div key={p.name} className={`p-8 bg-paper ${!isTemplate1 && i !== 2 ? "md:border-r border-rule" : ""} ${(!isTemplate1 && i === 1) || (isTemplate1 && i === 4) ? "bg-muted/40" : ""} ${isTemplate1 ? "" : "border-b md:border-b-0 last:border-b-0"} flex flex-col justify-between`}>
                 <div>
                   <div className="flex items-center justify-between">
                     <h3 className="headline-xl text-2xl text-press">{p.name}</h3>
@@ -267,7 +318,7 @@ export default async function CampaignPage({
                   </ul>
                 </div>
                 <div className="mt-8">
-                  {i === 1 ? (
+                  {(!isTemplate1 && i === 1) || (isTemplate1 && i === 4) ? (
                     <a
                       href={p.href}
                       className="w-full inline-flex items-center justify-center bg-nh-red text-paper px-6 py-3 font-headline font-bold uppercase tracking-wider text-sm hover:bg-press transition-colors rounded-none"
@@ -325,4 +376,3 @@ export default async function CampaignPage({
     </main>
   )
 }
-

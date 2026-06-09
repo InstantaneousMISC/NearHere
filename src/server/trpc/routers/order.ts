@@ -15,7 +15,7 @@ export const orderRouter = createTRPCRouter({
         sessionId: z.string(),
         contactName: z.string().min(1),
         businessName: z.string().min(1),
-        email: z.string().email(),
+        email: z.string().email().transform(val => val.trim().toLowerCase()),
         phone: z.string().min(1),
         website: z.string().optional().or(z.literal("")),
       })
@@ -44,7 +44,7 @@ export const orderRouter = createTRPCRouter({
 
       // Upsert advertiser by email
       const advertiser = await ctx.db.advertiser.upsert({
-        where: { email: input.email.toLowerCase() },
+        where: { email: input.email },
         update: {
           contactName: input.contactName,
           businessName: input.businessName,
@@ -54,7 +54,7 @@ export const orderRouter = createTRPCRouter({
           heardAboutUs: null,
         },
         create: {
-          email: input.email.toLowerCase(),
+          email: input.email,
           contactName: input.contactName,
           businessName: input.businessName,
           phone: input.phone,
@@ -175,7 +175,14 @@ export const orderRouter = createTRPCRouter({
         })
       }
 
-      return order
+      const business = await ctx.db.business.findFirst({
+        where: { advertiserId: order.advertiserId },
+      })
+
+      return {
+        ...order,
+        business,
+      }
     }),
 
   // Admin procedures

@@ -31,6 +31,7 @@ export const campaignRouter = createTRPCRouter({
                 where: { status: "PAID" },
                 include: {
                   creativeSubmission: true,
+                  qrCodes: true,
                 }
               }
             },

@@ -2,6 +2,8 @@ import { db } from "@/server/db"
 import { formatPrice, formatDate } from "@/lib/utils"
 import Link from "next/link"
 import { OrderStatus } from "@prisma/client"
+import { getFriendlyApprovalStatusLabel, getFriendlyApprovalStatusBadgeClass } from "@/lib/statusHelper"
+
 
 export const revalidate = 0 // Disable cache for live stats
 
@@ -286,17 +288,9 @@ export default async function OrdersListPage({ searchParams }: OrdersListPagePro
                           </span>
                         ) : (
                           <span
-                            className={`inline-block text-[9px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${
-                              creativeStatus === "APPROVED"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                : creativeStatus === "NEEDS_REVIEW"
-                                ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                : creativeStatus === "REJECTED"
-                                ? "bg-red-50 text-red-700 border border-red-100"
-                                : "bg-blue-50 text-blue-700 border border-blue-100"
-                            }`}
+                            className={`inline-block text-[9px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${getFriendlyApprovalStatusBadgeClass(creativeStatus)}`}
                           >
-                            {creativeStatus}
+                            {getFriendlyApprovalStatusLabel(creativeStatus)}
                           </span>
                         )}
                       </td>

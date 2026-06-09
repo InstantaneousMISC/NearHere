@@ -6,6 +6,12 @@ import CommunityCard6x11 from "./CommunityCard6x11"
 import SlotMap from "./SlotMap"
 import Badge from "./Badge"
 import AdvertiserBlock from "./AdvertiserBlock"
+import { SharedCard9x12Ad } from "./SharedCard9x12Ad"
+import {
+  TEMPLATE_1_PRICING,
+  template1FrontSlots,
+  template1PremiumAdvertiser,
+} from "@/lib/nearHereSharedCard9x12"
 
 type CardSize = "9x12" | "6x11"
 type ViewMode = "front" | "back" | "both" | "anatomy"
@@ -15,6 +21,7 @@ export default function PostcardTemplateBoard() {
   const [activeView, setActiveView] = useState<ViewMode>("both")
   const [zoomScale, setZoomScale] = useState<number>(1)
   const [cardSkin, setCardSkin] = useState<string>("cream")
+  const [premiumDemoSold, setPremiumDemoSold] = useState(false)
 
   const handleZoom = (direction: "in" | "out" | "reset") => {
     if (direction === "in" && zoomScale < 1.3) setZoomScale(s => s + 0.1)
@@ -97,40 +104,52 @@ export default function PostcardTemplateBoard() {
           </button>
         </div>
 
-        {/* Toggle skin */}
-        <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase font-bold tracking-wider">
-          <span className="text-warm pr-1">Skin:</span>
-          <button
-            onClick={() => setCardSkin("cream")}
-            className={`px-3 py-2 border transition-all cursor-pointer rounded-none ${
-              cardSkin === "cream"
-                ? "bg-press text-[#FAF8F4] border-press"
-                : "text-warm border-rule hover:border-press/50"
-            }`}
-          >
-            Cream
-          </button>
-          <button
-            onClick={() => setCardSkin("dark")}
-            className={`px-3 py-2 border transition-all cursor-pointer rounded-none ${
-              cardSkin === "dark"
-                ? "bg-press text-[#FAF8F4] border-press"
-                : "text-warm border-rule hover:border-press/50"
-            }`}
-          >
-            Slate Dark
-          </button>
-          <button
-            onClick={() => setCardSkin("minimalist")}
-            className={`px-3 py-2 border transition-all cursor-pointer rounded-none ${
-              cardSkin === "minimalist"
-                ? "bg-press text-[#FAF8F4] border-press"
-                : "text-warm border-rule hover:border-press/50"
-            }`}
-          >
-            Modern White
-          </button>
-        </div>
+        {activeSize === "6x11" ? (
+          <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase font-bold tracking-wider">
+            <span className="text-warm pr-1">Skin:</span>
+            {["cream", "dark", "minimalist"].map((skin) => (
+              <button
+                key={skin}
+                onClick={() => setCardSkin(skin)}
+                className={`px-3 py-2 border transition-all cursor-pointer rounded-none ${
+                  cardSkin === skin
+                    ? "bg-press text-[#FAF8F4] border-press"
+                    : "text-warm border-rule hover:border-press/50"
+                }`}
+              >
+                {skin === "cream"
+                  ? "Cream"
+                  : skin === "dark"
+                    ? "Slate Dark"
+                    : "Modern White"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 font-mono text-[10px] uppercase font-bold tracking-wider">
+            <span className="text-warm pr-1">Premium Center:</span>
+            <button
+              onClick={() => setPremiumDemoSold(false)}
+              className={`px-3 py-2 border transition-all cursor-pointer rounded-none ${
+                !premiumDemoSold
+                  ? "bg-press text-[#FAF8F4] border-press"
+                  : "text-warm border-rule hover:border-press/50"
+              }`}
+            >
+              NearHere Default
+            </button>
+            <button
+              onClick={() => setPremiumDemoSold(true)}
+              className={`px-3 py-2 border transition-all cursor-pointer rounded-none ${
+                premiumDemoSold
+                  ? "bg-press text-[#FAF8F4] border-press"
+                  : "text-warm border-rule hover:border-press/50"
+              }`}
+            >
+              Sold Advertiser
+            </button>
+          </div>
+        )}
 
         {/* Toggle view mode */}
         <div className="flex gap-1.5 font-mono text-[10px] uppercase font-bold tracking-wider">
@@ -218,7 +237,9 @@ export default function PostcardTemplateBoard() {
                     <span>Landscape aspect-ratio preview</span>
                   </div>
                   {activeSize === "9x12" ? (
-                    <SharedCard9x12 view="front" cardSkin={cardSkin} />
+                    <div className="overflow-x-auto pb-4">
+                      <SharedCard9x12 view="front" />
+                    </div>
                   ) : (
                     <CommunityCard6x11 view="front" cardSkin={cardSkin} />
                   )}
@@ -231,7 +252,14 @@ export default function PostcardTemplateBoard() {
                     <span>Landscape aspect-ratio preview</span>
                   </div>
                   {activeSize === "9x12" ? (
-                    <SharedCard9x12 view="back" cardSkin={cardSkin} />
+                    <div className="overflow-x-auto pb-4">
+                      <SharedCard9x12
+                        view="back"
+                        premiumAdvertiser={
+                          premiumDemoSold ? template1PremiumAdvertiser : null
+                        }
+                      />
+                    </div>
                   ) : (
                     <CommunityCard6x11 view="back" cardSkin={cardSkin} />
                   )}
@@ -245,7 +273,9 @@ export default function PostcardTemplateBoard() {
                   {activeSize === "9x12" ? "9x12 Shared Card Front (Style A: Premium Grid)" : "6x11 Community Card Front (Style B: Spotlight)"}
                 </div>
                 {activeSize === "9x12" ? (
-                  <SharedCard9x12 view="front" cardSkin={cardSkin} />
+                  <div className="overflow-x-auto pb-4">
+                    <SharedCard9x12 view="front" />
+                  </div>
                 ) : (
                   <CommunityCard6x11 view="front" cardSkin={cardSkin} />
                 )}
@@ -258,7 +288,14 @@ export default function PostcardTemplateBoard() {
                   {activeSize === "9x12" ? "9x12 Shared Card Back" : "6x11 Community Card Back"}
                 </div>
                 {activeSize === "9x12" ? (
-                  <SharedCard9x12 view="back" cardSkin={cardSkin} />
+                  <div className="overflow-x-auto pb-4">
+                    <SharedCard9x12
+                      view="back"
+                      premiumAdvertiser={
+                        premiumDemoSold ? template1PremiumAdvertiser : null
+                      }
+                    />
+                  </div>
                 ) : (
                   <CommunityCard6x11 view="back" cardSkin={cardSkin} />
                 )}
@@ -286,19 +323,30 @@ export default function PostcardTemplateBoard() {
               Ad Block Anatomy
             </h3>
             
-            <div className="relative border border-dashed border-nh-red/40 p-2 bg-paper text-press animate-fade-up" style={activeStyles}>
-              <AdvertiserBlock
-                category="PLUMBING"
-                businessName="RIVERDALE PLUMBING"
-                description="Fast, reliable plumbing when you need it most."
-                offer="$50 OFF"
-                qrLabel="ANY SERVICE CALL"
-                phone="(210) 555-1001"
-                qrCodeUrl="/qr/riverdale"
-                redemptionNote="Mention this card to redeem."
-                accentColor="#0B2F4A"
-                variant="standard"
-              />
+            <div
+              className={`relative border border-dashed border-nh-red/40 bg-paper p-2 text-press animate-fade-up ${
+                activeSize === "9x12" ? "overflow-x-auto" : ""
+              }`}
+              style={activeSize === "6x11" ? activeStyles : undefined}
+            >
+              {activeSize === "9x12" ? (
+                <div className="h-[265px] w-[230px]">
+                  <SharedCard9x12Ad advertiser={template1FrontSlots[0]!} />
+                </div>
+              ) : (
+                <AdvertiserBlock
+                  category="PLUMBING"
+                  businessName="RIVERDALE PLUMBING"
+                  description="Fast, reliable plumbing when you need it most."
+                  offer="$50 OFF"
+                  qrLabel="ANY SERVICE CALL"
+                  phone="(210) 555-1001"
+                  qrCodeUrl="/qr/riverdale"
+                  redemptionNote="Mention this card to redeem."
+                  accentColor="#0B2F4A"
+                  variant="standard"
+                />
+              )}
             </div>
 
             {/* Explanations List */}
@@ -342,35 +390,68 @@ export default function PostcardTemplateBoard() {
               <li className="flex gap-2">
                 <span className="bg-press text-paper w-4 h-4 rounded-full flex items-center justify-center shrink-0 font-bold">7</span>
                 <div>
-                  <span className="text-press font-bold">Redemption Note:</span> Small instruction at the bottom of the card block.
+                  <span className="text-press font-bold">Redemption Note:</span>{" "}
+                  {activeSize === "9x12"
+                    ? "Mention-card instruction outside the phone bar."
+                    : "Small instruction at the bottom of the card block."}
                 </div>
               </li>
+              {activeSize === "9x12" && (
+                <li className="flex gap-2">
+                  <span className="bg-press text-paper w-4 h-4 rounded-full flex items-center justify-center shrink-0 font-bold">8</span>
+                  <div>
+                    <span className="text-press font-bold">Website:</span> One-line domain above the phone-only response bar.
+                  </div>
+                </li>
+              )}
             </ol>
           </div>
 
           {/* Pricing Info Sheet */}
           <div className="border border-rule bg-paper p-6 space-y-4 shadow-sm text-left">
             <h3 className="font-headline font-extrabold text-base text-press uppercase tracking-wider text-center border-b border-rule pb-2">
-              Pricing Guide (Est.)
+              {activeSize === "9x12" ? "Template 1 Pricing" : "Pricing Guide (Est.)"}
             </h3>
             
             <div className="space-y-3 font-mono text-[9px] text-warm select-none">
-              <div className="flex justify-between items-baseline">
-                <span className="font-bold text-press">Half Space (1.5" x 3")</span>
-                <span>$250/drop</span>
-              </div>
-              <div className="flex justify-between items-baseline">
-                <span className="font-bold text-press">Standard Space (3" x 4")</span>
-                <span>$450–$500/drop</span>
-              </div>
-              <div className="flex justify-between items-baseline">
-                <span className="font-bold text-press">Double Space (3" x 8")</span>
-                <span>$899/drop</span>
-              </div>
-              <div className="flex justify-between items-baseline">
-                <span className="font-bold text-[#C9993E]">Premium Spotlight Space</span>
-                <span className="text-[#C9993E] font-bold">$1,000–$1,100</span>
-              </div>
+              {activeSize === "9x12" ? (
+                [
+                  ["Front Standard", TEMPLATE_1_PRICING.frontStandard, "4.9 cents / home"],
+                  ["Back Standard", TEMPLATE_1_PRICING.backStandard, "5.9 cents / home"],
+                  ["Front Double", TEMPLATE_1_PRICING.frontDouble, "9.5 cents / home"],
+                  ["Back Double", TEMPLATE_1_PRICING.backDouble, "10.9 cents / home"],
+                  ["Premium Center Back", TEMPLATE_1_PRICING.premiumCenterBack, "14.9 cents / home"],
+                ].map(([label, price, perHome]) => (
+                  <div key={label} className="flex justify-between items-baseline gap-3">
+                    <span className={`font-bold ${label === "Premium Center Back" ? "text-[#C9993E]" : "text-press"}`}>
+                      {label}
+                    </span>
+                    <span className="text-right">
+                      <span className="font-bold">${Number(price).toLocaleString()}</span>
+                      <span className="block text-[7px]">{perHome}</span>
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <>
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-bold text-press">Half Space (1.5" x 3")</span>
+                    <span>$250/drop</span>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-bold text-press">Standard Space (3" x 4")</span>
+                    <span>$450–$500/drop</span>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-bold text-press">Double Space (3" x 8")</span>
+                    <span>$899/drop</span>
+                  </div>
+                  <div className="flex justify-between items-baseline">
+                    <span className="font-bold text-[#C9993E]">Premium Spotlight Space</span>
+                    <span className="text-[#C9993E] font-bold">$1,000–$1,100</span>
+                  </div>
+                </>
+              )}
               
               <div className="pt-2 border-t border-rule space-y-1">
                 <div className="font-bold text-press uppercase text-[8px]">Three-Way Deal Action:</div>

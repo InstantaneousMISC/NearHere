@@ -1,3 +1,5 @@
+import { escapeHtml } from "../escapeHtml"
+
 export function getAdminPurchaseNotificationTemplate(params: {
   businessName: string
   contactName: string
@@ -14,6 +16,14 @@ export function getAdminPurchaseNotificationTemplate(params: {
   }).format(params.amount / 100)
 
   const subject = `🚨 NEW SALE: ${params.businessName} - ${params.categoryName} for ${params.campaignName}`
+
+  const businessName = escapeHtml(params.businessName)
+  const contactName = escapeHtml(params.contactName)
+  const email = escapeHtml(params.email)
+  const phone = escapeHtml(params.phone)
+  const campaignName = escapeHtml(params.campaignName)
+  const categoryName = escapeHtml(params.categoryName)
+  const adminOrderUrl = escapeHtml(params.adminOrderUrl)
 
   const html = `
     <!DOCTYPE html>
@@ -43,17 +53,17 @@ export function getAdminPurchaseNotificationTemplate(params: {
           <p>An advertiser has purchased a spot on a campaign!</p>
           
           <div class="details-box">
-            <div class="details-row"><span>Campaign:</span><span>${params.campaignName}</span></div>
-            <div class="details-row"><span>Category:</span><span>${params.categoryName}</span></div>
-            <div class="details-row"><span>Business Name:</span><span>${params.businessName}</span></div>
-            <div class="details-row"><span>Contact Name:</span><span>${params.contactName}</span></div>
-            <div class="details-row"><span>Email:</span><span>${params.email}</span></div>
-            <div class="details-row"><span>Phone:</span><span>${params.phone}</span></div>
+            <div class="details-row"><span>Campaign:</span><span>${campaignName}</span></div>
+            <div class="details-row"><span>Category:</span><span>${categoryName}</span></div>
+            <div class="details-row"><span>Business Name:</span><span>${businessName}</span></div>
+            <div class="details-row"><span>Contact Name:</span><span>${contactName}</span></div>
+            <div class="details-row"><span>Email:</span><span>${email}</span></div>
+            <div class="details-row"><span>Phone:</span><span>${phone}</span></div>
             <div class="details-row"><span>Amount Paid:</span><span>${priceDisplay}</span></div>
           </div>
 
           <div style="text-align: center;">
-            <a href="${params.adminOrderUrl}" class="cta-button">View Order in Admin Dashboard</a>
+            <a href="${adminOrderUrl}" class="cta-button">View Order in Admin Dashboard</a>
           </div>
         </div>
         <div class="footer">

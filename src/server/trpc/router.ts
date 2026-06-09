@@ -5,6 +5,7 @@ import { orderRouter } from './routers/order'
 import { categoryRouter } from './routers/category'
 import { creativeRouter } from './routers/creative'
 import { leadRouter } from './routers/lead'
+import { businessRouter } from './routers/business'
 
 export const appRouter = createTRPCRouter({
   campaign: campaignRouter,
@@ -13,6 +14,7 @@ export const appRouter = createTRPCRouter({
   category: categoryRouter,
   creative: creativeRouter,
   lead: leadRouter,
+  business: businessRouter,
 })
 
 export type AppRouter = typeof appRouter
