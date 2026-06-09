@@ -4,6 +4,7 @@ import { stripe } from "@/lib/stripe"
 import { generateCreativeToken } from "@/server/helpers/generateToken"
 import { TRPCError } from "@trpc/server"
 import { OrderStatus, SpotStatus } from "@prisma/client"
+import { SPOT_HOLD_DURATION_MINUTES } from "@/lib/constants"
 
 export const orderRouter = createTRPCRouter({
   // Public procedures
@@ -11,16 +12,12 @@ export const orderRouter = createTRPCRouter({
     .input(
       z.object({
         spotId: z.string(),
+        sessionId: z.string(),
         contactName: z.string().min(1),
         businessName: z.string().min(1),
         email: z.string().email(),
         phone: z.string().min(1),
-        website: z.string().url().optional().or(z.literal("")),
-        businessAddress: z.string().optional(),
-        heardAboutUs: z.string().optional(),
-        logoUrl: z.string().url().optional().or(z.literal("")),
-        adNotes: z.string().optional(),
-        adOffer: z.string().optional(),
+        website: z.string().optional().or(z.literal("")),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -38,7 +35,7 @@ export const orderRouter = createTRPCRouter({
       }
 
       // Check if spot is available for this purchase
-      if (spot.status !== SpotStatus.HELD && spot.status !== SpotStatus.OPEN) {
+      if (spot.status !== SpotStatus.OPEN && spot.status !== SpotStatus.HELD) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Spot is no longer available",
@@ -53,8 +50,8 @@ export const orderRouter = createTRPCRouter({
           businessName: input.businessName,
           phone: input.phone,
           website: input.website || null,
-          businessAddress: input.businessAddress || null,
-          heardAboutUs: input.heardAboutUs || null,
+          businessAddress: null,
+          heardAboutUs: null,
         },
         create: {
           email: input.email.toLowerCase(),
@@ -62,8 +59,8 @@ export const orderRouter = createTRPCRouter({
           businessName: input.businessName,
           phone: input.phone,
           website: input.website || null,
-          businessAddress: input.businessAddress || null,
-          heardAboutUs: input.heardAboutUs || null,
+          businessAddress: null,
+          heardAboutUs: null,
         },
       })
 
@@ -81,9 +78,6 @@ export const orderRouter = createTRPCRouter({
           creativeSubmission: {
             create: {
               businessName: input.businessName,
-              logoUrl: input.logoUrl || null,
-              notes: input.adNotes || null,
-              offerDeal: input.adOffer || null,
             },
           },
         },

@@ -1,55 +1,45 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { trpc } from "@/components/providers"
-import { useUploadThing } from "@/lib/uploadthing"
 
 interface CheckoutFormProps {
   spotId: string
+  categoryName: string
+  campaignUrl: string
   onLoadingChange?: (loading: boolean) => void
 }
 
-export default function CheckoutForm({ spotId, onLoadingChange }: CheckoutFormProps) {
+export default function CheckoutForm({
+  spotId,
+  categoryName,
+  campaignUrl,
+  onLoadingChange,
+}: CheckoutFormProps) {
   const [contactName, setContactName] = useState("")
   const [businessName, setBusinessName] = useState("")
   const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
   const [website, setWebsite] = useState("")
-  const [businessAddress, setBusinessAddress] = useState("")
-  const [heardAboutUs, setHeardAboutUs] = useState("")
 
-  // Dynamic ad display fields
-  const [logoUrl, setLogoUrl] = useState("")
-  const [adNotes, setAdNotes] = useState("")
-  const [adOffer, setAdOffer] = useState("")
-  const [uploadError, setUploadError] = useState<string | null>(null)
+  const [sessionId, setSessionId] = useState<string>("")
+  const [holdError, setHoldError] = useState<string | null>(null)
+  const [isHolding, setIsHolding] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   const createOrderMutation = trpc.order.create.useMutation()
 
-  const { startUpload: startLogoUpload, isUploading: isLogoUploading } = useUploadThing(
-    "logoUploader",
-    {
-      onClientUploadComplete: (res) => {
-        if (res && res[0]) {
-          setLogoUrl(res[0].ufsUrl)
-        }
-      },
-      onUploadError: (err) => {
-        setUploadError(`Logo upload failed: ${err.message}`)
-      },
+  useEffect(() => {
+    // Generate or fetch client checkout session ID
+    let id = localStorage.getItem("localspot_checkout_session_id")
+    if (!id) {
+      id = "sess_" + Math.random().toString(36).substring(2, 15) + Date.now().toString(36)
+      localStorage.setItem("localspot_checkout_session_id", id)
     }
-  )
-
-  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      setUploadError(null)
-      await startLogoUpload([file])
-    }
-  }
+    setSessionId(id)
+  }, [spotId])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -65,19 +55,21 @@ export default function CheckoutForm({ spotId, onLoadingChange }: CheckoutFormPr
       return
     }
 
+    // Format website URL if provided
+    let formattedWebsite = website.trim()
+    if (formattedWebsite && !/^https?:\/\//i.test(formattedWebsite)) {
+      formattedWebsite = `https://${formattedWebsite}`
+    }
+
     try {
       const response = await createOrderMutation.mutateAsync({
         spotId,
+        sessionId,
         contactName,
         businessName,
         email,
         phone,
-        website: website.trim() ? website : undefined,
-        businessAddress: businessAddress.trim() ? businessAddress : undefined,
-        heardAboutUs: heardAboutUs.trim() ? heardAboutUs : undefined,
-        logoUrl: logoUrl.trim() ? logoUrl : undefined,
-        adNotes: adNotes.trim() ? adNotes : undefined,
-        adOffer: adOffer.trim() ? adOffer : undefined,
+        website: formattedWebsite || undefined,
       })
 
       if (response?.checkoutUrl) {
@@ -94,6 +86,37 @@ export default function CheckoutForm({ spotId, onLoadingChange }: CheckoutFormPr
     }
   }
 
+  if (isHolding) {
+    return (
+      <div className="flex flex-col items-center justify-center py-16 space-y-4 font-mono">
+        <div className="w-8 h-8 border-2 border-primary border-t-transparent animate-spin rounded-none" />
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">Securing temporary hold on ad space...</p>
+      </div>
+    )
+  }
+
+  if (holdError) {
+    return (
+      <div className="space-y-6 text-center py-8 font-sans">
+        <div className="rounded-none bg-red-500/10 border border-red-500/20 px-6 py-8 text-red-500 max-w-md mx-auto">
+          <span className="text-3xl block mb-3">⚠️</span>
+          <h4 className="text-sm font-mono font-bold uppercase tracking-wider mb-2">Space Unavailable</h4>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {holdError}
+          </p>
+        </div>
+        <div>
+          <a
+            href={campaignUrl}
+            className="inline-flex items-center justify-center bg-foreground text-background border border-foreground font-mono text-xs uppercase font-bold tracking-widest px-6 py-3.5 rounded-none hover:bg-primary hover:text-primary-foreground hover:border-primary transition-colors"
+          >
+            ← Return to Campaign
+          </a>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
       {error && (
@@ -101,6 +124,12 @@ export default function CheckoutForm({ spotId, onLoadingChange }: CheckoutFormPr
           ⚠️ {error}
         </div>
       )}
+
+      {/* Category confirmation banner */}
+      <div className="border border-border bg-stone-bg/25 p-4 rounded-none font-mono">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Reserving Category</span>
+        <span className="text-base font-extrabold text-foreground block uppercase mt-0.5">{categoryName}</span>
+      </div>
 
       <div className="space-y-4">
         <h3 className="text-sm font-mono font-bold uppercase tracking-wider text-foreground border-b border-border pb-2">
@@ -194,125 +223,24 @@ export default function CheckoutForm({ spotId, onLoadingChange }: CheckoutFormPr
             </label>
             <input
               id="website"
-              type="url"
+              type="text"
               disabled={loading}
               value={website}
               onChange={e => setWebsite(e.target.value)}
-              placeholder="e.g. https://www.converseplumbing.com"
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
-            />
-          </div>
-
-          {/* Business Address */}
-          <div className="space-y-1.5">
-            <label htmlFor="businessAddress" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-              Business Address
-            </label>
-            <input
-              id="businessAddress"
-              type="text"
-              disabled={loading}
-              value={businessAddress}
-              onChange={e => setBusinessAddress(e.target.value)}
-              placeholder="e.g. 101 Main St, Converse, TX 78109"
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
-            />
-          </div>
-
-          {/* How did you hear about us? */}
-          <div className="space-y-1.5">
-            <label htmlFor="heardAboutUs" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-              How did you hear about us?
-            </label>
-            <input
-              id="heardAboutUs"
-              type="text"
-              disabled={loading}
-              value={heardAboutUs}
-              onChange={e => setHeardAboutUs(e.target.value)}
-              placeholder="e.g. Direct mail, Facebook, Word of mouth..."
+              placeholder="e.g. www.converseplumbing.com"
               className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
             />
           </div>
         </div>
       </div>
 
-      <div className="space-y-4 pt-2">
-        <h3 className="text-sm font-mono font-bold uppercase tracking-wider text-foreground border-b border-border pb-2">
-          Ad Assets & Instructions (Optional)
-        </h3>
-
-        {uploadError && (
-          <div className="rounded-none bg-red-500/10 border border-red-500/20 px-4 py-2 text-xs text-red-500 font-medium">
-            ⚠️ {uploadError}
-          </div>
-        )}
-
-        <div className="grid grid-cols-1 gap-4">
-          {/* Logo Uploader */}
-          <div className="space-y-1.5">
-            <label className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-              Business Logo (PNG, JPG, SVG - Max 4MB)
-            </label>
-            <div className="flex items-center gap-4">
-              <label className="cursor-pointer inline-flex items-center justify-center bg-stone-bg hover:bg-stone-bg/85 border border-border text-foreground font-mono text-[10px] uppercase font-bold tracking-widest px-4 py-3 rounded-none transition-colors">
-                {isLogoUploading ? "Uploading..." : logoUrl ? "Change Logo" : "Upload Logo"}
-                <input
-                  type="file"
-                  accept="image/*"
-                  disabled={isLogoUploading || loading}
-                  onChange={handleLogoChange}
-                  className="hidden"
-                />
-              </label>
-              {logoUrl && (
-                <div className="relative w-12 h-12 border border-border bg-white rounded-none overflow-hidden flex items-center justify-center p-1 shadow-sm">
-                  <img src={logoUrl} alt="Uploaded Logo" className="max-w-full max-h-full object-contain" />
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Ad Offer/Deal */}
-          <div className="space-y-1.5">
-            <label htmlFor="adOffer" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-              Special Coupon / Promo Offer
-            </label>
-            <input
-              id="adOffer"
-              type="text"
-              disabled={loading}
-              value={adOffer}
-              onChange={e => setAdOffer(e.target.value)}
-              placeholder="e.g., $50 OFF any service call! Mention this card."
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
-            />
-            <div className="rounded-none bg-primary/5 border border-primary/20 p-3 mt-1.5 text-[11px] text-muted-foreground leading-relaxed font-sans">
-              💡 <span className="font-bold text-foreground">Pro-tip for maximum return:</span> We highly recommend offering a clear deal (such as <span className="font-semibold text-primary">"$50 OFF"</span>, <span className="font-semibold text-primary">"10% Discount"</span>, or a <span className="font-semibold text-primary">"Free Inspection"</span>). Direct-mail coupons create strong local value for homeowners and dramatically increase your booking rate.
-            </div>
-          </div>
-
-          {/* What to display / Ad Notes */}
-          <div className="space-y-1.5">
-            <label htmlFor="adNotes" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-              Ad Content details & display notes
-            </label>
-            <textarea
-              id="adNotes"
-              disabled={loading}
-              value={adNotes}
-              onChange={e => setAdNotes(e.target.value)}
-              placeholder="e.g., Please highlight that we are family-owned since 1999 and licensed. Use blue/gray matching our brand."
-              rows={3}
-              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all resize-none"
-            />
-          </div>
-        </div>
+      <div className="rounded-none bg-primary/5 border border-primary/20 p-4 font-sans text-xs text-muted-foreground leading-relaxed">
+        ℹ️ <span className="font-bold text-foreground">What happens after payment?</span> You will be immediately redirected to our post-checkout Partner Portal, where you can upload your business logo, select coupon/promo offers, customize your ad copy, and write designer display instructions.
       </div>
 
       <button
         type="submit"
-        disabled={loading || isLogoUploading}
+        disabled={loading}
         className="w-full inline-flex items-center justify-center bg-foreground text-background border border-foreground font-bold tracking-wider uppercase text-sm py-4 transition-all hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer select-none rounded-none"
       >
         {loading ? (

@@ -27,6 +27,7 @@ const categories: CategoryDef[] = [
   { name: "Carpet Cleaning", slug: "carpet-cleaning", allowsMultipleAdvertisers: false, defaultPrice: 39900 },
   { name: "Restaurant", slug: "restaurant", allowsMultipleAdvertisers: true, defaultPrice: 29900 },
   { name: "Bakery / Coffee Shop", slug: "bakery-coffee", allowsMultipleAdvertisers: true, defaultPrice: 29900 },
+  { name: "Local Events & Venues", slug: "events-venues", allowsMultipleAdvertisers: true, defaultPrice: 49000 },
 ];
 
 // ─── Spot Definitions ────────────────────────────────────────────────────────
@@ -44,27 +45,44 @@ interface SpotDef {
 }
 
 const spots: SpotDef[] = [
-  // ── FRONT — Row 1 ──
-  { label: "Plumber", categorySlug: "plumbing", side: "FRONT", spotType: "PREMIUM", price: 89900, x: 2, y: 13, width: 23, height: 40 },
-  { label: "HVAC", categorySlug: "hvac", side: "FRONT", spotType: "LARGE", price: 79900, x: 26, y: 13, width: 23, height: 40 },
-  { label: "Roofer", categorySlug: "roofing", side: "FRONT", spotType: "LARGE", price: 79900, x: 50, y: 13, width: 23, height: 40 },
-  { label: "Electrician", categorySlug: "electrical", side: "FRONT", spotType: "STANDARD", price: 69900, x: 74, y: 13, width: 23, height: 40 },
-  // ── FRONT — Row 2 ──
-  { label: "Dentist", categorySlug: "dentistry", side: "FRONT", spotType: "STANDARD", price: 69900, x: 2, y: 56, width: 23, height: 40 },
-  { label: "Landscaper", categorySlug: "landscaping", side: "FRONT", spotType: "STANDARD", price: 59900, x: 26, y: 56, width: 23, height: 40 },
-  { label: "Pressure Washing", categorySlug: "pressure-washing", side: "FRONT", spotType: "STANDARD", price: 49900, x: 50, y: 56, width: 23, height: 40 },
-  { label: "Realtor", categorySlug: "real-estate", side: "FRONT", spotType: "STANDARD", price: 59900, x: 74, y: 56, width: 23, height: 40 },
-  // ── BACK — Row 1 ──
-  { label: "Pest Control", categorySlug: "pest-control", side: "BACK", spotType: "STANDARD", price: 59900, x: 2, y: 13, width: 23, height: 40 },
-  { label: "Auto Repair", categorySlug: "auto-repair", side: "BACK", spotType: "STANDARD", price: 49900, x: 26, y: 13, width: 23, height: 40 },
-  { label: "Home Cleaning", categorySlug: "home-cleaning", side: "BACK", spotType: "STANDARD", price: 49900, x: 50, y: 13, width: 23, height: 40 },
-  { label: "Junk Removal", categorySlug: "junk-removal", side: "BACK", spotType: "STANDARD", price: 49900, x: 74, y: 13, width: 23, height: 40 },
-  // ── BACK — Row 2 ──
-  { label: "Carpet Cleaning", categorySlug: "carpet-cleaning", side: "BACK", spotType: "STANDARD", price: 39900, x: 2, y: 56, width: 23, height: 40 },
-  { label: "Restaurant Spot 1", categorySlug: "restaurant", side: "BACK", spotType: "SMALL", price: 29900, x: 26, y: 56, width: 23, height: 40 },
-  { label: "Restaurant Spot 2", categorySlug: "restaurant", side: "BACK", spotType: "SMALL", price: 29900, x: 50, y: 56, width: 23, height: 40 },
-  { label: "Bakery/Coffee Shop", categorySlug: "bakery-coffee", side: "BACK", spotType: "SMALL", price: 29900, x: 74, y: 56, width: 23, height: 40 },
-];
+  // Front Column 1 (Standard)
+  { label: "Plumber", categorySlug: "plumbing", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 2, width: 20, height: 30 },
+  { label: "Electrician", categorySlug: "electrical", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 35, width: 20, height: 30 },
+  { label: "Garage Doors", categorySlug: "home-cleaning", side: "FRONT", spotType: "STANDARD", price: 49000, x: 2, y: 68, width: 20, height: 30 },
+
+  // Front Column 2 (Standard)
+  { label: "HVAC Services", categorySlug: "hvac", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 2, width: 20, height: 30 },
+  { label: "Pest Control", categorySlug: "pest-control", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 35, width: 20, height: 30 },
+  { label: "Pool Service", categorySlug: "home-cleaning", side: "FRONT", spotType: "STANDARD", price: 49000, x: 24, y: 68, width: 20, height: 30 },
+
+  // Front Divider Spine - Center (Venue/Event)
+  { label: "Featured Venue / Event", categorySlug: "events-venues", side: "FRONT", spotType: "STANDARD", price: 49000, x: 45, y: 35, width: 10, height: 30 },
+
+  // Front Column 4 (Standard)
+  { label: "Roofer", categorySlug: "roofing", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 2, width: 20, height: 30 },
+  { label: "Concrete Project", categorySlug: "pressure-washing", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 35, width: 20, height: 30 },
+  { label: "Remodeling", categorySlug: "carpet-cleaning", side: "FRONT", spotType: "STANDARD", price: 49000, x: 56, y: 68, width: 20, height: 30 },
+
+  // Front Column 5 (Standard)
+  { label: "Landscaper", categorySlug: "landscaping", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 2, width: 20, height: 30 },
+  { label: "Junk Hauling", categorySlug: "junk-removal", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 35, width: 20, height: 30 },
+  { label: "Tree Care", categorySlug: "pest-control", side: "FRONT", spotType: "STANDARD", price: 49000, x: 78, y: 68, width: 20, height: 30 },
+
+  // Back Top Row (Standard)
+  { label: "HVAC Services", categorySlug: "hvac", side: "BACK", spotType: "STANDARD", price: 59000, x: 2, y: 2, width: 23, height: 35 },
+  { label: "Dentist", categorySlug: "dentistry", side: "BACK", spotType: "STANDARD", price: 59000, x: 26, y: 2, width: 23, height: 35 },
+  { label: "Fence Builder", categorySlug: "real-estate", side: "BACK", spotType: "STANDARD", price: 59000, x: 50, y: 2, width: 23, height: 35 },
+  { label: "House Cleaning", categorySlug: "home-cleaning", side: "BACK", spotType: "STANDARD", price: 59000, x: 74, y: 2, width: 23, height: 35 },
+
+  // Back Middle Row (Premium Spotlight)
+  { label: "Premium Center Back Spot", categorySlug: "restaurant", side: "BACK", spotType: "PREMIUM", price: 149000, x: 2, y: 40, width: 47, height: 21 },
+
+  // Back Bottom Row (Standard)
+  { label: "Solar Energy", categorySlug: "auto-repair", side: "BACK", spotType: "STANDARD", price: 59000, x: 2, y: 63, width: 23, height: 35 },
+  { label: "Painter", categorySlug: "pressure-washing", side: "BACK", spotType: "STANDARD", price: 59000, x: 26, y: 63, width: 23, height: 35 },
+  { label: "Water Heaters", categorySlug: "plumbing", side: "BACK", spotType: "STANDARD", price: 59000, x: 50, y: 63, width: 23, height: 35 },
+  { label: "Gutter Care", categorySlug: "roofing", side: "BACK", spotType: "STANDARD", price: 59000, x: 74, y: 63, width: 23, height: 35 }
+];;
 
 // ─── Main Seed Function ──────────────────────────────────────────────────────
 
@@ -119,6 +137,7 @@ async function main() {
       zipCode: "78109",
       mailingQuantity: 10000,
       status: "ACTIVE",
+      cardSkin: "cream",
     },
     create: {
       name: "Converse 10K Local Business Postcard",
@@ -129,6 +148,7 @@ async function main() {
       zipCode: "78109",
       mailingQuantity: 10000,
       status: "ACTIVE",
+      cardSkin: "cream",
     },
   });
 
@@ -138,7 +158,10 @@ async function main() {
 
   console.log("📌 Creating campaign spots...");
 
-  // Remove existing spots for this campaign to allow re-seeding
+  // Remove existing spots, submissions, orders, advertisers for this campaign to allow clean re-seeding
+  await prisma.creativeSubmission.deleteMany({});
+  await prisma.order.deleteMany({});
+  await prisma.advertiser.deleteMany({});
   await prisma.campaignSpot.deleteMany({
     where: { campaignId: campaign.id },
   });
@@ -152,7 +175,15 @@ async function main() {
       continue;
     }
 
-    await prisma.campaignSpot.create({
+    let status: "OPEN" | "HELD" | "SOLD" | "UNAVAILABLE" = "OPEN";
+    let heldUntil: Date | null = null;
+    let heldBySessionId: string | null = null;
+
+    if (spot.label === "Plumber" || (spot.label === "HVAC Services" && spot.side === "FRONT")) {
+      status = "SOLD";
+    }
+
+    const createdSpot = await prisma.campaignSpot.create({
       data: {
         campaignId: campaign.id,
         categoryId,
@@ -164,13 +195,103 @@ async function main() {
         y: spot.y,
         width: spot.width,
         height: spot.height,
-        status: "OPEN",
+        status,
+        heldUntil,
+        heldBySessionId,
         sortOrder: i + 1,
       },
     });
 
+    if (spot.label === "Plumber") {
+      const advertiser = await prisma.advertiser.create({
+        data: {
+          contactName: "Alice Smith",
+          businessName: "Converse Plumbing Pros",
+          email: "alice@converseplumbing.com",
+          phone: "(210) 555-0101",
+          website: "https://converseplumbing.com",
+          businessAddress: "102 N Main St, Converse, TX 78109",
+        },
+      });
+
+      const order = await prisma.order.create({
+        data: {
+          campaignId: campaign.id,
+          campaignSpotId: createdSpot.id,
+          advertiserId: advertiser.id,
+          amount: spot.price,
+          status: "PAID",
+          stripeCheckoutSessionId: "seed-session-plumbing",
+          stripePaymentIntentId: "seed-pi-plumbing",
+          creativeSubmissionToken: "seed-token-plumbing-1234",
+          paidAt: new Date(),
+        },
+      });
+
+      await prisma.creativeSubmission.create({
+        data: {
+          orderId: order.id,
+          businessName: "Converse Plumbing Pros",
+          logoUrl: "https://images.unsplash.com/photo-1581092921461-eab62e97a780?auto=format&fit=crop&q=80&w=150",
+          headline: "Need a plumber fast? We are here 24/7!",
+          offerDeal: "$50 OFF any service call! Free estimates.",
+          description: "Leaky pipe? Clogged drain? We've got you covered. Certified local technicians. Family-owned and operated for 25 years.",
+          cta: "Call today to book!",
+          phone: "(210) 555-0101",
+          website: "https://converseplumbing.com",
+          address: "102 N Main St, Converse, TX 78109",
+          approvalStatus: "APPROVED",
+          submittedAt: new Date(),
+        },
+      });
+    }
+
+    if (spot.label === "HVAC Services" && spot.side === "FRONT") {
+      const advertiser = await prisma.advertiser.create({
+        data: {
+          contactName: "Bob Jones",
+          businessName: "Converse Cooling & Heating",
+          email: "bob@conversecooling.com",
+          phone: "(210) 555-0202",
+          website: "https://conversecooling.com",
+          businessAddress: "204 Towne Pl, Converse, TX 78109",
+        },
+      });
+
+      const order = await prisma.order.create({
+        data: {
+          campaignId: campaign.id,
+          campaignSpotId: createdSpot.id,
+          advertiserId: advertiser.id,
+          amount: spot.price,
+          status: "PAID",
+          stripeCheckoutSessionId: "seed-session-hvac",
+          stripePaymentIntentId: "seed-pi-hvac",
+          creativeSubmissionToken: "seed-token-hvac-1234",
+          paidAt: new Date(),
+        },
+      });
+
+      await prisma.creativeSubmission.create({
+        data: {
+          orderId: order.id,
+          businessName: "Converse Cooling & Heating",
+          logoUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?auto=format&fit=crop&q=80&w=150",
+          headline: "Beat the Texas heat with a new AC unit!",
+          offerDeal: "10% OFF any seasonal tune-up. Mention this card.",
+          description: "Make sure your AC is ready. Friendly, licensed HVAC experts. Emergency repair available.",
+          cta: "Call (210) 555-0202 or book online!",
+          phone: "(210) 555-0202",
+          website: "https://conversecooling.com",
+          address: "204 Towne Pl, Converse, TX 78109",
+          approvalStatus: "PENDING",
+          submittedAt: new Date(),
+        },
+      });
+    }
+
     const priceDisplay = `$${(spot.price / 100).toFixed(2)}`;
-    console.log(`  ✅ [${spot.side}] ${spot.label} — ${spot.spotType} — ${priceDisplay}`);
+    console.log(`  ✅ [${spot.side}] ${spot.label} — ${spot.spotType} — ${priceDisplay} (Status: ${status})`);
   }
 
   console.log(`\n  Total spots: ${spots.length}\n`);

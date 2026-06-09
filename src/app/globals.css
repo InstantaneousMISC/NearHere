@@ -1,9 +1,17 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;800&family=JetBrains+Mono:wght@400;500&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-sans: "Inter", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", monospace;
+  --font-headline: "Archivo Narrow", "Helvetica Neue", sans-serif;
+
+  --color-press: var(--nh-press-gray);
+  --color-paper: var(--nh-paper-white);
+  --color-nh-red: var(--nh-red);
+  --color-warm: var(--nh-warm-gray);
+  --color-rule: var(--nh-border-gray);
+  --color-gold: var(--nh-featured-gold);
 
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -17,44 +25,84 @@
   --color-muted-foreground: var(--muted-foreground);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-stone-bg: var(--stone-bg);
 }
 
 :root {
   --radius: 0.25rem;
-  --background: oklch(0.992 0.003 80);
-  --foreground: oklch(0.18 0.01 50);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.01 50);
-  --primary: oklch(0.58 0.18 40);
-  --primary-foreground: oklch(0.99 0.003 80);
-  --secondary: oklch(0.96 0.005 80);
-  --secondary-foreground: oklch(0.18 0.01 50);
-  --muted: oklch(0.18 0.01 50 / 60%);
-  --muted-foreground: oklch(0.18 0.01 50 / 60%);
-  --accent: oklch(0.96 0.005 80);
-  --accent-foreground: oklch(0.18 0.01 50);
-  --border: oklch(0.18 0.01 50 / 10%);
-  --input: oklch(0.18 0.01 50 / 12%);
-  --ring: oklch(0.58 0.18 40);
-  --stone-bg: oklch(0.97 0.005 75);
+  --nh-press-gray: #211D1C;
+  --nh-paper-white: #FAF8F4;
+  --nh-red: #D13F1F;
+  --nh-warm-gray: #77706A;
+  --nh-border-gray: #E7E0D8;
+  --nh-featured-gold: #C9993E;
+
+  --background: var(--nh-paper-white);
+  --foreground: var(--nh-press-gray);
+  --card: var(--nh-paper-white);
+  --card-foreground: var(--nh-press-gray);
+  --popover: var(--nh-paper-white);
+  --popover-foreground: var(--nh-press-gray);
+  --primary: var(--nh-red);
+  --primary-foreground: var(--nh-paper-white);
+  --secondary: var(--nh-press-gray);
+  --secondary-foreground: var(--nh-paper-white);
+  --muted: #F1ECE3;
+  --muted-foreground: var(--nh-warm-gray);
+  --accent: var(--nh-featured-gold);
+  --accent-foreground: var(--nh-press-gray);
+  --destructive: #B53A1A;
+  --destructive-foreground: var(--nh-paper-white);
+  --border: var(--nh-border-gray);
+  --input: var(--nh-border-gray);
+  --ring: var(--nh-red);
 
   /* Retain old custom vars just in case they are used in dashboard */
-  --brand-primary: #1e3a5f;
-  --brand-secondary: #2563eb;
-  --brand-accent: #f59e0b;
+  --brand-primary: #211D1C;
+  --brand-secondary: #D13F1F;
+  --brand-accent: #C9993E;
   --brand-success: #10b981;
   --brand-danger: #ef4444;
 }
 
-body {
-  background-color: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-sans);
-  -webkit-font-smoothing: antialiased;
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  html, body {
+    background-color: var(--color-paper);
+    color: var(--color-press);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-headline);
+    font-stretch: condensed;
+    letter-spacing: -0.01em;
+  }
+}
+
+@utility label-mono {
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  font-size: 0.72rem;
+  color: var(--nh-warm-gray);
+}
+
+@utility headline-xl {
+  font-family: var(--font-headline);
+  font-weight: 800;
+  font-stretch: condensed;
+  text-transform: uppercase;
+  line-height: 0.95;
+  letter-spacing: -0.015em;
 }
 
 @keyframes fade-up {

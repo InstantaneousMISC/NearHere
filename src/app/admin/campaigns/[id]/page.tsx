@@ -83,6 +83,73 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
     }
   }
 
+  // Calculations for campaign readiness checklist
+  const totalSpots = campaign.spots.length
+  const openSpots = campaign.spots.filter((s) => s.status === "OPEN").length
+  const heldSpots = campaign.spots.filter((s) => s.status === "HELD").length
+  const soldSpots = campaign.spots.filter((s) => s.status === "SOLD").length
+  const paidOrdersCount = campaign.orders.filter((o) => o.status === "PAID").length
+  const submittedCreativesCount = campaign.orders.filter(
+    (o) => o.status === "PAID" && o.creativeSubmission?.submittedAt !== null && o.creativeSubmission !== null
+  ).length
+  const approvedCreativesCount = campaign.orders.filter(
+    (o) => o.status === "PAID" && o.creativeSubmission?.approvalStatus === "APPROVED"
+  ).length
+
+  const checklist = [
+    {
+      label: "Campaign Details Complete",
+      description: "ZIP code, est. mail date, and description are set.",
+      isDone: !!campaign.zipCode && !!campaign.estimatedMailDate && !!campaign.description,
+    },
+    {
+      label: "Spots Configured",
+      description: `At least 10 spots configured (currently: ${totalSpots}).`,
+      isDone: totalSpots >= 10,
+    },
+    {
+      label: "Categories Assigned",
+      description: "All configured spots have categories assigned.",
+      isDone: totalSpots > 0 && campaign.spots.every((s) => !!s.categoryId),
+    },
+    {
+      label: "Open Spots Remaining",
+      description: `${openSpots} open spots left to purchase.`,
+      isDone: openSpots === 0 && totalSpots > 0,
+      optional: true,
+    },
+    {
+      label: "Orders Paid",
+      description: `All spots paid (${paidOrdersCount}/${totalSpots}).`,
+      isDone: totalSpots > 0 && paidOrdersCount === totalSpots,
+    },
+    {
+      label: "Creative Submitted",
+      description: `All paid orders submitted assets (${submittedCreativesCount}/${paidOrdersCount}).`,
+      isDone: paidOrdersCount > 0 && submittedCreativesCount === paidOrdersCount,
+    },
+    {
+      label: "Creative Approved",
+      description: `All submitted assets approved (${approvedCreativesCount}/${paidOrdersCount}).`,
+      isDone: paidOrdersCount > 0 && approvedCreativesCount === paidOrdersCount,
+    },
+    {
+      label: "Ready for Design",
+      description: "At least one order paid and all paid ads have creative submitted.",
+      isDone: paidOrdersCount > 0 && submittedCreativesCount === paidOrdersCount,
+    },
+    {
+      label: "Ready for Print",
+      description: "All creatives are approved.",
+      isDone: paidOrdersCount > 0 && approvedCreativesCount === paidOrdersCount,
+    },
+    {
+      label: "Mailed",
+      description: `Campaign status is set to MAILED (current status: ${campaign.status}).`,
+      isDone: campaign.status === "MAILED",
+    },
+  ]
+
   return (
     <div className="space-y-8 font-sans">
       {/* Header Block */}
@@ -177,6 +244,18 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                     {campaign.estimatedMailDate ? formatDate(campaign.estimatedMailDate) : "Not Set"}
                   </span>
                 </div>
+                <div>
+                  <span className="block text-slate-400 font-semibold">Card Size Format</span>
+                  <span className="font-bold text-slate-800 mt-1 block uppercase">
+                    {campaign.cardSize === "6x11" ? "6x11 Community Card" : "9x12 Shared Card"}
+                  </span>
+                </div>
+                <div>
+                  <span className="block text-slate-400 font-semibold">Postcard Skin Theme</span>
+                  <span className="font-bold text-slate-800 mt-1 block capitalize">
+                    {(campaign as any).cardSkin || "cream"}
+                  </span>
+                </div>
                 {campaign.county && (
                   <div>
                     <span className="block text-slate-400 font-semibold">County</span>
@@ -196,30 +275,134 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                   <p className="text-slate-600 text-sm leading-relaxed">{campaign.description}</p>
                 </div>
               )}
-            </div>
-
-            {/* Config summary */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
-              <h3 className="text-lg font-bold text-slate-950">Campaign Settings</h3>
-              <div className="space-y-4 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-semibold">Total Spots Configured:</span>
-                  <span className="font-bold text-slate-900">{campaign.spots.length}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-semibold">Sold:</span>
-                  <span className="font-bold text-emerald-600">
-                    {campaign.spots.filter((s) => s.status === "SOLD").length}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-500 font-semibold">Available:</span>
-                  <span className="font-bold text-slate-600">
-                    {campaign.spots.filter((s) => s.status === "OPEN").length}
-                  </span>
+              
+              <div className="border-t border-slate-100 pt-6 space-y-4">
+                <h4 className="text-sm font-bold text-slate-950 uppercase tracking-wider">
+                  Postcard Pricing Breakdown
+                </h4>
+                <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                  <table className="w-full text-xs text-left">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
+                        <th className="py-2.5 px-4">Placement / Tier</th>
+                        <th className="py-2.5 px-4">Base Price</th>
+                        <th className="py-2.5 px-4 text-right">Cost Per Home ({new Intl.NumberFormat().format(campaign.mailingQuantity)} homes)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                      {campaign.cardSize === "6x11" ? (
+                        <>
+                          <tr className="hover:bg-slate-55/10">
+                            <td className="py-2 px-4 font-semibold">Premium Spotlight (Front Left)</td>
+                            <td className="py-2 px-4">$1,000</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                              {((1000 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-55/10">
+                            <td className="py-2 px-4 font-semibold">Standard Feature (Front Right / Back)</td>
+                            <td className="py-2 px-4">$450</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                              {((450 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-55/10">
+                            <td className="py-2 px-4 font-semibold">Compact Ad Space (Front Bottom)</td>
+                            <td className="py-2 px-4">$250</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                              {((250 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                        </>
+                      ) : (
+                        <>
+                          <tr className="hover:bg-slate-55/10">
+                            <td className="py-2 px-4 font-semibold">Front Standard Slot</td>
+                            <td className="py-2 px-4">$490</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                              {((490 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-55/10">
+                            <td className="py-2 px-4 font-semibold">Back Standard Slot</td>
+                            <td className="py-2 px-4">$590</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                              {((590 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-55/10">
+                            <td className="py-2 px-4 font-semibold">Front Double Slot</td>
+                            <td className="py-2 px-4">$950</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                              {((950 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-55/10">
+                            <td className="py-2 px-4 font-semibold">Back Double Slot</td>
+                            <td className="py-2 px-4">$1,090</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                              {((1090 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-slate-55/10">
+                            <td className="py-2 px-4 font-semibold">Premium Center Back Spot</td>
+                            <td className="py-2 px-4">$1,490</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                              {((1490 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                        </>
+                      )}
+                    </tbody>
+                  </table>
                 </div>
               </div>
-              <div className="border-t border-slate-100 pt-4">
+            </div>
+
+            {/* Campaign Readiness Checklist */}
+            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+              <div className="space-y-1">
+                <h3 className="text-lg font-bold text-slate-950">Readiness Checklist</h3>
+                <p className="text-xs text-slate-400 font-medium">
+                  Steps required to prepare and run this campaign.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                {checklist.map((item, idx) => (
+                  <div key={idx} className="flex items-start gap-3 text-sm">
+                    <div className="mt-0.5 shrink-0">
+                      {item.isDone ? (
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold text-xs">
+                          ✓
+                        </span>
+                      ) : item.optional ? (
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 text-amber-600 border border-amber-100 font-bold text-[8px] font-mono">
+                          HOLD
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center w-5 h-5 rounded-full border border-slate-200 bg-slate-50 text-slate-300 font-bold text-xs">
+                          
+                        </span>
+                      )}
+                    </div>
+                    <div className="space-y-0.5">
+                      <span className={`font-bold block ${item.isDone ? "text-slate-500 line-through opacity-60" : "text-slate-800"}`}>
+                        {item.label}
+                      </span>
+                      <span className="text-xs text-slate-400 font-medium block leading-normal">
+                        {item.description}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
+                <div className="flex justify-between text-xs font-mono font-bold uppercase tracking-wider text-slate-400 pb-2">
+                  <span>Spots Summary</span>
+                  <span>{soldSpots}/{totalSpots} Sold</span>
+                </div>
                 <Link
                   href={`/admin/campaigns/${campaign.id}/edit`}
                   className="w-full inline-flex items-center justify-center rounded-xl border border-slate-200 hover:border-slate-400 text-slate-700 font-bold text-sm px-4 py-3 bg-slate-50 transition-colors text-center"

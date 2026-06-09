@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { db } from "@/server/db"
 import CreativeForm from "@/components/creative/CreativeForm"
+import { CampaignNav } from "@/components/campaign/CampaignNav"
 
 interface CreativeSubmissionPageProps {
   params: Promise<{
@@ -30,46 +31,52 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
 
   // Determine current status label
   let statusText = "Not Submitted"
-  let statusColor = "bg-slate-100 text-slate-700"
+  let statusColor = "bg-stone-bg border-border text-muted-foreground"
 
   if (order.creativeSubmission) {
     const status = order.creativeSubmission.approvalStatus
     if (status === "APPROVED") {
       statusText = "Approved"
-      statusColor = "bg-emerald-50 text-emerald-700 border border-emerald-100"
+      statusColor = "bg-emerald-500/10 text-emerald-600 border-emerald-500/20"
     } else if (status === "NEEDS_REVIEW") {
       statusText = "Needs Review / Revision"
-      statusColor = "bg-amber-50 text-amber-700 border border-amber-100"
+      statusColor = "bg-primary/10 text-primary border-primary/20"
     } else if (status === "REJECTED") {
       statusText = "Rejected"
-      statusColor = "bg-red-50 text-red-700 border border-red-100"
+      statusColor = "bg-red-500/10 text-red-600 border-red-500/20"
     } else {
       statusText = "Submitted & Pending Review"
-      statusColor = "bg-blue-50 text-blue-700 border border-blue-100"
+      statusColor = "bg-primary/5 text-primary border-primary/10"
     }
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 py-12 px-4 sm:px-6 lg:px-8 font-sans">
-      <div className="max-w-5xl mx-auto space-y-8">
-        {/* Header Block */}
-        <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
+    <main className="min-h-screen bg-background text-foreground">
+      <CampaignNav 
+        state={order.campaign.state} 
+        city={order.campaign.city} 
+        slug={order.campaign.slug} 
+        isCheckoutPage={true} 
+      />
+      <div className="py-12 px-4 sm:px-6 lg:px-8 font-sans max-w-5xl mx-auto space-y-8">
+        {/* Title Block */}
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 pb-6 border-b border-border">
           <div className="space-y-1.5">
-            <span className="text-xs font-bold text-blue-600 uppercase tracking-widest block">
-              LocalSpot Mailers Partner Portal
+            <span className="text-xs font-mono font-bold text-primary uppercase tracking-widest block">
+              Partner Portal
             </span>
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight uppercase font-mono">
               Ad Creative Assets & Details
             </h1>
-            <p className="text-slate-500 text-sm">
-              Campaign: <span className="font-semibold text-slate-800">{order.campaign.name}</span>
+            <p className="text-muted-foreground text-sm font-sans">
+              Campaign: <span className="font-semibold text-foreground">{order.campaign.name}</span>
             </p>
           </div>
           
           {/* Status Indicator */}
-          <div className="flex flex-col items-start md:items-end gap-1.5">
-            <span className="text-xs font-semibold text-slate-400">Submission Status</span>
-            <div className={`px-4 py-2 rounded-xl text-sm font-bold shadow-sm ${statusColor}`}>
+          <div className="flex flex-col items-start md:items-end gap-1.5 font-mono">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Submission Status</span>
+            <div className={`px-4 py-2 rounded-none text-xs font-bold uppercase tracking-wider border ${statusColor}`}>
               {statusText}
             </div>
           </div>
@@ -78,7 +85,7 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Form Panel */}
-          <div className="lg:col-span-2 bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8">
+          <div className="lg:col-span-2 bg-card border border-border shadow-2xl p-6 sm:p-8 rounded-none">
             <CreativeForm
               token={token}
               order={order as any}
@@ -89,37 +96,37 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
           {/* Guidelines Sidebar */}
           <div className="space-y-6 lg:col-span-1">
             {/* Industry Space Lock */}
-            <div className="bg-slate-900 text-white rounded-3xl p-6 space-y-4">
-              <h3 className="text-lg font-bold text-slate-100 flex items-center gap-2">
+            <div className="bg-stone-bg border border-foreground text-foreground p-6 space-y-4 rounded-none">
+              <h3 className="text-base font-bold font-mono uppercase tracking-wider text-primary flex items-center gap-2">
                 🔒 Spot Secured
               </h3>
-              <p className="text-xs text-slate-400 leading-relaxed">
+              <p className="text-xs text-muted-foreground leading-relaxed font-sans">
                 Your payment succeeded. The <strong>{order.campaignSpot.category.name}</strong> category is locked exclusively for <strong>{order.advertiser.businessName}</strong>. No competitors will be placed on this card.
               </p>
-              <div className="text-[10px] text-slate-500 border-t border-slate-800 pt-3">
+              <div className="text-[9px] text-muted-foreground font-mono border-t border-border pt-3 uppercase tracking-wider">
                 Order ID: {order.id.substring(0, 12)}...
               </div>
             </div>
 
             {/* Design Guidelines */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 space-y-4 shadow-sm">
-              <h3 className="text-base font-bold text-slate-900">
+            <div className="bg-card border border-border p-6 space-y-4 shadow-2xl rounded-none">
+              <h3 className="text-base font-bold font-mono uppercase tracking-wider text-foreground">
                 📐 Asset Guidelines
               </h3>
               
-              <div className="space-y-3.5 text-xs text-slate-600">
+              <div className="space-y-3.5 text-xs text-muted-foreground">
                 <div className="space-y-1">
-                  <span className="font-bold text-slate-800 block">Logo Files</span>
+                  <span className="font-bold text-foreground block font-mono uppercase tracking-wide text-[10px]">Logo Files</span>
                   <p className="leading-relaxed">Provide transparent PNG, vector SVG, or high-res JPG. Clean backgrounds produce the best print results.</p>
                 </div>
-                <hr className="border-slate-100" />
+                <hr className="border-border" />
                 <div className="space-y-1">
-                  <span className="font-bold text-slate-800 block">Copy Constraints</span>
+                  <span className="font-bold text-foreground block font-mono uppercase tracking-wide text-[10px]">Copy Constraints</span>
                   <p className="leading-relaxed">Keep descriptions brief and promo offers clear. Homeowners scan postcards quickly, so big bold text performs best.</p>
                 </div>
-                <hr className="border-slate-100" />
+                <hr className="border-border" />
                 <div className="space-y-1">
-                  <span className="font-bold text-slate-800 block">Showcase Images</span>
+                  <span className="font-bold text-foreground block font-mono uppercase tracking-wide text-[10px]">Showcase Images</span>
                   <p className="leading-relaxed">Upload clear photos of completed work projects or key products. Max 5 images, up to 8MB each.</p>
                 </div>
               </div>
@@ -127,6 +134,6 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
           </div>
         </div>
       </div>
-    </div>
+    </main>
   )
 }

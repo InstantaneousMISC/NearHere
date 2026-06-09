@@ -2,6 +2,9 @@ import { z } from "zod"
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init"
 import { ApprovalStatus } from "@prisma/client"
 import { TRPCError } from "@trpc/server"
+import { sendEmail } from "@/server/email/sendEmail"
+import { getCreativeSubmissionReceivedTemplate } from "@/server/email/templates/creativeSubmissionReceived"
+import { getCreativeApprovalStatusTemplate } from "@/server/email/templates/creativeApprovalStatus"
 
 export const creativeRouter = createTRPCRouter({
   // Public procedures
@@ -50,7 +53,12 @@ export const creativeRouter = createTRPCRouter({
       // Find the order by token
       const order = await ctx.db.order.findUnique({
         where: { creativeSubmissionToken: input.token },
-        include: { creativeSubmission: true },
+        include: {
+          creativeSubmission: true,
+          advertiser: true,
+          campaign: true,
+          campaignSpot: true,
+        },
       })
 
       if (!order) {
@@ -102,6 +110,26 @@ export const creativeRouter = createTRPCRouter({
         },
       })
 
+      // Send creative submission confirmation email to buyer
+      try {
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        const creativeUrl = `${appUrl}/submit-creative/${order.creativeSubmissionToken}`
+        const mail = getCreativeSubmissionReceivedTemplate({
+          businessName: submission.businessName || order.advertiser.businessName,
+          campaignName: order.campaign.name,
+          categoryName: order.campaignSpot.label,
+          creativeSubmissionUrl: creativeUrl,
+        })
+
+        await sendEmail({
+          to: order.advertiser.email,
+          subject: mail.subject,
+          html: mail.html,
+        })
+      } catch (err) {
+        console.error("[EMAIL ERROR] Failed to send creative submission email:", err)
+      }
+
       return submission
     }),
 
@@ -122,6 +150,40 @@ export const creativeRouter = createTRPCRouter({
           approvalNotes: input.approvalNotes,
         },
       })
+
+      // Fetch order and advertiser details to send email
+      const order = await ctx.db.order.findUnique({
+        where: { id: submission.orderId },
+        include: {
+          advertiser: true,
+          campaign: true,
+          campaignSpot: true,
+        },
+      })
+
+      if (order) {
+        try {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+          const creativeUrl = `${appUrl}/submit-creative/${order.creativeSubmissionToken}`
+          const mail = getCreativeApprovalStatusTemplate({
+            businessName: submission.businessName || order.advertiser.businessName,
+            campaignName: order.campaign.name,
+            categoryName: order.campaignSpot.label,
+            status: submission.approvalStatus,
+            notes: submission.approvalNotes || undefined,
+            creativeSubmissionUrl: creativeUrl,
+          })
+
+          await sendEmail({
+            to: order.advertiser.email,
+            subject: mail.subject,
+            html: mail.html,
+          })
+        } catch (err) {
+          console.error("[EMAIL ERROR] Failed to send creative approval status email:", err)
+        }
+      }
+
       return submission
     }),
 })

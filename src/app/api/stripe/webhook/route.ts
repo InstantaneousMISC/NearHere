@@ -55,6 +55,19 @@ export async function POST(req: Request) {
 
     // Only process if status is not already paid
     if (order.status !== OrderStatus.PAID) {
+      // Safety check: if the spot has already been sold to someone else
+      if (order.campaignSpot.status === SpotStatus.SOLD) {
+        console.warn(`[STRIPE WEBHOOK] Spot ${order.campaignSpotId} is already SOLD. Order ${orderId} cannot be completed. Marking order as CANCELLED.`)
+        await db.order.update({
+          where: { id: order.id },
+          data: {
+            status: OrderStatus.CANCELLED,
+            stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+          },
+        })
+        return new NextResponse("Spot already sold, order cancelled", { status: 200 })
+      }
+
       console.log(`[STRIPE WEBHOOK] Updating order ${orderId} status to PAID.`)
 
       // Perform updates inside a transaction

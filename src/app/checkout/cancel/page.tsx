@@ -1,10 +1,85 @@
-import Link from "next/link"
-import { Nav } from "@/components/home/Nav"
+"use client"
 
-export default function CancelPage() {
+import { Suspense } from "react"
+import { useSearchParams } from "next/navigation"
+import { trpc } from "@/components/providers"
+import { CampaignNav } from "@/components/campaign/CampaignNav"
+import Link from "next/link"
+
+function CancelContent() {
+  const searchParams = useSearchParams()
+  const sessionId = searchParams.get("session_id")
+
+  if (!sessionId) {
+    return (
+      <>
+        <CampaignNav isCheckoutPage={true} />
+        <div className="flex items-center justify-center py-24 px-4 sm:px-6 lg:px-8 font-sans">
+          <div className="w-full max-w-md bg-card border border-border shadow-2xl p-8 sm:p-10 text-center space-y-6 rounded-none">
+            <h2 className="text-xl font-mono font-bold text-red-500 uppercase tracking-wider">Error</h2>
+            <p className="text-muted-foreground text-sm font-sans">Missing checkout session ID.</p>
+            <Link
+              href="/"
+              className="w-full inline-flex items-center justify-center bg-foreground text-background border border-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary font-bold tracking-wider uppercase text-sm px-6 py-3.5 transition-colors cursor-pointer rounded-none"
+            >
+              Return Home
+            </Link>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const { data: order, error, isLoading } = trpc.order.getByStripeSessionId.useQuery({
+    sessionId,
+  })
+
+  if (isLoading) {
+    return (
+      <>
+        <CampaignNav isCheckoutPage={true} />
+        <div className="flex items-center justify-center py-24 px-4 sm:px-6 lg:px-8 font-sans">
+          <div className="w-full max-w-md bg-card border border-border shadow-2xl p-8 sm:p-10 text-center space-y-6 rounded-none">
+            <div className="flex flex-col items-center justify-center py-16 space-y-4">
+              <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+              <p className="text-muted-foreground font-mono uppercase tracking-wider text-xs">Loading details...</p>
+            </div>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  if (error || !order) {
+    return (
+      <>
+        <CampaignNav isCheckoutPage={true} />
+        <div className="flex items-center justify-center py-24 px-4 sm:px-6 lg:px-8 font-sans">
+          <div className="w-full max-w-md bg-card border border-border shadow-2xl p-8 sm:p-10 text-center space-y-6 rounded-none">
+            <h2 className="text-xl font-mono font-bold text-red-500 uppercase tracking-wider">Failed</h2>
+            <p className="text-muted-foreground text-sm font-sans">Could not load details.</p>
+            <Link
+              href="/"
+              className="w-full inline-flex items-center justify-center bg-foreground text-background border border-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary font-bold tracking-wider uppercase text-sm px-6 py-3.5 transition-colors cursor-pointer rounded-none"
+            >
+              Return Home
+            </Link>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const campaignUrl = `/campaigns/${order.campaign.state.toLowerCase()}/${order.campaign.city.toLowerCase()}/${order.campaign.slug.toLowerCase()}`
+
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <Nav />
+    <>
+      <CampaignNav
+        state={order.campaign.state}
+        city={order.campaign.city}
+        slug={order.campaign.slug}
+        isCheckoutPage={true}
+      />
       <div className="flex items-center justify-center py-24 px-4 sm:px-6 lg:px-8 font-sans">
         <div className="w-full max-w-md bg-card border border-border shadow-2xl p-8 sm:p-10 text-center space-y-6 rounded-none">
           {/* Cancel Icon */}
@@ -22,12 +97,12 @@ export default function CancelPage() {
           </div>
 
           <p className="text-xs text-muted-foreground font-mono leading-relaxed bg-stone-bg border border-border rounded-none p-4 uppercase tracking-wider">
-            ⏱️ **Temporary Hold Notice:** The spot you selected remains held for you for up to **15 minutes** from when you clicked it, after which the hold will expire and it will be available to others.
+            Your payment was cancelled. The spot remains open and can be claimed by anyone. If you still want to purchase this exclusive ad space, you can return to the campaign page and try again.
           </p>
 
           <div>
             <Link
-              href="/"
+              href={campaignUrl}
               className="w-full inline-flex items-center justify-center bg-foreground text-background border border-foreground hover:bg-primary hover:text-primary-foreground hover:border-primary font-bold tracking-wider uppercase text-sm px-6 py-3.5 transition-colors cursor-pointer rounded-none"
             >
               Return to Campaign Page
@@ -35,6 +110,30 @@ export default function CancelPage() {
           </div>
         </div>
       </div>
+    </>
+  )
+}
+
+export default function CancelPage() {
+  return (
+    <main className="min-h-screen bg-background text-foreground">
+      <Suspense
+        fallback={
+          <>
+            <CampaignNav isCheckoutPage={true} />
+            <div className="flex items-center justify-center py-24 px-4 sm:px-6 lg:px-8 font-sans">
+              <div className="w-full max-w-md bg-card border border-border shadow-2xl p-8 sm:p-10 text-center space-y-6 rounded-none">
+                <div className="flex flex-col items-center justify-center py-16 space-y-4">
+                  <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                  <p className="text-muted-foreground font-mono uppercase tracking-wider text-xs">Loading details...</p>
+                </div>
+              </div>
+            </div>
+          </>
+        }
+      >
+        <CancelContent />
+      </Suspense>
     </main>
   )
 }

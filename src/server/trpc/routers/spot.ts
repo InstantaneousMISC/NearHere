@@ -27,14 +27,10 @@ export const spotRouter = createTRPCRouter({
     .input(
       z.object({
         spotId: z.string(),
-        sessionId: z.string(), // Client-generated session identifier for checkout tracking
+        sessionId: z.string(),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // First release all expired holds to ensure accurate availability check
-      await releaseExpiredHolds()
-
-      // Find the spot and category details
       const spot = await ctx.db.campaignSpot.findUnique({
         where: { id: input.spotId },
         include: { category: true },
@@ -47,10 +43,10 @@ export const spotRouter = createTRPCRouter({
         })
       }
 
-      if (spot.status !== SpotStatus.OPEN) {
+      if (spot.status !== SpotStatus.OPEN && spot.status !== SpotStatus.HELD) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Spot is no longer available for hold",
+          message: "Spot is no longer available",
         })
       }
 
@@ -61,35 +57,19 @@ export const spotRouter = createTRPCRouter({
             campaignId: spot.campaignId,
             categoryId: spot.categoryId,
             id: { not: spot.id },
-            status: {
-              in: [SpotStatus.HELD, SpotStatus.SOLD],
-            },
+            status: SpotStatus.SOLD,
           },
         })
 
         if (conflictingSpot) {
           throw new TRPCError({
             code: "CONFLICT",
-            message: `The ${spot.category.name} category is already reserved or held for this campaign.`,
+            message: `The ${spot.category.name} category is already reserved for this campaign.`,
           })
         }
       }
 
-      // Calculate hold expiration time
-      const heldUntil = new Date()
-      heldUntil.setMinutes(heldUntil.getMinutes() + SPOT_HOLD_DURATION_MINUTES)
-
-      // Hold the spot
-      const updatedSpot = await ctx.db.campaignSpot.update({
-        where: { id: spot.id },
-        data: {
-          status: SpotStatus.HELD,
-          heldUntil,
-          heldBySessionId: input.sessionId,
-        },
-      })
-
-      return updatedSpot
+      return spot
     }),
 
   // Admin procedures

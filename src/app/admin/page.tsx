@@ -11,6 +11,8 @@ export default async function AdminDashboardPage() {
     spotsStats,
     paidOrders,
     recentOrders,
+    pendingOrdersCount,
+    activeCampaigns,
   ] = await Promise.all([
     db.campaign.count(),
     db.campaignSpot.groupBy({
@@ -31,6 +33,18 @@ export default async function AdminDashboardPage() {
         advertiser: true,
       },
     }),
+    db.order.count({
+      where: { status: "PENDING" },
+    }),
+    db.campaign.findMany({
+      where: { status: "ACTIVE" },
+      orderBy: { createdAt: "desc" },
+      include: {
+        spots: {
+          select: { id: true, status: true, price: true },
+        },
+      },
+    }),
   ])
 
   // Process stats
@@ -38,7 +52,6 @@ export default async function AdminDashboardPage() {
   
   const spotsCount = spotsStats.reduce((sum, s) => sum + s._count.id, 0)
   const spotsSold = spotsStats.find((s) => s.status === "SOLD")?._count.id || 0
-  const spotsHeld = spotsStats.find((s) => s.status === "HELD")?._count.id || 0
   const spotsOpen = spotsStats.find((s) => s.status === "OPEN")?._count.id || 0
 
   const soldPercentage = spotsCount > 0 ? Math.round((spotsSold / spotsCount) * 100) : 0
@@ -83,14 +96,14 @@ export default async function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* Open Holds */}
+        {/* Pending Payments */}
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-2">
           <div className="flex items-baseline gap-2">
-            <span className="text-2xl font-black text-slate-900">{spotsHeld}</span>
-            <span className="text-xs text-slate-400 font-semibold">holds active</span>
+            <span className="text-2xl font-black text-slate-900">{pendingOrdersCount}</span>
+            <span className="text-xs text-slate-400 font-semibold">payments pending</span>
           </div>
           <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-            Temporary Holds
+            Pending Payments
           </div>
         </div>
       </div>
@@ -179,14 +192,6 @@ export default async function AdminDashboardPage() {
             <hr className="border-slate-100" />
             <div className="flex justify-between items-center">
               <span className="text-slate-500 font-medium flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse" />
-                Held in Checkout
-              </span>
-              <span className="font-bold text-slate-800">{spotsHeld}</span>
-            </div>
-            <hr className="border-slate-100" />
-            <div className="flex justify-between items-center">
-              <span className="text-slate-500 font-medium flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
                 Sold / Locked
               </span>
@@ -207,6 +212,89 @@ export default async function AdminDashboardPage() {
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Active Campaigns Section */}
+      <div className="bg-white border border-slate-200 rounded-3xl shadow-sm p-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-bold text-slate-900">Active Campaigns</h3>
+          <Link
+            href="/admin/campaigns"
+            className="text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors"
+          >
+            View All Campaigns →
+          </Link>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm text-left">
+            <thead>
+              <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase text-[10px] tracking-wider">
+                <th className="pb-3">Campaign</th>
+                <th className="pb-3">Location</th>
+                <th className="pb-3">Filled Ads</th>
+                <th className="pb-3">Revenue</th>
+                <th className="pb-3">Est. Mail Date</th>
+                <th className="pb-3 text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {activeCampaigns.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="py-6 text-center text-slate-400 italic">
+                    No active campaigns found.
+                  </td>
+                </tr>
+              ) : (
+                activeCampaigns.map((camp) => {
+                  const spotsCount = camp.spots.length
+                  const spotsSold = camp.spots.filter((s) => s.status === "SOLD").length
+                  const campRevenue = camp.spots
+                    .filter((s) => s.status === "SOLD")
+                    .reduce((sum, s) => sum + s.price, 0)
+
+                  return (
+                    <tr key={camp.id} className="text-slate-800 hover:bg-slate-5/50 transition-colors">
+                      <td className="py-3.5 font-semibold text-slate-900">
+                        <Link href={`/admin/campaigns/${camp.id}`} className="hover:text-blue-600 transition-colors">
+                          {camp.name}
+                        </Link>
+                      </td>
+                      <td className="py-3.5 text-slate-600 font-medium">
+                        {camp.city.charAt(0).toUpperCase() + camp.city.slice(1)}, {camp.state.toUpperCase()}
+                      </td>
+                      <td className="py-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">{spotsSold} / {spotsCount}</span>
+                          <div className="w-16 bg-slate-100 h-1.5 rounded-full overflow-hidden hidden sm:block">
+                            <div
+                              style={{ width: `${spotsCount > 0 ? (spotsSold / spotsCount) * 100 : 0}%` }}
+                              className="bg-blue-600 h-full rounded-full"
+                            />
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 font-bold text-slate-700">
+                        {formatPrice(campRevenue)}
+                      </td>
+                      <td className="py-3.5 text-slate-500 font-medium">
+                        {camp.estimatedMailDate ? new Date(camp.estimatedMailDate).toLocaleDateString() : "—"}
+                      </td>
+                      <td className="py-3.5 text-right">
+                        <Link
+                          href={`/admin/campaigns/${camp.id}`}
+                          className="inline-flex items-center justify-center rounded-lg bg-slate-50 hover:bg-slate-100 text-slate-700 font-bold text-xs px-2.5 py-1.5 border border-slate-200 transition-colors"
+                        >
+                          Manage
+                        </Link>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>

@@ -15,34 +15,39 @@ export function CampaignNav({ state, city, slug, isCheckoutPage = false }: Campa
     : "/"
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md font-sans">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
-        <Link href="/" className="flex items-center gap-2 text-xl font-extrabold uppercase italic tracking-tighter select-none">
-          <span className="bg-primary px-1.5 py-0.5 text-primary-foreground">Shared</span>
-          <span className="text-foreground">Mail</span>
+    <header className="border-b border-rule sticky top-0 bg-paper/95 backdrop-blur z-40 font-mono text-xs uppercase tracking-widest">
+      <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+        <Link href="/" className="font-headline font-bold text-2xl tracking-tight select-none">
+          Near<span className="text-nh-red">Here</span>
         </Link>
         
         {isCheckoutPage ? (
           <div>
             <Link
               href={campaignPath}
-              className="inline-flex items-center justify-center bg-stone-bg hover:bg-stone-bg/85 border border-border text-foreground font-mono text-[10px] uppercase font-bold tracking-widest px-4 py-2.5 rounded-none transition-colors"
+              className="inline-flex items-center justify-center bg-transparent border border-press text-press font-headline text-xs uppercase font-bold tracking-wider px-4 py-2.5 rounded-none transition-colors hover:bg-press hover:text-paper"
             >
               ← Back to Campaign
             </Link>
           </div>
         ) : (
-          <div className="hidden items-center gap-8 text-sm font-medium md:flex">
-            <a href="#postcard" className="transition-colors hover:text-primary">Postcard Preview</a>
-            <a href="#categories" className="transition-colors hover:text-primary">Availability</a>
-            <a href="#how" className="transition-colors hover:text-primary">How it Works</a>
-            <a href="#faq" className="transition-colors hover:text-primary">FAQs</a>
-            <a href="#postcard" className="bg-foreground px-5 py-2.5 text-background font-bold transition-all hover:bg-primary hover:text-primary-foreground uppercase tracking-wider text-xs">
-              Reserve Spot
-            </a>
-          </div>
+          <>
+            <nav className="hidden md:flex items-center gap-8">
+              <a href="#campaign" className="hover:text-nh-red transition-colors">Current Drop</a>
+              <a href="#how" className="hover:text-nh-red transition-colors">How It Works</a>
+              <a href="#categories" className="hover:text-nh-red transition-colors">Categories</a>
+              <a href="#pricing" className="hover:text-nh-red transition-colors">Pricing</a>
+              <a href="#faq" className="hover:text-nh-red transition-colors">FAQ</a>
+            </nav>
+            <div className="flex items-center">
+              <a href="#categories" className="bg-nh-red text-paper px-5 py-2.5 font-headline font-bold uppercase tracking-wider text-xs hover:bg-press transition-colors">
+                Reserve Spot
+              </a>
+            </div>
+          </>
         )}
       </div>
-    </nav>
+    </header>
   )
 }
+

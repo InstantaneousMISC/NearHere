@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import SpotOverlay from "./SpotOverlay"
+import SharedCard9x12 from "./SharedCard9x12"
+import CommunityCard6x11 from "./CommunityCard6x11"
 
 interface PostcardSpot {
   id: string
@@ -15,6 +16,11 @@ interface PostcardSpot {
   width: number
   height: number
   status: "OPEN" | "HELD" | "SOLD" | "UNAVAILABLE"
+  categoryId: string
+  category: {
+    id: string
+    name: string
+  }
 }
 
 interface PostcardPreviewProps {
@@ -22,30 +28,51 @@ interface PostcardPreviewProps {
   state: string
   city: string
   slug: string
+  onWaitlistClick: (category: { id: string; name: string }) => void
+  cardSize?: string
+  cardSkin?: string
 }
 
-export default function PostcardPreview({ spots, state, city, slug }: PostcardPreviewProps) {
+export default function PostcardPreview({
+  spots,
+  state,
+  city,
+  slug,
+  onWaitlistClick,
+  cardSize = "9x12",
+  cardSkin = "cream"
+}: PostcardPreviewProps) {
   const router = useRouter()
   const [activeSide, setActiveSide] = useState<"FRONT" | "BACK">("FRONT")
 
-  const activeSpots = spots.filter(s => s.side === activeSide)
+  const cityName = city.charAt(0).toUpperCase() + city.slice(1)
+  const stateName = state.charAt(0).toUpperCase() + state.slice(1)
 
-  const handleSpotClick = (spotId: string) => {
-    router.push(`/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}/checkout/${spotId}`)
+  // Extract mailing quantity if available
+  const campaignRecord = spots.length > 0 ? (spots[0] as any).campaign : null
+  const quantity = campaignRecord?.mailingQuantity ?? 10000
+  const homesCount = `${new Intl.NumberFormat().format(quantity)} HOMES`
+
+  const handleSpotClick = (spot: PostcardSpot) => {
+    if (spot.status === "SOLD") {
+      onWaitlistClick({ id: spot.category.id, name: spot.category.name })
+    } else if (spot.status === "OPEN" || spot.status === "HELD") {
+      router.push(`/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}/checkout/${spot.id}`)
+    }
   }
 
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-6">
+    <div id="preview" className="w-full max-w-4xl mx-auto space-y-6">
       {/* Side Selector Tabs */}
       <div className="flex justify-center">
-        <div className="border border-foreground bg-card p-1 flex gap-1 font-mono text-[10px] uppercase tracking-wider">
+        <div className="border border-press bg-paper p-1 flex gap-1 font-mono text-[10px] uppercase tracking-wider font-bold">
           <button
             type="button"
             onClick={() => setActiveSide("FRONT")}
-            className={`px-5 py-2 font-bold transition-all cursor-pointer ${
+            className={`px-5 py-2 transition-all cursor-pointer rounded-none ${
               activeSide === "FRONT"
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:text-foreground bg-transparent"
+                ? "bg-press text-paper"
+                : "text-warm hover:text-press bg-transparent"
             }`}
           >
             Front Side (Premium)
@@ -53,62 +80,39 @@ export default function PostcardPreview({ spots, state, city, slug }: PostcardPr
           <button
             type="button"
             onClick={() => setActiveSide("BACK")}
-            className={`px-5 py-2 font-bold transition-all cursor-pointer ${
+            className={`px-5 py-2 transition-all cursor-pointer rounded-none ${
               activeSide === "BACK"
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:text-foreground bg-transparent"
+                ? "bg-press text-paper"
+                : "text-warm hover:text-press bg-transparent"
             }`}
           >
-            Back Side (Standard)
+            Back Side (Mailing & Standard)
           </button>
         </div>
       </div>
 
-      {/* 12:9 aspect ratio postcard mock */}
-      <div className="relative w-full aspect-[12/9] bg-card border border-border shadow-2xl overflow-hidden p-[2%]">
-        {/* Postcard Background Mock Design */}
-        <div className="absolute inset-0 bg-background -z-10" />
-
-        {/* Header section (only occupying top ~12% of the card) */}
-        <div className="h-[12%] flex items-center justify-between px-3 border-b border-dashed border-border pb-2 mb-2 select-none">
-          <div className="flex items-center gap-2 text-xs md:text-sm font-extrabold uppercase italic tracking-tighter">
-            <span className="bg-primary px-1.5 py-0.5 text-primary-foreground text-[10px] md:text-xs">Shared</span>
-            <span className="text-foreground text-[10px] md:text-xs">Mail</span>
-            <span className="font-mono text-[9px] md:text-[10px] text-muted-foreground not-italic tracking-normal uppercase pl-2">
-              {activeSide === "FRONT" ? "Front Side" : "Back Side"}
-            </span>
-          </div>
-          <div className="flex items-center gap-4 font-mono text-[8px] md:text-[10px] text-muted-foreground uppercase tracking-widest">
-            <span>USPS EDDM Delivery</span>
-            <span className="hidden sm:inline">•</span>
-            <span>10,000 Mailings</span>
-          </div>
-        </div>
-
-        {/* Spots grid wrapper */}
-        <div className="relative w-full h-[84%] bg-background rounded-none border border-dashed border-border p-1">
-          {activeSpots.map(spot => (
-            <SpotOverlay
-              key={spot.id}
-              label={spot.label}
-              price={spot.price}
-              status={spot.status}
-              spotType={spot.spotType}
-              x={spot.x}
-              y={spot.y}
-              width={spot.width}
-              height={spot.height}
-              onClick={() => handleSpotClick(spot.id)}
+      {/* aspect ratio postcard view wrapper with horizontal scroll for mobile screens */}
+      <div className="w-full overflow-x-auto pb-4 md:overflow-x-visible">
+        <div className="min-w-[700px] md:min-w-0">
+          {cardSize === "6x11" ? (
+            <CommunityCard6x11
+              view={activeSide === "FRONT" ? "front" : "back"}
+              locationLabel={`${cityName.toUpperCase()}, ${stateName.toUpperCase()}`}
+              homesCount={homesCount}
+              spots={spots}
+              onSpotClick={handleSpotClick}
+              cardSkin={cardSkin}
             />
-          ))}
-        </div>
-
-        {/* Footer info (subtle small stamp indicator) */}
-        <div className="absolute bottom-2 right-4 flex items-center gap-2 text-[8px] md:text-[9px] text-muted-foreground font-mono uppercase tracking-widest select-none">
-          <span>Powered by LocalSpot Mailers</span>
-          <div className="w-4 h-4 border border-dashed border-border flex items-center justify-center font-normal">
-            📬
-          </div>
+          ) : (
+            <SharedCard9x12
+              view={activeSide === "FRONT" ? "front" : "back"}
+              locationLabel={`${cityName.toUpperCase()}, ${stateName.toUpperCase()}`}
+              homesCount={homesCount}
+              spots={spots}
+              onSpotClick={handleSpotClick}
+              cardSkin={cardSkin}
+            />
+          )}
         </div>
       </div>
     </div>

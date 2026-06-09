@@ -8,57 +8,42 @@ export default function HowItWorks({ city = "", state = "" }: HowItWorksProps) {
 
   const steps = [
     {
-      n: "01",
-      title: "Pick & Book Spot",
-      body: `Select an available industry category on the visual postcard below, fill contact details, and lock in the spot via Stripe.`,
+      num: "01",
+      title: "Reserve Your Category",
+      desc: "Claim the only featured spot in your category for the next drop. First reserved, first featured."
     },
     {
-      n: "02",
-      title: "Upload Copy & Logo",
-      body: "Supply your business logo, choose a special discount coupon deal, and specify any creative instructions for the card.",
+      num: "02",
+      title: "We Design Together",
+      desc: "Upload your logo & coupon deal. Our designers craft a clean editorial slot that fits the postcard. Someone will reach out to finalize mockups."
     },
     {
-      n: "03",
-      title: "Verification Review",
-      body: `We check that your business is active and has a 4.0+ star rating in ${cityName}. If not approved, you are immediately refunded 100%.`,
+      num: "03",
+      title: "Quality Review",
+      desc: `We verify you're an active business with 4.0+ rating in ${cityName}. If review fails, you get 100% refunded immediately and the spot opens.`
     },
     {
-      n: "04",
-      title: "Finalize Ad Details",
-      body: "Our professional graphic designers construct your card slot ad design. We will reach out to you via email to review and confirm the mockup.",
-    },
-    {
-      n: "05",
-      title: "Mailing Delivery Stages",
-      body: "When the campaign completes, the postcard transitions through DESIGNING, PRINTING, and MAILED. You will receive automated status and tracking emails.",
-    },
+      num: "04",
+      title: "Mail & Track Drops",
+      desc: "Mailed to 10,000 homes. The campaign moves to DESIGNING, PRINTING, and MAILED. You will be notified over email at each stage with tracking."
+    }
   ]
 
   return (
-    <section id="how" className="border-y border-border bg-stone-bg py-24 font-sans text-foreground">
-      <div className="mx-auto max-w-7xl px-6">
-        <div className="max-w-2xl mb-16">
-          <span className="mb-4 block font-mono text-xs font-medium uppercase tracking-widest text-primary">
-            How it works
-          </span>
-          <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl uppercase">
-            From Booking to Mailboxes
-          </h2>
-          <p className="mt-4 text-muted-foreground">
-            A step-by-step overview of our self-service onboarding, graphics design review, and campaign scheduling.
-          </p>
+    <section className="bg-muted/30 border-t border-rule">
+      <div id="how" className="max-w-7xl mx-auto px-6 py-20">
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-12">
+          <div>
+            <p className="label-mono">How It Works</p>
+            <h2 className="headline-xl text-4xl md:text-5xl mt-4">Four steps to your neighborhood.</h2>
+          </div>
         </div>
-        
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-5">
-          {steps.map((s) => (
-            <div key={s.n} className="border-t-2 border-foreground bg-background p-6 flex flex-col justify-between rounded-none">
-              <div>
-                <span className="font-mono text-xs uppercase tracking-widest text-primary font-bold">
-                  Step {s.n}
-                </span>
-                <h3 className="mt-3 text-lg font-bold font-mono uppercase tracking-tight leading-tight">{s.title}</h3>
-                <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">{s.body}</p>
-              </div>
+        <div className="grid md:grid-cols-4 border border-rule bg-paper">
+          {steps.map((s, i) => (
+            <div key={s.num} className={`p-8 bg-paper ${i !== 3 ? "md:border-r border-rule" : ""} border-b md:border-b-0 last:border-b-0`}>
+              <div className="font-mono text-xs text-nh-red tracking-[0.14em]">STEP {s.num}</div>
+              <h3 className="headline-xl text-2xl mt-4 text-press leading-tight">{s.title}</h3>
+              <p className="mt-3 text-press/70 leading-relaxed text-sm">{s.desc}</p>
             </div>
           ))}
         </div>
@@ -66,3 +51,4 @@ export default function HowItWorks({ city = "", state = "" }: HowItWorksProps) {
     </section>
   )
 }
+

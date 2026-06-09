@@ -18,6 +18,8 @@ export default function NewCampaignPage() {
   const [estimatedMailDate, setEstimatedMailDate] = useState("")
   const [frontBackgroundUrl, setFrontBackgroundUrl] = useState("")
   const [backBackgroundUrl, setBackBackgroundUrl] = useState("")
+  const [cardSize, setCardSize] = useState<"9x12" | "6x11">("9x12")
+  const [cardSkin, setCardSkin] = useState("cream")
 
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -60,6 +62,8 @@ export default function NewCampaignPage() {
         estimatedMailDate: estimatedMailDate ? new Date(estimatedMailDate) : undefined,
         frontBackgroundUrl: frontBackgroundUrl.trim() ? frontBackgroundUrl : undefined,
         backBackgroundUrl: backBackgroundUrl.trim() ? backBackgroundUrl : undefined,
+        cardSize,
+        cardSkin,
       })
 
       router.push(`/admin/campaigns/${result.id}`)
@@ -129,6 +133,47 @@ export default function NewCampaignPage() {
             />
             <span className="text-[10px] text-slate-400 block">
               Auto-generated from name. Controls the landing page URL path segment.
+            </span>
+          </div>
+
+          {/* Postcard Size Template */}
+          <div className="space-y-1.5 md:col-span-2">
+            <label htmlFor="cardSize" className="block text-sm font-bold text-slate-700">
+              Postcard Size Format <span className="text-red-500">*</span>
+            </label>
+            <select
+              id="cardSize"
+              disabled={loading}
+              value={cardSize}
+              onChange={e => setCardSize(e.target.value as "9x12" | "6x11")}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option value="9x12">9x12 Shared Card (Style A: Premium Grid, Spine, 20 slots)</option>
+              <option value="6x11">6x11 Community Card (Style B: Spotlight Rail, 12 slots)</option>
+            </select>
+            <span className="text-[10px] text-slate-400 block">
+              Determines the layout structure, dimensions, and default spots initialized for the campaign.
+            </span>
+          </div>
+
+          {/* Postcard Skin Theme */}
+          <div className="space-y-1.5 md:col-span-2">
+            <label htmlFor="cardSkin" className="block text-sm font-bold text-slate-700">
+              Postcard Skin Theme
+            </label>
+            <select
+              id="cardSkin"
+              disabled={loading}
+              value={cardSkin}
+              onChange={e => setCardSkin(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+            >
+              <option value="cream">Cream (Traditional warm cardstock)</option>
+              <option value="dark">Slate Dark (Bold charcoal style)</option>
+              <option value="minimalist">Modern White (Clean minimalist design)</option>
+            </select>
+            <span className="text-[10px] text-slate-400 block">
+              Controls the background styling, font colors, and border themes of the postcard templates.
             </span>
           </div>
 

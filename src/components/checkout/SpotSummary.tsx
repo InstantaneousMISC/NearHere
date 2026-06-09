@@ -78,10 +78,15 @@ export default function SpotSummary({
 
       <hr className="border-border" />
 
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-mono font-bold uppercase tracking-wider text-foreground">Total Price</span>
-        <span className="text-3xl font-black text-primary font-mono">
-          {formatPrice(spot.price)}
+      <div className="flex flex-col items-end space-y-1">
+        <div className="flex items-center justify-between w-full">
+          <span className="text-sm font-mono font-bold uppercase tracking-wider text-foreground">Total Price</span>
+          <span className="text-3xl font-black text-primary font-mono">
+            {formatPrice(spot.price)}
+          </span>
+        </div>
+        <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
+          Approx. {(spot.price / mailingQuantity).toFixed(1)}¢ per home
         </span>
       </div>
 
