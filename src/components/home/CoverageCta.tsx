@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
+import Link from "next/link"
 
 export function CoverageCta() {
   const router = useRouter()
@@ -29,10 +30,10 @@ export function CoverageCta() {
           Check availability
         </span>
         <h2 className="text-4xl font-extrabold tracking-tight md:text-5xl">
-          Ready to be the local name?
+          Find an available campaign near you.
         </h2>
         <p className="mt-4 text-muted-foreground">
-          See if your business category is still open in your ZIP code.
+          Enter your ZIP code to view active campaign placements and category availability.
         </p>
         
         <form
@@ -68,8 +69,9 @@ export function Footer() {
       <div className="mx-auto flex max-w-7xl flex-col items-center justify-between gap-4 px-6 py-8 font-mono text-[10px] uppercase tracking-widest text-muted-foreground md:flex-row">
         <p>© 2026 Neighborhood Shared Mail LLC</p>
         <div className="flex gap-8">
+          <Link href="/advertise/directory" className="hover:text-primary">Browse Industries</Link>
           <a href="#" className="hover:text-primary">Privacy</a>
-          <a href="#" className="hover:text-primary">Merchant Agreement</a>
+          <a href="#" className="hover:text-primary">Advertiser Agreement</a>
           <a href="#" className="hover:text-primary">Contact Sales</a>
         </div>
       </div>

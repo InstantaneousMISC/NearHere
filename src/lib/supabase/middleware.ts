@@ -32,9 +32,15 @@ export async function updateSession(request: NextRequest) {
   // IMPORTANT: Do NOT use getSession() here.
   // getUser() sends a request to the Supabase Auth server every time
   // to revalidate the Auth token, while getSession() doesn't.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  let user = null
+  try {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser()
+    user = authUser
+  } catch (error) {
+    console.warn('Supabase auth fetch failed (offline or paused project):', error)
+  }
 
   return { supabase, response: supabaseResponse, user }
 }

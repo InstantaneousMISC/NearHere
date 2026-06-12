@@ -186,8 +186,8 @@ export function getNearHereEmailWrapper(params: {
           ${params.contentHtml}
         </div>
         <div class="footer">
-          <p class="footer-brand">NearHere Postcard Mailers</p>
-          <p>Local offline advertising powered by real-time analytics.</p>
+          <p class="footer-brand">NearHere Local Advertising</p>
+          <p>Shared postcard campaigns with QR activity reporting.</p>
           <p>&copy; ${year} NearHere. All rights reserved.</p>
         </div>
       </div>

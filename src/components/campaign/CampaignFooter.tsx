@@ -11,12 +11,13 @@ export default function CampaignFooter() {
             Near<span className="text-nh-red">Here</span>
           </div>
           <p className="mt-4 text-paper/70 max-w-xs leading-relaxed text-sm">
-            A community-first local postcard campaign platform. Support local. Discover nearby.
+            Premium shared postcard campaigns with QR tracking, local offers, and done-for-you
+            mailing.
           </p>
-          <p className="font-mono uppercase tracking-[0.14em] text-[10px] text-paper/50 mt-6">Local Discovery, Delivered By Postcard.</p>
+          <p className="font-mono uppercase tracking-[0.14em] text-[10px] text-paper/50 mt-6">Get Seen in the Neighborhoods You Serve.</p>
         </div>
         {[
-          ["Product", ["NearHere Postcards", "NearHere Drop", "Local Page", "For Business"]],
+          ["Product", ["Shared Postcards", "Campaigns", "Business Pages", "For Advertisers"]],
           ["Company", ["Our Mission", "Communities", "Press Kit", "Contact"]],
           ["Resources", ["How It Works", "Pricing", "FAQ", "Media Kit"]],
         ].map(([title, items]) => (
@@ -40,10 +41,9 @@ export default function CampaignFooter() {
       <div className="border-t border-paper/15">
         <div className="max-w-7xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/50">© {year} NearHere — Support Local. Discover Nearby.</p>
-          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/50">Community-First Campaign</p>
+          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/50">Local Advertising Campaigns</p>
         </div>
       </div>
     </footer>
   )
 }
-

@@ -11,10 +11,20 @@ interface CheckoutPageProps {
     slug: string
     spotId: string
   }>
+  searchParams: Promise<{
+    categoryId?: string | string[]
+  }>
 }
 
-export default async function CheckoutPage({ params }: CheckoutPageProps) {
+export default async function CheckoutPage({
+  params,
+  searchParams,
+}: CheckoutPageProps) {
   const { state, city, slug, spotId } = await params
+  const rawCategoryId = (await searchParams).categoryId
+  const selectedCategoryId = Array.isArray(rawCategoryId)
+    ? rawCategoryId[0]
+    : rawCategoryId
 
   // 1. Fetch Campaign
   const campaign = await db.campaign.findUnique({
@@ -42,9 +52,47 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
   }
 
   // If the spot is already sold, redirect back to the campaign page
-  if (spot.status === "SOLD" || spot.status === "UNAVAILABLE") {
-    redirect(`/campaigns/${state}/${city}/${slug}`)
+  // if (spot.status === "SOLD" || spot.status === "UNAVAILABLE") {
+  //   redirect(`/campaigns/${state}/${city}/${slug}`)
+  // }
+
+  const selectedCategory = selectedCategoryId
+    ? await db.businessCategory.findFirst({
+        where: {
+          id: selectedCategoryId,
+          isActive: true,
+        },
+      })
+    : spot.category
+
+  if (!selectedCategory) {
+    redirect(`/campaigns/${state}/${city}/${slug}#categories`)
   }
+
+  // if (!selectedCategory.allowsMultipleAdvertisers) {
+  //   const conflictingReservation = await db.campaignSpot.findFirst({
+  //     where: {
+  //       campaignId: campaign.id,
+  //       categoryId: selectedCategory.id,
+  //       id: { not: spot.id },
+  //       OR: [
+  //         { status: "SOLD" },
+  //         {
+  //           orders: {
+  //             some: {
+  //               status: { in: ["PENDING", "PAID"] },
+  //             },
+  //           },
+  //         },
+  //       ],
+  //     },
+  //     select: { id: true },
+  //   })
+  // 
+  //   if (conflictingReservation) {
+  //     redirect(`/campaigns/${state}/${city}/${slug}#categories`)
+  //   }
+  // }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -52,13 +100,14 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
       <div className="py-24 px-4 sm:px-6 lg:px-8 font-sans max-w-5xl mx-auto space-y-8">
         <div className="text-left">
           <span className="mb-2 block font-mono text-xs font-medium uppercase tracking-widest text-primary">
-            Checkout Process
+            Campaign Reservation
           </span>
           <h1 className="text-3xl md:text-4xl font-extrabold text-foreground tracking-tight uppercase">
-            Reserve Your Exclusive Space
+            Reserve Your Campaign Placement
           </h1>
           <p className="mt-2 text-sm text-muted-foreground max-w-xl">
-            Provide your business info to initiate lock-in. Payment is handled securely via Stripe Checkout.
+            Confirm your business and contact details. After secure payment, you can submit your
+            offer, logo, and creative preferences for the campaign.
           </p>
         </div>
 
@@ -68,7 +117,8 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
           <div className="lg:col-span-2 bg-card border border-border shadow-2xl p-6 sm:p-8 rounded-none">
             <CheckoutForm
               spotId={spot.id}
-              categoryName={spot.category.name}
+              categoryId={selectedCategory.id}
+              categoryName={selectedCategory.name}
               campaignUrl={`/campaigns/${state}/${city}/${slug}`}
             />
           </div>
@@ -80,7 +130,10 @@ export default async function CheckoutPage({ params }: CheckoutPageProps) {
               mailingQuantity={campaign.mailingQuantity}
               city={campaign.city}
               state={campaign.state}
-              spot={spot as any}
+              spot={{
+                ...spot,
+                category: selectedCategory,
+              } as any}
             />
           </div>
         </div>

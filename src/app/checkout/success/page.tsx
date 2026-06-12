@@ -103,30 +103,30 @@ function SuccessContent() {
 
           <div className="space-y-1.5">
             <h1 className="text-2xl font-headline font-black text-[#211D1C] tracking-tight uppercase leading-none">
-              Postcard Space Reserved!
+              Campaign Placement Reserved
             </h1>
             <p className="text-xs text-[#77706A]">
-              Thank you. Your payment was verified and processed successfully.
+              Your spot is reserved. Next, submit your business details so we can create your postcard ad, generate your QR code, build your NearHere Business Profile, add your website backlink, and prepare your placement for the campaign.
             </p>
           </div>
 
           {/* Onboarding Checklist Box */}
           <div className="bg-[#FAF8F4] border border-[#E7E0D8] p-4 text-left space-y-3">
             <h4 className="font-mono text-[9px] font-bold text-[#77706A] uppercase tracking-widest leading-none">
-              Onboarding Checklist & Status
+              Campaign Setup Status
             </h4>
             <ul className="text-xs font-medium text-[#211D1C] space-y-2.5">
               <li className="flex items-center gap-2">
                 <span className="text-[#C9993E] font-bold">✓</span> 
-                <span>Payment complete ({formatPrice(order.amount)})</span>
+                <span>Placement reserved ({formatPrice(order.amount)})</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-orange-500 font-bold">⏳</span> 
-                <span>QR code & digital landing page are being compiled</span>
+                <span>Business page and QR destination are being prepared</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-[#77706A]">○</span> 
-                <span>Ad details & postcard creative assets pending submission</span>
+                <span>Creative details are ready for your submission</span>
               </li>
             </ul>
           </div>
@@ -134,7 +134,7 @@ function SuccessContent() {
           {/* Order Summary Card */}
           <div className="bg-[#FAF8F4] border border-[#E7E0D8] p-5 text-left space-y-3 font-mono text-xs">
             <h3 className="text-[9px] font-bold text-[#77706A] uppercase tracking-widest">
-              Reservation Summary
+              Campaign Placement Summary
             </h3>
             <div className="space-y-2">
               <div className="flex justify-between border-b border-[#E7E0D8] pb-1">
@@ -147,27 +147,25 @@ function SuccessContent() {
               </div>
               <div className="flex justify-between">
                 <span className="text-[#77706A] uppercase">Category</span>
-                <span className="font-bold text-[#D13F1F] uppercase">{order.campaignSpot.label}</span>
+                <span className="font-bold text-[#D13F1F] uppercase">{order.campaignSpot.category.name}</span>
               </div>
             </div>
           </div>
 
           {/* Action Row */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-            <div>
-              <Link
-                href={claimUrl}
-                className="w-full inline-flex items-center justify-center bg-[#D13F1F] hover:bg-[#B53A1A] text-paper border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-3.5 transition-colors cursor-pointer"
-              >
-                🎨 Set Up Business Profile
-              </Link>
-            </div>
-            <div>
+          <div className="space-y-4 pt-2">
+            <Link
+              href={claimUrl}
+              className="w-full inline-flex items-center justify-center bg-[#D13F1F] hover:bg-[#B53A1A] text-paper border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-4 transition-colors cursor-pointer rounded-none font-headline text-sm"
+            >
+              Claim Account & Set Up Profile
+            </Link>
+            <div className="text-center">
               <Link
                 href={submitCreativeUrl}
-                className="w-full inline-flex items-center justify-center bg-[#211D1C] hover:bg-[#FAF8F4] text-[#FAF8F4] hover:text-[#211D1C] border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-3.5 transition-colors cursor-pointer"
+                className="inline-block text-[10px] font-mono font-bold uppercase tracking-widest text-[#77706A] underline hover:text-[#D13F1F] transition-colors"
               >
-                📝 Submit Postcard Creative
+                Or submit creative details without an account
               </Link>
             </div>
           </div>

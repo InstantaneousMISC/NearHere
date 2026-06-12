@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { spots9x12 as spots } from "../src/server/helpers/templateSpots";
+import { rawCategories, categoryAliases } from "../src/data/advertiserCategories";
 
 const prisma = new PrismaClient();
 
@@ -12,24 +13,42 @@ interface CategoryDef {
   defaultPrice: number; // cents
 }
 
-const categories: CategoryDef[] = [
-  { name: "Plumbing", slug: "plumbing", allowsMultipleAdvertisers: false, defaultPrice: 89900 },
-  { name: "HVAC", slug: "hvac", allowsMultipleAdvertisers: false, defaultPrice: 79900 },
-  { name: "Roofing", slug: "roofing", allowsMultipleAdvertisers: false, defaultPrice: 79900 },
-  { name: "Electrical", slug: "electrical", allowsMultipleAdvertisers: false, defaultPrice: 69900 },
-  { name: "Dentistry", slug: "dentistry", allowsMultipleAdvertisers: false, defaultPrice: 69900 },
-  { name: "Landscaping", slug: "landscaping", allowsMultipleAdvertisers: false, defaultPrice: 59900 },
-  { name: "Pressure Washing", slug: "pressure-washing", allowsMultipleAdvertisers: false, defaultPrice: 49900 },
-  { name: "Real Estate", slug: "real-estate", allowsMultipleAdvertisers: false, defaultPrice: 59900 },
-  { name: "Pest Control", slug: "pest-control", allowsMultipleAdvertisers: false, defaultPrice: 59900 },
-  { name: "Auto Repair", slug: "auto-repair", allowsMultipleAdvertisers: false, defaultPrice: 49900 },
-  { name: "Home Cleaning", slug: "home-cleaning", allowsMultipleAdvertisers: false, defaultPrice: 49900 },
-  { name: "Junk Removal", slug: "junk-removal", allowsMultipleAdvertisers: false, defaultPrice: 49900 },
-  { name: "Carpet Cleaning", slug: "carpet-cleaning", allowsMultipleAdvertisers: false, defaultPrice: 39900 },
-  { name: "Restaurant", slug: "restaurant", allowsMultipleAdvertisers: true, defaultPrice: 29900 },
-  { name: "Bakery / Coffee Shop", slug: "bakery-coffee", allowsMultipleAdvertisers: true, defaultPrice: 29900 },
-  { name: "Local Events & Venues", slug: "events-venues", allowsMultipleAdvertisers: true, defaultPrice: 49000 },
-];
+// Build 150+ categories dynamically from rawCategories
+const categories: CategoryDef[] = rawCategories.map((cat) => {
+  // Determine if it allows multiple advertisers
+  const allowsMultipleAdvertisers =
+    cat.parentCategory === "food-beverage-hospitality" || cat.slug === "event-venues";
+
+  // Determine default price in cents based on parent category / overrides
+  let defaultPrice = 39900; // default for retail, specialty, etc.
+
+  if (cat.parentCategory === "food-beverage-hospitality") {
+    defaultPrice = 29900;
+  } else if (cat.parentCategory === "home-services") {
+    if (cat.slug === "plumbers") defaultPrice = 89900;
+    else if (cat.slug === "hvac" || cat.slug === "roofers") defaultPrice = 79900;
+    else if (cat.slug === "electricians") defaultPrice = 69900;
+    else if (cat.slug === "pressure-washing") defaultPrice = 49900;
+    else if (cat.slug === "carpet-cleaning") defaultPrice = 39900;
+    else defaultPrice = 59900; // landscaping, lawn-care, painters, pool service
+  } else if (cat.parentCategory === "real-estate-financial") {
+    defaultPrice = 59900;
+  } else if (cat.parentCategory === "health-wellness-beauty") {
+    if (cat.slug === "dentists") defaultPrice = 69900;
+    else defaultPrice = 49900;
+  } else if (cat.parentCategory === "professional-local-services") {
+    defaultPrice = 49900;
+  } else if (cat.parentCategory === "automotive") {
+    defaultPrice = 49900;
+  }
+
+  return {
+    name: cat.label,
+    slug: cat.slug,
+    allowsMultipleAdvertisers,
+    defaultPrice,
+  };
+});
 
 // ─── Spot Definitions ────────────────────────────────────────────────────────
 
@@ -107,7 +126,9 @@ async function main() {
 
   console.log("📌 Creating campaign spots...");
 
-  // Remove existing spots, submissions, orders, advertisers for this campaign to allow clean re-seeding
+  // Remove existing spots, submissions, orders, advertisers, businesses, qrCodes for this campaign to allow clean re-seeding
+  await prisma.qrCode.deleteMany({});
+  await prisma.business.deleteMany({});
   await prisma.creativeSubmission.deleteMany({});
   await prisma.order.deleteMany({});
   await prisma.advertiser.deleteMany({});
@@ -117,10 +138,11 @@ async function main() {
 
   for (let i = 0; i < spots.length; i++) {
     const spot = spots[i];
-    const categoryId = categoryMap.get(spot.categorySlug);
+    const targetSlug = categoryAliases[spot.categorySlug] || spot.categorySlug;
+    const categoryId = categoryMap.get(targetSlug);
 
     if (!categoryId) {
-      console.error(`  ❌ Category not found for slug: ${spot.categorySlug}`);
+      console.error(`  ❌ Category not found for slug: ${spot.categorySlug} (resolved: ${targetSlug})`);
       continue;
     }
 
@@ -177,6 +199,34 @@ async function main() {
         },
       });
 
+      const business = await prisma.business.create({
+        data: {
+          advertiserId: advertiser.id,
+          name: "Converse Plumbing Pros",
+          slug: "converse-plumbing-pros",
+          phone: "(210) 555-0101",
+          email: "alice@converseplumbing.com",
+          website: "https://converseplumbing.com",
+          address: "102 N Main St, Converse, TX 78109",
+          status: "ACTIVE",
+          claimToken: "seed-claim-token-plumbing",
+          claimTokenExpiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+        },
+      });
+
+      await prisma.qrCode.create({
+        data: {
+          businessId: business.id,
+          campaignId: campaign.id,
+          campaignSpotId: createdSpot.id,
+          orderId: order.id,
+          slug: "converse-plumbing-pros-qr",
+          type: "CAMPAIGN_SLOT",
+          status: "ACTIVE",
+          destinationPath: `/b/converse-plumbing-pros`,
+        },
+      });
+
       await prisma.creativeSubmission.create({
         data: {
           orderId: order.id,
@@ -218,6 +268,34 @@ async function main() {
           stripePaymentIntentId: "seed-pi-hvac",
           creativeSubmissionToken: "seed-token-hvac-1234",
           paidAt: new Date(),
+        },
+      });
+
+      const business = await prisma.business.create({
+        data: {
+          advertiserId: advertiser.id,
+          name: "Converse Cooling & Heating",
+          slug: "converse-cooling-heating",
+          phone: "(210) 555-0202",
+          email: "bob@conversecooling.com",
+          website: "https://conversecooling.com",
+          address: "204 Towne Pl, Converse, TX 78109",
+          status: "ACTIVE",
+          claimToken: "seed-claim-token-hvac",
+          claimTokenExpiresAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 days
+        },
+      });
+
+      await prisma.qrCode.create({
+        data: {
+          businessId: business.id,
+          campaignId: campaign.id,
+          campaignSpotId: createdSpot.id,
+          orderId: order.id,
+          slug: "converse-cooling-heating-qr",
+          type: "CAMPAIGN_SLOT",
+          status: "ACTIVE",
+          destinationPath: `/b/converse-cooling-heating`,
         },
       });
 

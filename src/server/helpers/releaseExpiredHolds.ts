@@ -1,7 +1,6 @@
 import { db } from "@/server/db"
 
 export async function releaseExpiredHolds(campaignId?: string) {
-  return 0
   const now = new Date()
   const where = {
     status: "HELD" as const,

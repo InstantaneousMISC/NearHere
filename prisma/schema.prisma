@@ -208,6 +208,10 @@ model CreativeSubmission {
   phone            String?
   website          String?
   address          String?
+  serviceArea      String?
+  hours            String?
+  preferredCta     String?
+  socialLinks      Json?
   notes            String?        @db.VarChar(1000)
   wantsAiHelp      Boolean        @default(false)
   aiPrompt         String?        @db.Text
@@ -235,14 +239,16 @@ model CreativeReviewEvent {
 }
 
 model Lead {
-  id           String   @id @default(cuid())
-  businessName String?
-  email        String
-  zipCode      String
-  campaignId   String?  // Optional: linked to campaign if joining waitlist
-  categoryId   String?  // Optional: linked to category if joining waitlist
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id                  String   @id @default(cuid())
+  businessName        String?
+  email               String
+  zipCode             String
+  campaignId          String?  // Optional: linked to campaign if joining waitlist
+  categoryId          String?  // Optional: linked to category if joining waitlist
+  requestedCategory   String?
+  businessDescription String?  @db.VarChar(500)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
 }
 
 // ─── New Business & QR Models ───────────────────────────────────────────────
@@ -294,6 +300,10 @@ model Business {
   city            String?
   state           String?
   zipCode         String?
+  serviceArea      String?
+  hours            String?
+  preferredCta     String?
+  socialLinks      Json?
   status          BusinessStatus @default(DRAFT)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt

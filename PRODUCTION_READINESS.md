@@ -110,3 +110,7 @@ Admin users are verified against local database entries. To map your production 
 3. Set the endpoint URL to `https://yourdomain.com/api/stripe/webhook`.
 4. Select the event: `checkout.session.completed`.
 5. Reveal the signing secret (`whsec_...`) and add it to your environment variables as `STRIPE_WEBHOOK_SECRET`.
+# Admin Campaign Placement Follow-Up
+
+- Add an admin workflow to create or select a business, assign its business category, and manually secure a specific campaign spot without using the public checkout flow.
+- The workflow must enforce campaign category exclusivity, support an explicit administrative override, and create an auditable reservation/order record.

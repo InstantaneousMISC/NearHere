@@ -3,18 +3,28 @@
 const steps = [
   {
     n: "01",
-    title: "Claim your category",
-    body: "Tell us your ZIP code and trade. If your category is open, we hold it for you — competitors locked out.",
+    title: "Choose a campaign",
+    body: "Find an active NearHere postcard campaign serving the neighborhoods that matter to your business.",
   },
   {
     n: "02",
-    title: "Send your offer",
-    body: "Drop in your logo and a coupon or call-to-action. Our in-house designers lay out a card that converts.",
+    title: "Reserve a placement",
+    body: "Select an available front, back, double, or premium placement and choose your business category.",
   },
   {
     n: "03",
-    title: "Land in mailboxes",
-    body: "We print on heavy 16pt stock and ship via USPS to every targeted home in your zone. You get tracking.",
+    title: "Submit your details",
+    body: "Provide your business details, logo, offer, and website URL. NearHere uses these to build your postcard ad and your public business profile.",
+  },
+  {
+    n: "04",
+    title: "Review your creative",
+    body: "NearHere prepares the shared postcard layout and coordinates any revisions before print approval.",
+  },
+  {
+    n: "05",
+    title: "Get found online & offline",
+    body: "Postcard recipients scan your QR code to view your NearHere Business Profile, including your offer, contacts, and website link.",
   },
 ]
 
@@ -27,17 +37,17 @@ export function HowItWorks() {
             How it works
           </span>
           <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl">
-            From signup to mailbox in three steps.
+            From reservation to mailbox.
           </h2>
         </div>
-        <div className="mt-16 grid gap-8 md:grid-cols-3">
-          {steps.map((s) => (
-            <div key={s.n} className="border-t-2 border-foreground bg-background p-8">
+        <div className="mt-16 grid gap-8 md:grid-cols-2 lg:grid-cols-5">
+          {steps.map((step) => (
+            <div key={step.n} className="border-t-2 border-foreground bg-background p-8">
               <span className="font-mono text-xs uppercase tracking-widest text-primary">
-                Step {s.n}
+                Step {step.n}
               </span>
-              <h3 className="mt-4 text-2xl font-extrabold tracking-tight">{s.title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
+              <h3 className="mt-4 text-2xl font-extrabold tracking-tight">{step.title}</h3>
+              <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
             </div>
           ))}
         </div>

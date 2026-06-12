@@ -1,4 +1,5 @@
 import { SpotType, PostcardSide } from "@prisma/client"
+import { categoryAliases } from "../../data/advertiserCategories"
 
 export interface SpotTemplate {
   label: string
@@ -76,8 +77,10 @@ export async function initializeCampaignSpots(campaignId: string, cardSize: stri
 
   // Iterate over templates and create campaign spots
   for (const t of templates) {
+    // Resolve legacy category slugs using aliases
+    const targetSlug = categoryAliases[t.categorySlug] || t.categorySlug
     // Try to find the exact category matching slug
-    let category = activeCategories.find((c: any) => c.slug === t.categorySlug)
+    let category = activeCategories.find((c: any) => c.slug === targetSlug)
     
     // Fallback if not found: cycle through available categories
     if (!category) {

@@ -11,6 +11,18 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
   const router = useRouter()
   const [loading, setLoading] = useState(false)
 
+  // Bypass dashboard layout for public business profiles
+  const isDashboardRoute = 
+    pathname.startsWith("/business/dashboard") ||
+    pathname.startsWith("/business/profile") ||
+    pathname.startsWith("/business/analytics") ||
+    pathname.startsWith("/business/setup") ||
+    pathname.includes("/business/claim")
+
+  if (!isDashboardRoute) {
+    return <>{children}</>
+  }
+
   // Fetch business info for user profile block in the top-right
   const { data: business, isLoading } = trpc.business.getMyBusiness.useQuery(undefined, {
     retry: false,
@@ -71,7 +83,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
               <span className="text-[#FAF8F4]">Near</span>Here
             </Link>
             <span className="text-[10px] font-mono tracking-widest text-[#77706A] uppercase font-bold mt-1">
-              Merchant Dashboard
+              Advertiser Dashboard
             </span>
           </div>
 
@@ -178,7 +190,7 @@ export default function BusinessLayout({ children }: { children: React.ReactNode
                 </div>
                 <div className="text-left hidden sm:block">
                   <div className="text-sm font-bold text-press truncate max-w-[150px]">
-                    {business?.name || "Merchant"}
+                    {business?.name || "Advertiser"}
                   </div>
                   <div className="text-[10px] font-mono font-bold text-[#77706A] truncate max-w-[150px]">
                     {business?.email || "owner"}

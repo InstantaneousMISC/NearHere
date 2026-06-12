@@ -3,8 +3,8 @@ export const TEMPLATE_1_ID = "nearhere-shared-card-9x12" as const
 export const TEMPLATE_1_PRICING = {
   frontStandard: 490,
   backStandard: 590,
-  frontDouble: 950,
-  backDouble: 1090,
+  frontDouble: 890,
+  backDouble: 990,
   premiumCenterBack: 1490,
 } as const
 

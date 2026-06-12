@@ -1,20 +1,17 @@
 "use client"
 
-const quotes = [
+const features = [
   {
-    q: "Phone rang for two weeks straight. Best $695 we've spent on marketing this year.",
-    a: "Marco D.",
-    r: "Riverside Plumbing — ZIP 90042",
+    title: "Featured Business Profile Included",
+    body: "Every advertiser receives a public NearHere Business Profile featuring their business, offer, contact details, service area, and website link. It gives postcard recipients an easy place to learn more while adding another local online presence for your business.",
   },
   {
-    q: "We tried Facebook ads forever. One postcard drop brought in seven new patients.",
-    a: "Dr. Lena K.",
-    r: "Oak Leaf Dental — ZIP 80305",
+    title: "Support Your Local Online Visibility",
+    body: "Your NearHere Business Profile can include a link back to your website, giving customers another path to visit your site and helping support your broader local SEO footprint. Search rankings are never guaranteed, but the profile creates another relevant local web presence for your business.",
   },
   {
-    q: "Locking out the other realtors in my zone alone was worth it. The leads are a bonus.",
-    a: "Janelle P.",
-    r: "Main St Realty — ZIP 27514",
+    title: "Physical Direct Mail Visibility",
+    body: "A large-format postcard gives participating businesses a physical presence in the neighborhoods selected for each campaign, paired with print layout design and done-for-you mailing.",
   },
 ]
 
@@ -24,30 +21,21 @@ export function Testimonials() {
       <div className="mx-auto max-w-7xl px-6">
         <div className="max-w-2xl">
           <span className="mb-4 block font-mono text-xs font-medium uppercase tracking-widest text-primary">
-            Local operators
+            Practical local advertising
           </span>
           <h2 className="text-3xl font-extrabold tracking-tight md:text-5xl">
-            Built for businesses that want more calls.
+            One campaign, several ways to respond.
           </h2>
         </div>
         <div className="mt-16 grid gap-6 md:grid-cols-3">
-          {quotes.map((q, i) => (
-            <figure
-              key={i}
-              className="flex flex-col justify-between border border-border bg-card p-8"
+          {features.map((feature) => (
+            <article
+              key={feature.title}
+              className="flex flex-col border border-border bg-card p-8"
             >
-              <blockquote className="text-lg font-medium leading-snug">
-                <span className="text-primary">"</span>
-                {q.q}
-                <span className="text-primary">"</span>
-              </blockquote>
-              <figcaption className="mt-8 border-t border-border pt-4">
-                <div className="text-sm font-bold">{q.a}</div>
-                <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {q.r}
-                </div>
-              </figcaption>
-            </figure>
+              <h3 className="text-xl font-extrabold tracking-tight">{feature.title}</h3>
+              <p className="mt-4 text-sm leading-relaxed text-muted-foreground">{feature.body}</p>
+            </article>
           ))}
         </div>
       </div>

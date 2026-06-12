@@ -90,28 +90,28 @@ export default function BusinessDashboardPage() {
   // Onboarding next action configs
   let nextActionLabel = "View Landing Page"
   let nextActionUrl = `/b/${business?.slug}`
-  let nextActionNotes = "Congratulations! Your profile setup and creative details are complete. Keep an eye on your landing page analytics below."
+  let nextActionNotes = "Your profile and creative details are complete. Review campaign status and QR activity below."
 
   if (!isProfileComplete) {
     nextActionLabel = "Complete Setup Wizard"
     nextActionUrl = "/business/setup"
     nextActionNotes = "Complete your business description, address details, logo, and links to publish your profile page."
   } else if (!hasCreativeSubmitted) {
-    nextActionLabel = "Submit Postcard Creative"
+    nextActionLabel = "Submit Creative Details"
     nextActionUrl = activeOrder ? `/submit-creative/${activeOrder.creativeSubmissionToken}` : "#"
-    nextActionNotes = "Your digital profile is set up! Please submit your postcard headline, offer deal, and contact copy to start print layouts."
+    nextActionNotes = "Your business profile is set up. Submit your headline, offer, description, and contact details for layout."
   } else if (isCreativeRejected) {
-    nextActionLabel = "Update Postcard Details"
+    nextActionLabel = "Update Creative Details"
     nextActionUrl = activeOrder ? `/submit-creative/${activeOrder.creativeSubmissionToken}` : "#"
     nextActionNotes = `Admin requested creative changes: "${creative?.approvalNotes || "Please review ad details and submit again."}"`
   } else if (!isApprovedOrBeyond) {
     nextActionLabel = "Pending Admin Review"
     nextActionUrl = "#"
-    nextActionNotes = "Postcard details submitted successfully! Our admin team is compiling print formats. Landing page scans are fully active."
+    nextActionNotes = "Creative details were submitted and are awaiting review. Your business page is available for preview."
   } else if (isMailed) {
     nextActionLabel = "Postcards Mailed!"
     nextActionUrl = `/b/${business?.slug}`
-    nextActionNotes = "Success! Your postcards have been mailed to local homes. Scan tracking is live!"
+    nextActionNotes = "The campaign has been mailed. Basic QR scan and page activity may now appear in your reporting."
   } else if (isPrinted) {
     nextActionLabel = "Postcards Printed!"
     nextActionUrl = `/b/${business?.slug}`
@@ -125,10 +125,10 @@ export default function BusinessDashboardPage() {
       <div className="bg-white border-2 border-press p-6 rounded-none flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
         <div className="space-y-1">
           <h1 className="font-headline font-black text-2xl uppercase text-press leading-none tracking-tight">
-            Welcome, {business?.name || "Merchant"}
+            Your Campaign Placement: {business?.name || "Advertiser"}
           </h1>
           <p className="text-xs text-warm font-medium">
-            Manage your local postcard advertising campaigns and view real-time scan analytics.
+            Manage campaign setup, creative status, business page details, and basic QR activity.
           </p>
         </div>
 
@@ -154,17 +154,17 @@ export default function BusinessDashboardPage() {
       <div className="bg-white border-2 border-press p-6 rounded-none shadow-sm space-y-4 text-left">
         <div className="space-y-1">
           <h2 className="font-headline font-extrabold text-base uppercase text-press tracking-tight flex items-center gap-2">
-            📬 Print Readiness & Onboarding Checklist
+            Campaign Setup and Status
           </h2>
           <p className="text-xs text-warm font-medium">
-            Keep track of the steps required to finalize your postcard mailers and digital profile page.
+            Track the steps required to prepare your placement and business page for the campaign.
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4 py-2 select-none">
           {/* Item 1: Payment */}
           <div className="border border-rule p-4 flex flex-col justify-between h-24 bg-paper/20">
-            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">1. Payment Complete</span>
+            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">1. Spot Reserved</span>
             <div className="flex items-center gap-2 mt-2">
               <span className="text-emerald-600 text-xl font-bold">✓</span>
               <span className="text-xs font-semibold text-press">PAID</span>
@@ -191,7 +191,7 @@ export default function BusinessDashboardPage() {
 
           {/* Item 3: Creative Submission */}
           <div className={`border p-4 flex flex-col justify-between h-24 ${hasCreativeSubmitted ? "border-rule bg-paper/20" : "border-nh-red/30 bg-nh-red/5"}`}>
-            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">3. Creative Sent</span>
+            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">3. Creative Submitted</span>
             <div className="flex items-center gap-2 mt-2">
               {hasCreativeSubmitted ? (
                 <>
@@ -209,7 +209,7 @@ export default function BusinessDashboardPage() {
 
           {/* Item 4: QR & Redirections */}
           <div className={`border p-4 flex flex-col justify-between h-24 ${hasQrGenerated ? "border-rule bg-paper/20" : "border-nh-red/30 bg-nh-red/5"}`}>
-            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">4. QR Code Active</span>
+            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">4. Tracking Ready</span>
             <div className="flex items-center gap-2 mt-2">
               {hasQrGenerated ? (
                 <>
@@ -227,7 +227,7 @@ export default function BusinessDashboardPage() {
 
           {/* Item 5: Postcard status */}
           <div className={`border p-4 flex flex-col justify-between h-24 ${isApprovedOrBeyond ? "border-rule bg-paper/20" : isCreativeRejected ? "border-red-300 bg-red-50/50" : "border-nh-red/30 bg-nh-red/5"}`}>
-            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">5. Postcard Status</span>
+            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">5. Campaign Status</span>
             <div className="flex items-center gap-2 mt-2">
               {isMailed ? (
                 <>
@@ -282,6 +282,77 @@ export default function BusinessDashboardPage() {
         </div>
       </div>
 
+      {/* Business Profile Section */}
+      <div className="bg-white border-2 border-press p-6 rounded-none shadow-sm space-y-6 text-left">
+        <div className="space-y-1">
+          <h2 className="font-headline font-extrabold text-lg uppercase text-press tracking-tight">
+            Business Profile
+          </h2>
+          <p className="text-xs text-warm font-medium">
+            Your NearHere Business Profile is included with your campaign placement. It displays your business details, local offer, contact buttons, QR destination, and a link back to your website. This gives customers another way to reach you and helps support your local online presence.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-2 font-mono text-xs select-none">
+          <div className="border border-rule p-4 bg-paper/10 flex flex-col justify-between">
+            <span className="text-[9px] font-bold text-warm uppercase tracking-wider block">Profile Status</span>
+            <span className={`text-xs font-bold uppercase ${business?.status === 'ACTIVE' ? 'text-emerald-700' : 'text-amber-700'} mt-1`}>
+              ● {business?.status || 'DRAFT'}
+            </span>
+          </div>
+
+          <div className="border border-rule p-4 bg-paper/10 flex flex-col justify-between">
+            <span className="text-[9px] font-bold text-warm uppercase tracking-wider block">Website Backlink</span>
+            <span className={`text-xs font-bold uppercase ${business?.website ? 'text-emerald-700' : 'text-slate-500'} mt-1`}>
+              {business?.website ? '✓ Enabled' : 'Not Configured'}
+            </span>
+          </div>
+
+          <div className="border border-rule p-4 bg-paper/10 flex flex-col justify-between">
+            <span className="text-[9px] font-bold text-warm uppercase tracking-wider block">Offer Shown</span>
+            <span className="text-xs font-bold text-press truncate max-w-full mt-1">
+              {creative?.offerDeal || 'No offer active'}
+            </span>
+          </div>
+
+          <div className="border border-rule p-4 bg-paper/10 flex flex-col justify-between">
+            <span className="text-[9px] font-bold text-warm uppercase tracking-wider block">QR Destination</span>
+            <span className="text-xs font-bold text-press truncate max-w-full mt-1">
+              /q/{qrCodes?.[0]?.slug || ''}
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center gap-4">
+              <div>
+                <span className="text-warm block uppercase font-mono text-[9px] tracking-wider">Profile Views</span>
+                <span className="font-headline font-black text-lg text-press">{analytics?.totalPageViews ?? 0}</span>
+              </div>
+              <div className="border-l border-rule h-8" />
+              <div>
+                <span className="text-warm block uppercase font-mono text-[9px] tracking-wider">Website Clicks</span>
+                <span className="font-headline font-black text-lg text-press">{analytics?.clicksByType?.WEBSITE ?? 0}</span>
+              </div>
+              <div className="border-l border-rule h-8" />
+              <div>
+                <span className="text-warm block uppercase font-mono text-[9px] tracking-wider">QR Scans</span>
+                <span className="font-headline font-black text-lg text-press">{analytics?.totalScans ?? 0}</span>
+              </div>
+            </div>
+          </div>
+          <Link
+            href={`/business/${business?.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-5 py-2.5 bg-press text-paper hover:bg-primary hover:text-paper hover:border-primary border border-press text-xs font-bold uppercase tracking-wider transition-colors text-center font-headline"
+          >
+            View Business Profile
+          </Link>
+        </div>
+      </div>
+
       {/* Analytics Counter Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
@@ -289,7 +360,7 @@ export default function BusinessDashboardPage() {
         <div className="bg-white border border-rule p-6 rounded-none shadow-sm flex items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
-              Total Postcard Scans
+              Recorded QR Scans
             </span>
             <span className="font-headline font-black text-4xl text-[#D13F1F] leading-none block">
               {analytics?.totalScans ?? 0}
@@ -332,6 +403,12 @@ export default function BusinessDashboardPage() {
 
       </div>
 
+      <p className="text-[10px] leading-relaxed text-warm">
+        Reporting reflects recorded QR scans, page views, and tracked outbound links. Phone calls,
+        direct website visits, postcard mentions, and offline redemptions may not be fully
+        attributable.
+      </p>
+
       {/* Booked Category Spot Campaigns (Inspired by Attachment) */}
       <div className="bg-white border-2 border-press rounded-none shadow-sm overflow-hidden">
         
@@ -339,10 +416,10 @@ export default function BusinessDashboardPage() {
         <div className="p-6 border-b border-rule flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="space-y-0.5 text-left">
             <h2 className="font-headline font-extrabold text-lg uppercase text-press tracking-tight">
-              Active Category Slots
+              Your Campaign Placements
             </h2>
             <p className="text-[11px] text-warm font-medium">
-              Postcard campaigns where your business is featured.
+              Campaigns where your business has a reserved placement.
             </p>
           </div>
           <Link
@@ -360,9 +437,9 @@ export default function BusinessDashboardPage() {
               <thead>
                 <tr className="bg-press/5 font-mono text-[10px] font-bold text-warm uppercase tracking-wider border-b border-rule">
                   <th className="px-6 py-4">Campaign Name</th>
-                  <th className="px-6 py-4">Category Exclusive</th>
+                  <th className="px-6 py-4">Business Category</th>
                   <th className="px-6 py-4">Mailing Date</th>
-                  <th className="px-6 py-4 text-center">Total Scans</th>
+                  <th className="px-6 py-4 text-center">Recorded Scans</th>
                   <th className="px-6 py-4 text-right">QR Actions</th>
                 </tr>
               </thead>

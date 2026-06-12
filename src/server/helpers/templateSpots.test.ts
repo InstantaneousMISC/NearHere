@@ -49,8 +49,8 @@ try {
     premium.price,
     TEMPLATE_1_PRICING.premiumCenterBack * 100
   )
-  assert.strictEqual(TEMPLATE_1_PRICING.frontDouble, 950)
-  assert.strictEqual(TEMPLATE_1_PRICING.backDouble, 1090)
+  assert.strictEqual(TEMPLATE_1_PRICING.frontDouble, 890)
+  assert.strictEqual(TEMPLATE_1_PRICING.backDouble, 990)
 
   assert.strictEqual(
     spots9x12.some(

@@ -418,8 +418,8 @@ export default function PostcardTemplateBoard() {
                 [
                   ["Front Standard", TEMPLATE_1_PRICING.frontStandard, "4.9 cents / home"],
                   ["Back Standard", TEMPLATE_1_PRICING.backStandard, "5.9 cents / home"],
-                  ["Front Double", TEMPLATE_1_PRICING.frontDouble, "9.5 cents / home"],
-                  ["Back Double", TEMPLATE_1_PRICING.backDouble, "10.9 cents / home"],
+                  ["Front Double", TEMPLATE_1_PRICING.frontDouble, "8.9 cents / home"],
+                  ["Back Double", TEMPLATE_1_PRICING.backDouble, "9.9 cents / home"],
                   ["Premium Center Back", TEMPLATE_1_PRICING.premiumCenterBack, "14.9 cents / home"],
                 ].map(([label, price, perHome]) => (
                   <div key={label} className="flex justify-between items-baseline gap-3">

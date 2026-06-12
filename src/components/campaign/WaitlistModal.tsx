@@ -85,14 +85,15 @@ export default function WaitlistModal({
               {category.name} Waitlist
             </h3>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              This business category is taken on our current postcard drop. Join the waitlist to lock in category exclusivity for the next drop in this zone.
+              This business category is currently reserved in this campaign. Join the waitlist and
+              we will contact you when a compatible placement becomes available.
             </p>
           </div>
 
           {success ? (
             <div className="space-y-4 pt-2">
               <div className="bg-emerald-500/10 border border-emerald-500/20 p-4 text-xs text-emerald-600 font-mono font-bold uppercase tracking-wider text-center">
-                🎉 Successfully joined waitlist! We will contact you once spots open for the next drop.
+                Successfully joined the waitlist. We will contact you when a placement becomes available.
               </div>
               <button
                 type="button"

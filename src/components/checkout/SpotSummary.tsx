@@ -25,15 +25,15 @@ export default function SpotSummary({
   spot,
 }: SpotSummaryProps) {
   const cityName = city.charAt(0).toUpperCase() + city.slice(1)
-  const stateName = state.charAt(0).toUpperCase() + state.slice(1)
+  const stateName = state.toUpperCase()
 
   return (
-    <div className="bg-stone-bg border border-border rounded-none p-6 space-y-6">
+    <div className="space-y-6 border border-border bg-stone-bg p-6">
       <div>
-        <h3 className="text-[10px] font-mono font-bold text-muted-foreground uppercase tracking-widest">
-          Selected Ad Space
+        <h3 className="font-mono text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+          Selected Campaign Placement
         </h3>
-        <p className="text-2xl font-extrabold text-foreground mt-1 uppercase tracking-tight">
+        <p className="mt-1 text-2xl font-extrabold uppercase tracking-tight text-foreground">
           {spot.label}
         </p>
       </div>
@@ -41,36 +41,40 @@ export default function SpotSummary({
       <hr className="border-border" />
 
       <div className="space-y-4">
-        {/* Category Exclusivity Badge */}
         {!spot.category.allowsMultipleAdvertisers && (
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-primary/5 border border-primary text-primary text-[10px] font-mono font-bold uppercase tracking-wider rounded-none">
-            🛡️ Exclusive Industry Category
+          <div className="inline-flex items-center gap-1.5 border border-primary bg-primary/5 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-wider text-primary">
+            Category Exclusive for This Campaign
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-4 text-xs font-mono">
+        <div className="grid grid-cols-2 gap-4 font-mono text-xs">
           <div>
-            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider">Postcard Side</span>
-            <span className="font-bold text-foreground uppercase mt-0.5 block">
-              {spot.side}
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+              Campaign Side
             </span>
+            <span className="mt-0.5 block font-bold uppercase text-foreground">{spot.side}</span>
           </div>
           <div>
-            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider">Size Tier</span>
-            <span className="font-bold text-foreground uppercase mt-0.5 block">
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+              Placement Type
+            </span>
+            <span className="mt-0.5 block font-bold uppercase text-foreground">
               {spot.spotType}
             </span>
           </div>
           <div className="col-span-2">
-            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider">Mailing Campaign</span>
-            <span className="font-sans font-bold text-foreground mt-0.5 block">
-              {campaignName}
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+              Mailing Campaign
             </span>
+            <span className="mt-0.5 block font-sans font-bold text-foreground">{campaignName}</span>
           </div>
           <div className="col-span-2">
-            <span className="block text-[10px] text-muted-foreground uppercase tracking-wider">Target Audience</span>
-            <span className="font-sans font-bold text-foreground mt-0.5 block">
-              Direct Mail to {new Intl.NumberFormat().format(mailingQuantity)} homes in {cityName}, {stateName}
+            <span className="block text-[10px] uppercase tracking-wider text-muted-foreground">
+              Estimated Distribution
+            </span>
+            <span className="mt-0.5 block font-sans font-bold text-foreground">
+              Approximately {new Intl.NumberFormat().format(mailingQuantity)} households in{" "}
+              {cityName}, {stateName}
             </span>
           </div>
         </div>
@@ -79,19 +83,21 @@ export default function SpotSummary({
       <hr className="border-border" />
 
       <div className="flex flex-col items-end space-y-1">
-        <div className="flex items-center justify-between w-full">
-          <span className="text-sm font-mono font-bold uppercase tracking-wider text-foreground">Total Price</span>
-          <span className="text-3xl font-black text-primary font-mono">
-            {formatPrice(spot.price)}
+        <div className="flex w-full items-center justify-between">
+          <span className="font-mono text-sm font-bold uppercase tracking-wider text-foreground">
+            Total Price
           </span>
+          <span className="font-mono text-3xl font-black text-primary">{formatPrice(spot.price)}</span>
         </div>
-        <span className="text-[10px] text-muted-foreground font-mono uppercase tracking-wider">
-          Approx. {(spot.price / mailingQuantity).toFixed(1)}¢ per home
+        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+          Approx. {(spot.price / mailingQuantity).toFixed(1)} cents per household
         </span>
       </div>
 
-      <div className="text-[9px] text-muted-foreground leading-relaxed text-center bg-card border border-border rounded-none p-3 shadow-inner font-mono uppercase tracking-wider">
-        🔒 Exclusivity locks after checkout. Your industry category is guaranteed. No direct competitors on the same mailer.
+      <div className="border border-border bg-card p-3 text-center font-mono text-[9px] uppercase leading-relaxed tracking-wider text-muted-foreground shadow-inner">
+        {spot.category.allowsMultipleAdvertisers
+          ? "This category may include multiple advertisers under the campaign settings."
+          : "This category is reserved for one advertiser in this campaign after successful checkout."}
       </div>
     </div>
   )

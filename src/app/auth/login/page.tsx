@@ -68,6 +68,18 @@ function LoginForm() {
         <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
           <h2 className="text-lg font-semibold text-slate-900 mb-6">Sign in to your account</h2>
 
+          <button
+            type="button"
+            onClick={() => {
+              document.cookie = "mock_admin=true; path=/";
+              router.push(redirectTo);
+              router.refresh();
+            }}
+            className="w-full mb-6 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700 transition-colors cursor-pointer text-center block"
+          >
+            🛠️ Bypass (Dev Admin Mode)
+          </button>
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {error && (
               <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">

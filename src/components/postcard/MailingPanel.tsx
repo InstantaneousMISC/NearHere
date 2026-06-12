@@ -19,7 +19,7 @@ export default function MailingPanel({
       <div className="flex justify-between items-start gap-4">
         {/* Return Address */}
         <div className="text-[7px] md:text-[8px] uppercase tracking-wider text-warm leading-tight font-bold">
-          <div>NearHere Drops</div>
+          <div>NearHere Campaigns</div>
           <div>100 Brand Way</div>
           <div>Austin, TX 78701</div>
         </div>

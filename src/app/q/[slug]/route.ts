@@ -51,26 +51,31 @@ export async function GET(
   const region = request.headers.get("x-vercel-ip-country-region") || null
   const city = request.headers.get("x-vercel-ip-city") || null
 
+  // Simple bot detection
+  const isBot = userAgent ? /bot|googlebot|crawler|spider|robot|crawling|lighthouse|pingdom|uptime|slurp|yahoo|bing|baidu|yandex/i.test(userAgent) : false
+
   // Async Log the Scan (catch errors so redirect never blocks)
-  try {
-    await db.qrScan.create({
-      data: {
-        qrCodeId: qrCode.id,
-        businessId: qrCode.businessId,
-        campaignId: qrCode.campaignId,
-        campaignSpotId: qrCode.campaignSpotId,
-        userAgent,
-        ipHash,
-        referrer,
-        deviceType,
-        country,
-        region,
-        city,
-        isExpiredScan: isExpired || isDisabled,
-      },
-    })
-  } catch (err) {
-    console.error(`[QR REDIRECT ERROR] Failed to record QrScan for ${slug}:`, err)
+  if (!isBot) {
+    try {
+      await db.qrScan.create({
+        data: {
+          qrCodeId: qrCode.id,
+          businessId: qrCode.businessId,
+          campaignId: qrCode.campaignId,
+          campaignSpotId: qrCode.campaignSpotId,
+          userAgent,
+          ipHash,
+          referrer,
+          deviceType,
+          country,
+          region,
+          city,
+          isExpiredScan: isExpired || isDisabled,
+        },
+      })
+    } catch (err) {
+      console.error(`[QR REDIRECT ERROR] Failed to record QrScan for ${slug}:`, err)
+    }
   }
 
   // If QR code is explicitly disabled, return a clean styled fallback page

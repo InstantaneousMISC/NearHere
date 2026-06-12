@@ -3,47 +3,54 @@ interface HowItWorksProps {
   state?: string
 }
 
-export default function HowItWorks({ city = "", state = "" }: HowItWorksProps) {
-  const cityName = city ? city.charAt(0).toUpperCase() + city.slice(1) : ""
+export default function HowItWorks({ city = "" }: HowItWorksProps) {
+  const cityName = city ? city.charAt(0).toUpperCase() + city.slice(1) : "your area"
 
   const steps = [
     {
       num: "01",
-      title: "Reserve Your Category",
-      desc: "Claim the only featured spot in your category for the next drop. First reserved, first featured."
+      title: "Reserve Your Spot",
+      desc: "Choose an available placement and business category to lock in your campaign spot.",
     },
     {
       num: "02",
-      title: "We Design Together",
-      desc: "Upload your logo & coupon deal. Our designers craft a clean editorial slot that fits the postcard. Someone will reach out to finalize mockups."
+      title: "Submit Business Details",
+      desc: "Send your logo, offer, phone number, website, and service area via our simple submission form.",
     },
     {
       num: "03",
-      title: "Quality Review",
-      desc: `We verify you're an active business with 4.0+ rating in ${cityName}. If review fails, you get 100% refunded immediately and the spot opens.`
+      title: "We Build Your Campaign Assets",
+      desc: "NearHere prepares your postcard ad, generates your QR code, builds your business profile, and adds your website backlink.",
     },
     {
       num: "04",
-      title: "Mail & Track Drops",
-      desc: "Mailed to 10,000 homes. The campaign moves to DESIGNING, PRINTING, and MAILED. You will be notified over email at each stage with tracking."
-    }
+      title: "Mail and Track Engagement",
+      desc: `The postcard is mailed to the ${cityName} campaign area. Your dashboard shows basic QR activity and profile visits.`,
+    },
   ]
 
   return (
-    <section className="bg-muted/30 border-t border-rule">
-      <div id="how" className="max-w-7xl mx-auto px-6 py-20">
-        <div className="flex flex-wrap items-end justify-between gap-4 mb-12">
+    <section className="border-t border-rule bg-muted/30">
+      <div id="how" className="mx-auto max-w-7xl px-6 py-20">
+        <div className="mb-12 flex flex-wrap items-end justify-between gap-4">
           <div>
             <p className="label-mono">How It Works</p>
-            <h2 className="headline-xl text-4xl md:text-5xl mt-4">Four steps to your neighborhood.</h2>
+            <h2 className="headline-xl mt-4 text-4xl md:text-5xl">
+              From reservation to campaign reporting.
+            </h2>
           </div>
         </div>
-        <div className="grid md:grid-cols-4 border border-rule bg-paper">
-          {steps.map((s, i) => (
-            <div key={s.num} className={`p-8 bg-paper ${i !== 3 ? "md:border-r border-rule" : ""} border-b md:border-b-0 last:border-b-0`}>
-              <div className="font-mono text-xs text-nh-red tracking-[0.14em]">STEP {s.num}</div>
-              <h3 className="headline-xl text-2xl mt-4 text-press leading-tight">{s.title}</h3>
-              <p className="mt-3 text-press/70 leading-relaxed text-sm">{s.desc}</p>
+        <div className="grid border border-rule bg-paper md:grid-cols-2 lg:grid-cols-4">
+          {steps.map((step, index) => (
+            <div
+              key={step.num}
+              className={`border-b border-rule bg-paper p-8 lg:border-b-0 ${
+                index !== steps.length - 1 ? "lg:border-r" : ""
+              }`}
+            >
+              <div className="font-mono text-xs tracking-[0.14em] text-nh-red">STEP {step.num}</div>
+              <h3 className="headline-xl mt-4 text-2xl leading-tight text-press">{step.title}</h3>
+              <p className="mt-3 text-sm leading-relaxed text-press/70">{step.desc}</p>
             </div>
           ))}
         </div>
@@ -51,4 +58,3 @@ export default function HowItWorks({ city = "", state = "" }: HowItWorksProps) {
     </section>
   )
 }
-

@@ -23,17 +23,6 @@ async function transitionOrderToPaid(
     if (!order) return "NOT_FOUND" as const
     if (order.status === OrderStatus.PAID) return "ALREADY_PAID" as const
 
-    if (order.campaignSpot.status === SpotStatus.SOLD) {
-      await tx.order.update({
-        where: { id: order.id },
-        data: {
-          status: OrderStatus.CANCELLED,
-          stripePaymentIntentId: paymentIntentId,
-        },
-      })
-      return "SPOT_UNAVAILABLE" as const
-    }
-
     await tx.order.update({
       where: { id: order.id },
       data: {

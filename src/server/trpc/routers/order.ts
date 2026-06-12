@@ -12,6 +12,7 @@ export const orderRouter = createTRPCRouter({
     .input(
       z.object({
         spotId: z.string(),
+        categoryId: z.string(),
         sessionId: z.string(),
         contactName: z.string().min(1),
         businessName: z.string().min(1),
@@ -21,10 +22,9 @@ export const orderRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Find the campaign spot
       const spot = await ctx.db.campaignSpot.findUnique({
         where: { id: input.spotId },
-        include: { campaign: true, category: true },
+        include: { campaign: true },
       })
 
       if (!spot) {
@@ -34,54 +34,93 @@ export const orderRouter = createTRPCRouter({
         })
       }
 
-      // Check if spot is available for this purchase
-      if (spot.status !== SpotStatus.OPEN && spot.status !== SpotStatus.HELD) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Spot is no longer available",
-        })
-      }
-
-      // Upsert advertiser by email
-      const advertiser = await ctx.db.advertiser.upsert({
-        where: { email: input.email },
-        update: {
-          contactName: input.contactName,
-          businessName: input.businessName,
-          phone: input.phone,
-          website: input.website || null,
-          businessAddress: null,
-          heardAboutUs: null,
-        },
-        create: {
-          email: input.email,
-          contactName: input.contactName,
-          businessName: input.businessName,
-          phone: input.phone,
-          website: input.website || null,
-          businessAddress: null,
-          heardAboutUs: null,
-        },
-      })
-
       const creativeSubmissionToken = generateCreativeToken()
+      const { order, advertiser, category } = await ctx.db.$transaction(
+        async (tx) => {
+          const lockedSpot = await tx.campaignSpot.findUnique({
+            where: { id: input.spotId },
+          })
+          if (!lockedSpot) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Spot not found",
+            })
+          }
 
-      // Create pending order
-      const order = await ctx.db.order.create({
-        data: {
-          campaignId: spot.campaignId,
-          campaignSpotId: spot.id,
-          advertiserId: advertiser.id,
-          amount: spot.price,
-          status: OrderStatus.PENDING,
-          creativeSubmissionToken,
-          creativeSubmission: {
-            create: {
-              businessName: input.businessName,
+          const category = await tx.businessCategory.findFirst({
+            where: {
+              id: input.categoryId,
+              isActive: true,
             },
-          },
+          })
+          if (!category) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Business category is not available",
+            })
+          }
+
+          const advertiser = await tx.advertiser.upsert({
+            where: { email: input.email },
+            update: {
+              contactName: input.contactName,
+              businessName: input.businessName,
+              phone: input.phone,
+              website: input.website || null,
+              businessAddress: null,
+              heardAboutUs: null,
+            },
+            create: {
+              email: input.email,
+              contactName: input.contactName,
+              businessName: input.businessName,
+              phone: input.phone,
+              website: input.website || null,
+              businessAddress: null,
+              heardAboutUs: null,
+            },
+          })
+
+          const shouldUpdateStatus =
+            lockedSpot.status === SpotStatus.OPEN ||
+            lockedSpot.status === SpotStatus.HELD
+
+          await tx.campaignSpot.update({
+            where: { id: lockedSpot.id },
+            data: {
+              categoryId: category.id,
+              ...(shouldUpdateStatus
+                ? {
+                    status: SpotStatus.HELD,
+                    heldBySessionId: input.sessionId,
+                    heldUntil: new Date(
+                      Date.now() + SPOT_HOLD_DURATION_MINUTES * 60 * 1000
+                    ),
+                  }
+                : {}),
+            },
+          })
+
+          const order = await tx.order.create({
+            data: {
+              campaignId: lockedSpot.campaignId,
+              campaignSpotId: lockedSpot.id,
+              advertiserId: advertiser.id,
+              amount: lockedSpot.price,
+              status: OrderStatus.PENDING,
+              creativeSubmissionToken,
+              creativeSubmission: {
+                create: {
+                  businessName: input.businessName,
+                },
+              },
+            },
+          })
+
+          return { order, advertiser, category }
         },
-      })
+        { isolationLevel: "Serializable" }
+      )
 
       const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
 
@@ -94,8 +133,8 @@ export const orderRouter = createTRPCRouter({
                 currency: "usd",
                 unit_amount: spot.price,
                 product_data: {
-                  name: `${spot.category.name} Ad Space`,
-                  description: `Exclusive advertisement space for the "${spot.category.name}" industry category on the "${spot.campaign.name}" postcard campaign.`,
+                  name: `${category.name} Ad Space`,
+                  description: `Exclusive advertisement space for the "${category.name}" industry category on the "${spot.campaign.name}" postcard campaign.`,
                 },
               },
               quantity: 1,
@@ -122,6 +161,28 @@ export const orderRouter = createTRPCRouter({
         }
       } catch (error) {
         console.error("[STRIPE ERROR] Failed to create checkout session:", error)
+        await ctx.db.$transaction([
+          ctx.db.order.deleteMany({
+            where: {
+              id: order.id,
+              status: OrderStatus.PENDING,
+              stripeCheckoutSessionId: null,
+            },
+          }),
+          ctx.db.campaignSpot.updateMany({
+            where: {
+              id: spot.id,
+              status: SpotStatus.HELD,
+              heldBySessionId: input.sessionId,
+            },
+            data: {
+              categoryId: spot.categoryId,
+              status: SpotStatus.OPEN,
+              heldBySessionId: null,
+              heldUntil: null,
+            },
+          }),
+        ])
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Could not initialize payment flow with Stripe. Please try again later.",

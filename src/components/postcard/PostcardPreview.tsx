@@ -30,6 +30,7 @@ interface PostcardPreviewProps {
   city: string
   slug: string
   onWaitlistClick: (category: { id: string; name: string }) => void
+  onReserveSpot?: (spot: PostcardSpot) => void
   cardSize?: string
   cardSkin?: string
 }
@@ -40,6 +41,7 @@ export default function PostcardPreview({
   city,
   slug,
   onWaitlistClick,
+  onReserveSpot,
   cardSize = "9x12",
   cardSkin = "cream"
 }: PostcardPreviewProps) {
@@ -77,7 +79,11 @@ export default function PostcardPreview({
     if (spot.status === "SOLD") {
       onWaitlistClick({ id: spot.category.id, name: spot.category.name })
     } else if (spot.status === "OPEN" || spot.status === "HELD") {
-      router.push(`/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}/checkout/${spot.id}`)
+      if (onReserveSpot) {
+        onReserveSpot(spot)
+      } else {
+        router.push(`/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}/checkout/${spot.id}`)
+      }
     }
   }
 

@@ -33,15 +33,15 @@ export function CampaignNav({ state, city, slug, isCheckoutPage = false }: Campa
         ) : (
           <>
             <nav className="hidden md:flex items-center gap-8">
-              <a href="#campaign" className="hover:text-nh-red transition-colors">Current Drop</a>
-              <a href="#how" className="hover:text-nh-red transition-colors">How It Works</a>
-              <a href="#categories" className="hover:text-nh-red transition-colors">Categories</a>
-              <a href="#pricing" className="hover:text-nh-red transition-colors">Pricing</a>
+              <a href="#campaign" className="hover:text-nh-red transition-colors">Overview</a>
+              <a href="#included" className="hover:text-nh-red transition-colors">What's Included</a>
+              <a href="#placements" className="hover:text-nh-red transition-colors">Placements</a>
+              <a href="#postcard" className="hover:text-nh-red transition-colors">Preview</a>
               <a href="#faq" className="hover:text-nh-red transition-colors">FAQ</a>
             </nav>
             <div className="flex items-center">
-              <a href="#categories" className="bg-nh-red text-paper px-5 py-2.5 font-headline font-bold uppercase tracking-wider text-xs hover:bg-press transition-colors">
-                Reserve Spot
+              <a href="#placements" className="bg-nh-red text-paper px-5 py-2.5 font-headline font-bold uppercase tracking-wider text-xs hover:bg-press transition-colors">
+                Reserve a Spot
               </a>
             </div>
           </>
@@ -50,4 +50,3 @@ export function CampaignNav({ state, city, slug, isCheckoutPage = false }: Campa
     </header>
   )
 }
-

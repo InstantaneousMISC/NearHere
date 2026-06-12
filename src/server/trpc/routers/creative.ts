@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init"
-import { ApprovalStatus } from "@prisma/client"
+import { ApprovalStatus, Prisma } from "@prisma/client"
 import { TRPCError } from "@trpc/server"
 import { sendLifecycleEmailOnce } from "@/server/email/sendLifecycleEmailOnce"
 import { getCreativeSubmissionReceivedTemplate } from "@/server/email/templates/creativeSubmissionReceived"
@@ -46,6 +46,10 @@ export const creativeRouter = createTRPCRouter({
         phone: z.string().optional(),
         website: z.string().url().optional().or(z.literal("")),
         address: z.string().optional(),
+        serviceArea: z.string().optional(),
+        hours: z.string().optional(),
+        preferredCta: z.string().optional(),
+        socialLinks: z.record(z.string(), z.string()).optional(),
         notes: z.string().max(1000).optional(),
         wantsAiHelp: z.boolean().default(false),
         aiPrompt: z.string().max(1000).optional(),
@@ -144,6 +148,10 @@ export const creativeRouter = createTRPCRouter({
           phone: input.phone,
           website: input.website || null,
           address: input.address,
+          serviceArea: input.serviceArea,
+          hours: input.hours,
+          preferredCta: input.preferredCta,
+          socialLinks: (input.socialLinks || Prisma.DbNull) as Prisma.InputJsonValue,
           notes: input.notes,
           wantsAiHelp: input.wantsAiHelp,
           aiPrompt: input.aiPrompt,
@@ -167,6 +175,10 @@ export const creativeRouter = createTRPCRouter({
           phone: input.phone,
           website: input.website || null,
           address: input.address,
+          serviceArea: input.serviceArea,
+          hours: input.hours,
+          preferredCta: input.preferredCta,
+          socialLinks: (input.socialLinks || Prisma.DbNull) as Prisma.InputJsonValue,
           notes: input.notes,
           wantsAiHelp: input.wantsAiHelp,
           aiPrompt: input.aiPrompt,
@@ -196,6 +208,10 @@ export const creativeRouter = createTRPCRouter({
               phone: input.phone || business.phone,
               website: input.website || business.website,
               address: input.address || business.address,
+              serviceArea: input.serviceArea !== undefined ? input.serviceArea : business.serviceArea,
+              hours: input.hours !== undefined ? input.hours : business.hours,
+              preferredCta: input.preferredCta !== undefined ? input.preferredCta : business.preferredCta,
+              socialLinks: (input.socialLinks !== undefined ? input.socialLinks : (business.socialLinks ?? Prisma.DbNull)) as Prisma.InputJsonValue,
             }
           })
         } else {
@@ -212,6 +228,10 @@ export const creativeRouter = createTRPCRouter({
               email: order.advertiser.email,
               website: input.website || order.advertiser.website,
               address: input.address || order.advertiser.businessAddress,
+              serviceArea: input.serviceArea || null,
+              hours: input.hours || null,
+              preferredCta: input.preferredCta || null,
+              socialLinks: (input.socialLinks || Prisma.DbNull) as Prisma.InputJsonValue,
               status: "ACTIVE"
             }
           })

@@ -5,6 +5,7 @@ import { trpc } from "@/components/providers"
 
 interface CheckoutFormProps {
   spotId: string
+  categoryId: string
   categoryName: string
   campaignUrl: string
   onLoadingChange?: (loading: boolean) => void
@@ -12,6 +13,7 @@ interface CheckoutFormProps {
 
 export default function CheckoutForm({
   spotId,
+  categoryId,
   categoryName,
   campaignUrl,
   onLoadingChange,
@@ -64,6 +66,7 @@ export default function CheckoutForm({
     try {
       const response = await createOrderMutation.mutateAsync({
         spotId,
+        categoryId,
         sessionId,
         contactName,
         businessName,
@@ -127,7 +130,7 @@ export default function CheckoutForm({
 
       {/* Category confirmation banner */}
       <div className="border border-border bg-stone-bg/25 p-4 rounded-none font-mono">
-        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Reserving Category</span>
+        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Selected Business Category</span>
         <span className="text-base font-extrabold text-foreground block uppercase mt-0.5">{categoryName}</span>
       </div>
 
@@ -187,7 +190,7 @@ export default function CheckoutForm({
               className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary transition-all"
             />
             <span className="text-[9px] font-mono text-muted-foreground block uppercase tracking-wider">
-              We'll send your invoice and creative link here.
+              We will send your receipt, profile link, and creative submission link here.
             </span>
           </div>
 
@@ -212,7 +215,7 @@ export default function CheckoutForm({
 
       <div className="space-y-4 pt-2">
         <h3 className="text-sm font-mono font-bold uppercase tracking-wider text-foreground border-b border-border pb-2">
-          Optional Details (For Ad Display)
+          Optional Business Details
         </h3>
 
         <div className="grid grid-cols-1 gap-4">
@@ -235,8 +238,16 @@ export default function CheckoutForm({
       </div>
 
       <div className="rounded-none bg-primary/5 border border-primary/20 p-4 font-sans text-xs text-muted-foreground leading-relaxed">
-        ℹ️ <span className="font-bold text-foreground">What happens after payment?</span> You will be immediately redirected to our post-checkout Partner Portal, where you can upload your business logo, select coupon/promo offers, customize your ad copy, and write designer display instructions.
+        <span className="font-bold text-foreground">What happens after payment?</span> Your placement
+        is reserved, then you can claim your business profile and submit your logo, offer,
+        description, and creative preferences. NearHere coordinates layout, print preparation, and
+        mailing.
       </div>
+
+      <p className="text-[10px] leading-relaxed text-muted-foreground">
+        Direct mail results vary by market, offer, creative, timing, and audience. NearHere does not
+        guarantee leads, calls, sales, revenue, or return on investment.
+      </p>
 
       <button
         type="submit"

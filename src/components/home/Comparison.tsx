@@ -1,9 +1,9 @@
 "use client"
 
 const points = [
-  { n: "01", text: "One Business Per Category. No competitors on your card.", active: true },
-  { n: "02", text: "Managed logistics. We handle design, print, and postage.", active: false },
-  { n: "03", text: "Targeted local zones. You pick the neighborhoods that matter.", active: false },
+  { n: "01", text: "Premium shared postcard mailing + campaign QR tracking.", active: true },
+  { n: "02", text: "Public NearHere Business Profile + website backlink included.", active: false },
+  { n: "03", text: "Done-for-you layout design, print coordination, and mailing.", active: false },
 ]
 
 export function Comparison() {
@@ -16,26 +16,26 @@ export function Comparison() {
               Why share the card?
             </h2>
             <p className="mt-6 text-lg text-muted-foreground">
-              Direct mail works because it's tangible — but it's traditionally expensive. We solve
-              the cost barrier by letting six complementary businesses share one high-quality,
-              oversized mailer.
+              NearHere combines complementary local advertisers on one premium oversized postcard.
+              Shared production gives each business a clear placement, offer, contact paths, and a
+              trackable QR destination without managing a full solo mailing.
             </p>
             <div className="mt-12 space-y-4">
-              {points.map((p) => (
+              {points.map((point) => (
                 <div
-                  key={p.n}
+                  key={point.n}
                   className={`flex items-center gap-4 border-l-2 pl-6 ${
-                    p.active ? "border-primary" : "border-border"
+                    point.active ? "border-primary" : "border-border"
                   }`}
                 >
                   <div
-                    className={`flex size-12 items-center justify-center bg-stone-bg font-bold italic shrink-0 ${
-                      p.active ? "text-primary" : "text-muted-foreground"
+                    className={`flex size-12 shrink-0 items-center justify-center bg-stone-bg font-bold italic ${
+                      point.active ? "text-primary" : "text-muted-foreground"
                     }`}
                   >
-                    {p.n}
+                    {point.n}
                   </div>
-                  <p className="font-medium">{p.text}</p>
+                  <p className="font-medium">{point.text}</p>
                 </div>
               ))}
             </div>
@@ -45,43 +45,53 @@ export function Comparison() {
             <div className="overflow-hidden border border-foreground">
               <div className="bg-foreground p-4 text-background">
                 <h3 className="font-mono text-xs font-medium uppercase tracking-widest">
-                  Campaign Cost Comparison
+                  Campaign Model
                 </h3>
               </div>
               <table className="w-full text-left text-sm">
                 <thead className="border-b border-border bg-stone-bg font-mono text-[10px] uppercase text-muted-foreground">
                   <tr>
-                    <th className="px-6 py-3">Feature</th>
-                    <th className="px-6 py-3">Solo Direct Mail</th>
-                    <th className="px-6 py-3 text-primary">Shared Mail</th>
+                    <th className="px-6 py-3">Included</th>
+                    <th className="px-6 py-3">Self-Managed Mail</th>
+                    <th className="px-6 py-3 text-primary">NearHere</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border bg-card">
                   <tr>
-                    <td className="px-6 py-4 font-medium">Reach</td>
-                    <td className="px-6 py-4 text-muted-foreground">5,000 Homes</td>
-                    <td className="px-6 py-4 font-bold">5,000 Homes</td>
+                    <td className="px-6 py-4 font-medium">Creative layout</td>
+                    <td className="px-6 py-4 text-muted-foreground">Coordinate separately</td>
+                    <td className="px-6 py-4 font-bold">Included</td>
                   </tr>
                   <tr>
-                    <td className="px-6 py-4 font-medium">Design & Prep</td>
-                    <td className="px-6 py-4 text-muted-foreground">$500 – $1,200</td>
-                    <td className="px-6 py-4 font-bold italic text-primary">Included</td>
+                    <td className="px-6 py-4 font-medium">Print and mailing</td>
+                    <td className="px-6 py-4 text-muted-foreground">Manage vendors</td>
+                    <td className="px-6 py-4 font-bold italic text-primary">Coordinated</td>
                   </tr>
                   <tr>
-                    <td className="px-6 py-4 font-medium">Postage & Print</td>
-                    <td className="px-6 py-4 text-muted-foreground">$3,500+</td>
-                    <td className="px-6 py-4 font-bold">$695</td>
+                    <td className="px-6 py-4 font-medium">QR tracking destination</td>
+                    <td className="px-6 py-4 text-muted-foreground">Set up separately</td>
+                    <td className="px-6 py-4 font-bold">Included</td>
+                  </tr>
+                  <tr>
+                    <td className="px-6 py-4 font-medium">Public Business Profile</td>
+                    <td className="px-6 py-4 text-muted-foreground">Build own site</td>
+                    <td className="px-6 py-4 font-bold">Included</td>
+                  </tr>
+                  <tr>
+                    <td className="px-6 py-4 font-medium">Website backlink</td>
+                    <td className="px-6 py-4 text-muted-foreground">Not included</td>
+                    <td className="px-6 py-4 font-bold text-primary italic">Included</td>
                   </tr>
                   <tr className="bg-stone-bg">
-                    <td className="px-6 py-6 font-bold">Total Investment</td>
-                    <td className="px-6 py-6 text-muted-foreground line-through">$4,000+</td>
-                    <td className="px-6 py-6 text-2xl font-extrabold text-primary">$695</td>
+                    <td className="px-6 py-6 font-bold">Campaign placement</td>
+                    <td className="px-6 py-6 text-muted-foreground">Full-mailer budget</td>
+                    <td className="px-6 py-6 text-2xl font-extrabold text-primary">From $490</td>
                   </tr>
                 </tbody>
               </table>
             </div>
             <p className="mt-4 text-center text-xs text-muted-foreground">
-              *Based on average 9x12 oversized campaign costs in suburban markets.
+              Placement availability and estimated household distribution vary by campaign.
             </p>
           </div>
         </div>

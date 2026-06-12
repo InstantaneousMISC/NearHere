@@ -398,7 +398,7 @@ export default function SetupWizardPage() {
                   Step 2: Contact Information
                 </h2>
                 <p className="text-xs text-[#77706A]">
-                  How should local customers reach you? You must provide either a phone number or a website.
+                  How should local residents reach your business? Provide either a phone number or a website.
                 </p>
               </div>
 
@@ -463,7 +463,7 @@ export default function SetupWizardPage() {
                   Step 3: Social & Action Links
                 </h2>
                 <p className="text-xs text-[#77706A]">
-                  Add booking, Facebook, or Instagram links to redirect scanning customers (all links are optional).
+                  Add optional booking, Facebook, or Instagram links for visitors to your business page.
                 </p>
               </div>
 

@@ -53,12 +53,14 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6 pb-6 border-b border-border">
           <div className="space-y-1.5">
             <span className="text-xs font-mono font-bold text-primary uppercase tracking-widest block">
-              Partner Portal
+              Campaign Creative
             </span>
             <h1 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight uppercase font-mono">
-              Ad Creative Assets & Details
+              Submit Your Ad Details
             </h1>
-            <p className="text-muted-foreground text-sm font-sans">
+            <p className="max-w-2xl text-sm leading-relaxed text-muted-foreground font-sans">
+              Provide the business details, offer, and contact information you want residents to
+              see. NearHere will prepare the placement and coordinate any revisions before print.
               Campaign: <span className="font-semibold text-foreground">{order.campaign.name}</span>
             </p>
           </div>
@@ -88,10 +90,12 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
             {/* Industry Space Lock */}
             <div className="bg-stone-bg border border-foreground text-foreground p-6 space-y-4 rounded-none">
               <h3 className="text-base font-bold font-mono uppercase tracking-wider text-primary flex items-center gap-2">
-                🔒 Spot Secured
+                Placement Reserved
               </h3>
               <p className="text-xs text-muted-foreground leading-relaxed font-sans">
-                Your payment succeeded. The <strong>{order.campaignSpot.category.name}</strong> category is locked exclusively for <strong>{order.advertiser.businessName}</strong>. No competitors will be placed on this card.
+                Payment is complete and the <strong>{order.campaignSpot.category.name}</strong>{" "}
+                placement is reserved for <strong>{order.advertiser.businessName}</strong>.
+                Category exclusivity applies where campaign settings provide it.
               </p>
               <div className="text-[9px] text-muted-foreground font-mono border-t border-border pt-3 uppercase tracking-wider">
                 Order ID: {order.id.substring(0, 12)}...
@@ -111,13 +115,13 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
                 </div>
                 <hr className="border-border" />
                 <div className="space-y-1">
-                  <span className="font-bold text-foreground block font-mono uppercase tracking-wide text-[10px]">Copy Constraints</span>
-                  <p className="leading-relaxed">Keep descriptions brief and promo offers clear. Homeowners scan postcards quickly, so big bold text performs best.</p>
+                  <span className="font-bold text-foreground block font-mono uppercase tracking-wide text-[10px]">Clear, Readable Copy</span>
+                  <p className="leading-relaxed">Use a short description, a specific offer, and a direct next step. NearHere may shorten copy to fit the approved layout.</p>
                 </div>
                 <hr className="border-border" />
                 <div className="space-y-1">
-                  <span className="font-bold text-foreground block font-mono uppercase tracking-wide text-[10px]">Showcase Images</span>
-                  <p className="leading-relaxed">Upload clear photos of completed work projects or key products. Max 5 images, up to 8MB each.</p>
+                  <span className="font-bold text-foreground block font-mono uppercase tracking-wide text-[10px]">Optional Business Images</span>
+                  <p className="leading-relaxed">Upload clear work, team, or product photos if they support your placement. Maximum 5 images, up to 8MB each.</p>
                 </div>
               </div>
             </div>

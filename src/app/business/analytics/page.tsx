@@ -40,7 +40,7 @@ export default function BusinessAnalyticsPage() {
           QR Scan & Engagement Reports
         </h1>
         <p className="text-xs text-warm font-medium">
-          Monitor customer interaction across your printed postcards and online links.
+          Review recorded QR scans, business page views, and tracked outbound link activity.
         </p>
       </div>
 
@@ -51,10 +51,10 @@ export default function BusinessAnalyticsPage() {
         <div className="bg-white border-2 border-press p-6 rounded-none shadow-sm flex flex-col justify-between space-y-6">
           <div className="space-y-0.5 text-left border-b border-rule pb-2">
             <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press">
-              Postcard QR Scans by Campaign
+              Recorded QR Scans by Campaign
             </h3>
             <p className="text-[11px] text-warm font-medium">
-              Comparison of scans across different mail drops.
+              Comparison of recorded scans across your NearHere campaigns.
             </p>
           </div>
 
@@ -145,10 +145,10 @@ export default function BusinessAnalyticsPage() {
         
         <div className="p-6 border-b border-rule text-left">
           <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press">
-            Real-Time Scan Log (Latest 10)
+            Recent Scan Activity
           </h3>
           <p className="text-[11px] text-warm font-medium">
-            Live stream of customer scans from their mobile devices.
+            The latest recorded QR scan events associated with your campaign placements.
           </p>
         </div>
 

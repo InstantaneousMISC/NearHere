@@ -173,4 +173,114 @@ export const spotRouter = createTRPCRouter({
 
       return { success: true }
     }),
+
+  getOrCreateSpotForPlan: publicProcedure
+    .input(
+      z.object({
+        campaignId: z.string(),
+        planKey: z.string(),
+        categoryId: z.string(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      let side: PostcardSide = "FRONT"
+      let spotType: SpotType = "STANDARD"
+      let label = ""
+      let price = 0
+
+      if (input.planKey === "front-standard") {
+        side = "FRONT"
+        spotType = "STANDARD"
+        label = "Front Standard"
+        price = 49000
+      } else if (input.planKey === "back-standard") {
+        side = "BACK"
+        spotType = "STANDARD"
+        label = "Back Standard"
+        price = 59000
+      } else if (input.planKey === "premium-center") {
+        side = "BACK"
+        spotType = "PREMIUM"
+        label = "Premium Center Back"
+        price = 149000
+      } else if (input.planKey === "front-double") {
+        side = "FRONT"
+        spotType = "LARGE"
+        label = "Front Double"
+        price = 89000
+      } else if (input.planKey === "back-double") {
+        side = "BACK"
+        spotType = "LARGE"
+        label = "Back Double"
+        price = 99000
+      } else if (input.planKey === "standard") {
+        side = "FRONT"
+        spotType = "STANDARD"
+        label = "Standard Feature"
+        price = 45000
+      } else if (input.planKey === "premium") {
+        side = "FRONT"
+        spotType = "PREMIUM"
+        label = "Premium Feature"
+        price = 100000
+      } else {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Invalid plan key: ${input.planKey}`,
+        })
+      }
+
+      // Check category existence
+      const category = await ctx.db.businessCategory.findUnique({
+        where: { id: input.categoryId },
+      })
+      if (!category) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Category not found",
+        })
+      }
+
+      const hasCategoryConflict = !category.allowsMultipleAdvertisers && await ctx.db.campaignSpot.findFirst({
+        where: {
+          campaignId: input.campaignId,
+          categoryId: input.categoryId,
+          status: SpotStatus.SOLD,
+        },
+      })
+
+      // If not double spot and no category conflict, look for an existing OPEN spot
+      if (input.planKey !== "front-double" && input.planKey !== "back-double" && !hasCategoryConflict) {
+        const openSpot = await ctx.db.campaignSpot.findFirst({
+          where: {
+            campaignId: input.campaignId,
+            side,
+            spotType,
+            status: SpotStatus.OPEN,
+          },
+        })
+        if (openSpot) {
+          return { spotId: openSpot.id }
+        }
+      }
+
+      // Otherwise, create a virtual/overbooked spot
+      const virtualSpot = await ctx.db.campaignSpot.create({
+        data: {
+          campaignId: input.campaignId,
+          categoryId: input.categoryId,
+          label: `${label} (Virtual)`,
+          side,
+          spotType,
+          price,
+          x: 0,
+          y: 0,
+          width: 0,
+          height: 0,
+          status: SpotStatus.OPEN,
+        },
+      })
+
+      return { spotId: virtualSpot.id }
+    }),
 })

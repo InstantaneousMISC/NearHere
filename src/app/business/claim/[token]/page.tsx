@@ -153,7 +153,7 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
           <span className="text-[#211D1C]">Near</span>Here
         </div>
         <p className="text-[10px] font-mono tracking-widest uppercase text-[#77706A] mt-1">
-          Merchant Onboarding Portal
+          Advertiser Onboarding
         </p>
       </div>
 
@@ -192,7 +192,7 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
               <div className="space-y-4">
                 <div className="text-left space-y-1">
                   <h3 className="font-headline font-extrabold uppercase text-sm text-[#211D1C] tracking-tight">
-                    Step 1: Authenticate Your Merchant Account
+                    Step 1: Create Your Advertiser Account
                   </h3>
                   <p className="text-xs text-[#77706A] leading-relaxed">
                     To claim your listing, you must log in or sign up below. Please register using the same email address that received the claim link.
@@ -241,7 +241,7 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
                       required
                       value={authEmail}
                       onChange={(e) => setAuthEmail(e.target.value)}
-                      placeholder="merchant@mybusiness.com"
+                      placeholder="advertiser@mybusiness.com"
                       className="w-full rounded-none border border-[#E7E0D8] px-3 py-2 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
                     />
                   </div>

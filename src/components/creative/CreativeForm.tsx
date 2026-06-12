@@ -3,6 +3,8 @@
 import { useState } from "react"
 import { useUploadThing } from "@/lib/uploadthing"
 import { trpc } from "@/components/providers"
+import { findCategoryByName } from "@/data/advertiserCategories"
+import { validatePhone, validateAndNormalizeUrl } from "@/lib/validation"
 
 interface CreativeFormProps {
   token: string
@@ -12,6 +14,11 @@ interface CreativeFormProps {
       phone: string
       website: string | null
       businessAddress: string | null
+    }
+    campaignSpot?: {
+      category?: {
+        name: string
+      }
     }
     campaign?: {
       status: string
@@ -28,6 +35,10 @@ interface CreativeFormProps {
     phone: string | null
     website: string | null
     address: string | null
+    serviceArea?: string | null
+    hours?: string | null
+    preferredCta?: string | null
+    socialLinks?: any | null
     notes: string | null
     wantsAiHelp: boolean
     aiPrompt: string | null
@@ -67,9 +78,33 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
   const [phone, setPhone] = useState(initialData?.phone || order.advertiser.phone || "")
   const [website, setWebsite] = useState(initialData?.website || order.advertiser.website || "")
   const [address, setAddress] = useState(initialData?.address || order.advertiser.businessAddress || "")
+  const [serviceArea, setServiceArea] = useState(initialData?.serviceArea || "")
+  const [hours, setHours] = useState(initialData?.hours || "")
+
+  // Parse social links
+  let initialSocials: Record<string, string> = { facebook: "", instagram: "", twitter: "" }
+  if (initialData?.socialLinks) {
+    try {
+      const parsed = typeof initialData.socialLinks === 'string'
+        ? JSON.parse(initialData.socialLinks)
+        : initialData.socialLinks
+      initialSocials = { ...initialSocials, ...parsed }
+    } catch {
+      initialSocials = { facebook: "", instagram: "", twitter: "" }
+    }
+  }
+  const [facebook, setFacebook] = useState(initialSocials.facebook || "")
+  const [instagram, setInstagram] = useState(initialSocials.instagram || "")
+  const [twitter, setTwitter] = useState(initialSocials.twitter || "")
+
   const [notes, setNotes] = useState(initialData?.notes || "")
   const [wantsAiHelp, setWantsAiHelp] = useState(initialData?.wantsAiHelp || false)
   const [aiPrompt, setAiPrompt] = useState(initialData?.aiPrompt || "")
+
+  // Get category-specific suggested offers based on confirmed spot category
+  const categoryName = order.campaignSpot?.category?.name || ""
+  const categoryData = findCategoryByName(categoryName)
+  const suggestedOffers = categoryData?.idealOffers || []
 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
@@ -144,6 +179,56 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
       return
     }
 
+    if (phone.trim() && !validatePhone(phone)) {
+      setError("Please enter a valid phone number (at least 10 digits).")
+      setSaveLoading(false)
+      return
+    }
+
+    let normalizedWebsite = website.trim()
+    if (normalizedWebsite) {
+      const normalized = validateAndNormalizeUrl(normalizedWebsite)
+      if (!normalized) {
+        setError("Please enter a valid website URL.")
+        setSaveLoading(false)
+        return
+      }
+      normalizedWebsite = normalized
+    }
+
+    let normalizedFacebook = facebook.trim()
+    if (normalizedFacebook) {
+      const normalized = validateAndNormalizeUrl(normalizedFacebook)
+      if (!normalized) {
+        setError("Please enter a valid Facebook URL.")
+        setSaveLoading(false)
+        return
+      }
+      normalizedFacebook = normalized
+    }
+
+    let normalizedInstagram = instagram.trim()
+    if (normalizedInstagram) {
+      const normalized = validateAndNormalizeUrl(normalizedInstagram)
+      if (!normalized) {
+        setError("Please enter a valid Instagram URL.")
+        setSaveLoading(false)
+        return
+      }
+      normalizedInstagram = normalized
+    }
+
+    let normalizedTwitter = twitter.trim()
+    if (normalizedTwitter) {
+      const normalized = validateAndNormalizeUrl(normalizedTwitter)
+      if (!normalized) {
+        setError("Please enter a valid Twitter/X URL.")
+        setSaveLoading(false)
+        return
+      }
+      normalizedTwitter = normalized
+    }
+
     try {
       await upsertMutation.mutateAsync({
         token,
@@ -155,8 +240,12 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
         description: description.trim() ? description : undefined,
         cta: cta.trim() ? cta : undefined,
         phone: phone.trim() ? phone : undefined,
-        website: website.trim() ? website : undefined,
+        website: normalizedWebsite || undefined,
         address: address.trim() ? address : undefined,
+        serviceArea: serviceArea.trim() ? serviceArea : undefined,
+        hours: hours.trim() ? hours : undefined,
+        preferredCta: cta.trim() ? cta : undefined,
+        socialLinks: { facebook: normalizedFacebook, instagram: normalizedInstagram, twitter: normalizedTwitter },
         notes: notes.trim() ? notes : undefined,
         wantsAiHelp,
         aiPrompt: wantsAiHelp && aiPrompt.trim() ? aiPrompt : undefined,
@@ -173,6 +262,14 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
 
   return (
     <form onSubmit={handleFormSubmit} className="space-y-8">
+      {/* Introduction Copy */}
+      <div className="rounded-none border border-border bg-[#FAF8F4] p-5 text-sm text-press leading-relaxed font-sans space-y-2">
+        <h4 className="font-bold text-base uppercase text-primary tracking-wide">Postcard Ad & Business Profile Details</h4>
+        <p>
+          Use this form to send us the details needed to build your postcard ad and your included NearHere Business Profile. Your profile can feature your business description, offer, phone number, service area, website link, and QR campaign destination.
+        </p>
+      </div>
+
       {isPrintedOrMailed && (
         <div className="rounded-none bg-amber-500/10 border border-amber-500/20 p-4 text-sm text-amber-800 font-medium font-sans">
           ⚠️ One or more of your postcard campaigns has already been printed or mailed. Changes here may update your digital landing page, but they will not change the physical postcard.
@@ -198,6 +295,23 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
         </h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Business Category (Read-only/Confirm) */}
+          <div className="space-y-1.5 md:col-span-2 bg-stone-bg/30 p-3 border border-border/60">
+            <label className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+              Business Category
+            </label>
+            <input
+              type="text"
+              readOnly
+              disabled
+              value={order.campaignSpot?.category?.name || "Local Business"}
+              className="w-full rounded-none border border-border bg-stone-bg/50 px-4 py-2.5 text-xs text-muted-foreground focus:outline-none cursor-not-allowed uppercase font-mono tracking-wider font-bold"
+            />
+            <p className="text-[10px] leading-relaxed text-muted-foreground mt-1">
+              Confirmed business category reserved for your campaign spot.
+            </p>
+          </div>
+
           {/* Business Display Name */}
           <div className="space-y-1.5">
             <label htmlFor="businessName" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
@@ -272,7 +386,7 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label htmlFor="offerDeal" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                Special Offer / Promo Coupon
+                Offer / Promotion
               </label>
               <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">{offerDeal.length}/160 chars</span>
             </div>
@@ -286,8 +400,45 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               placeholder="e.g. $50 OFF any service call! Mention this card. Expires 12/31."
               className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            
+            {/* Suggested Offers suggestions grid */}
+            {suggestedOffers.length > 0 && !isPrintedOrMailed && (
+              <div className="space-y-2 pt-1 pb-2">
+                <span className="block text-[10px] font-mono font-bold uppercase tracking-wider text-[#77706A]">
+                  💡 Suggested Offers for {categoryName} (click to pre-fill):
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {suggestedOffers.map((offer, idx) => {
+                    const isSelected = offerDeal === offer
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => setOfferDeal(offer)}
+                        className={`text-left text-xs p-3 border transition-all duration-200 select-none cursor-pointer rounded-none flex items-center justify-between group ${
+                          isSelected
+                            ? "bg-[#211D1C] text-[#FAF8F4] border-[#211D1C]"
+                            : "bg-[#FAF8F4] text-[#211D1C] border-[#E7E0D8] hover:bg-[#FAF8F4]/80 hover:border-[#211D1C] hover:-translate-y-[1px]"
+                        }`}
+                      >
+                        <span className="font-sans font-medium line-clamp-2 pr-2 leading-relaxed">{offer}</span>
+                        <span className={`text-[9px] font-mono uppercase font-bold shrink-0 transition-opacity ${
+                          isSelected ? "text-[#C9993E] opacity-100" : "opacity-0 group-hover:opacity-100 text-[#D13F1F]"
+                        }`}>
+                          {isSelected ? "Active" : "Use Offer"}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="rounded-none bg-primary/5 border border-primary/20 p-3 mt-1.5 text-[11px] text-muted-foreground leading-relaxed font-sans">
-              💡 <span className="font-bold text-foreground">Pro-tip for maximum return:</span> We highly recommend offering a clear deal (such as <span className="font-semibold text-primary">"$50 OFF"</span>, <span className="font-semibold text-primary">"10% Discount"</span>, or a <span className="font-semibold text-primary">"Free Inspection"</span>). Direct-mail coupons create strong local value for homeowners and dramatically increase your booking rate.
+              <span className="font-bold text-foreground">Make the value easy to understand:</span>{" "}
+              Examples include <span className="font-semibold text-primary">"$50 off a completed service"</span>,{" "}
+              <span className="font-semibold text-primary">"10% off a first project"</span>, or{" "}
+              <span className="font-semibold text-primary">"Free estimate"</span>. Offers must be accurate and include any important restrictions.
             </div>
           </div>
 
@@ -295,7 +446,7 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label htmlFor="description" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                Short Description / Bullet Points
+                Business Description
               </label>
               <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">{description.length}/300 chars</span>
             </div>
@@ -309,13 +460,17 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               placeholder="e.g. Friendly technicians, 24/7 emergency service, family-owned since 1999."
               className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all resize-none disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            <p className="text-[10px] leading-relaxed text-muted-foreground">
+              Describe what you do in plain language. Aim for one short sentence that a homeowner
+              can understand quickly.
+            </p>
           </div>
 
           {/* CTA */}
           <div className="space-y-1.5">
             <div className="flex justify-between items-center">
               <label htmlFor="cta" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
-                Call to Action
+                Call to Action Text
               </label>
               <span className="text-[9px] font-mono text-muted-foreground uppercase tracking-wider">{cta.length}/60 chars</span>
             </div>
@@ -329,6 +484,10 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               placeholder="e.g. Call today to book your appointment!"
               className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            <p className="text-[10px] leading-relaxed text-muted-foreground">
+              Use a direct next step such as "Call for an estimate," "Scan to book," or "Visit our
+              website."
+            </p>
           </div>
         </div>
       </div>
@@ -368,6 +527,9 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               onChange={(e) => setWebsite(e.target.value)}
               className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
+            <p className="text-[9px] leading-relaxed text-muted-foreground mt-1 font-mono uppercase">
+              We’ll use this for your business profile, postcard QR destination, and website backlink.
+            </p>
           </div>
 
           {/* Address */}
@@ -384,18 +546,113 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
               className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             />
           </div>
+
+          {/* Service Area */}
+          <div className="space-y-1.5">
+            <label htmlFor="displayServiceArea" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+              Service Area / City
+            </label>
+            <input
+              id="displayServiceArea"
+              type="text"
+              disabled={saveLoading || isPrintedOrMailed}
+              value={serviceArea}
+              onChange={(e) => setServiceArea(e.target.value)}
+              placeholder="e.g. Converse, TX & surrounding areas"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
+
+          {/* Hours */}
+          <div className="space-y-1.5">
+            <label htmlFor="displayHours" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+              Hours (if provided)
+            </label>
+            <input
+              id="displayHours"
+              type="text"
+              disabled={saveLoading || isPrintedOrMailed}
+              value={hours}
+              onChange={(e) => setHours(e.target.value)}
+              placeholder="e.g. Mon-Fri: 8AM - 5PM"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            />
+          </div>
         </div>
+      </div>
+
+      {/* Social Links Section */}
+      <div className="space-y-4 pt-4">
+        <h3 className="text-sm font-mono font-bold uppercase tracking-wider text-foreground border-b border-border pb-2">
+          3.5. Social Links (Optional)
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {/* Facebook */}
+          <div className="space-y-1.5">
+            <label htmlFor="facebookLink" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+              Facebook URL
+            </label>
+            <input
+              id="facebookLink"
+              type="url"
+              disabled={saveLoading}
+              value={facebook}
+              onChange={(e) => setFacebook(e.target.value)}
+              placeholder="https://facebook.com/yourpage"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+            />
+          </div>
+
+          {/* Instagram */}
+          <div className="space-y-1.5">
+            <label htmlFor="instagramLink" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+              Instagram URL
+            </label>
+            <input
+              id="instagramLink"
+              type="url"
+              disabled={saveLoading}
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+              placeholder="https://instagram.com/yourprofile"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+            />
+          </div>
+
+          {/* Twitter */}
+          <div className="space-y-1.5">
+            <label htmlFor="twitterLink" className="block text-xs font-mono font-bold uppercase tracking-wider text-muted-foreground">
+              Twitter / X URL
+            </label>
+            <input
+              id="twitterLink"
+              type="url"
+              disabled={saveLoading}
+              value={twitter}
+              onChange={(e) => setTwitter(e.target.value)}
+              placeholder="https://x.com/yourhandle"
+              className="w-full rounded-none border border-border bg-background px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="border border-border bg-stone-bg/30 p-4 text-xs leading-relaxed text-muted-foreground">
+        <span className="font-bold text-foreground">Your unique QR destination:</span> NearHere
+        creates the QR code for your placement. It links to your local business page and supports
+        basic scan activity reporting, so you do not need to upload a QR code.
       </div>
 
       {/* Image Showcase */}
       <div className="space-y-4 pt-4">
         <h3 className="text-sm font-mono font-bold uppercase tracking-wider text-foreground border-b border-border pb-2">
-          4. Ad Showcase Images (e.g. Work Samples, Staff - Max 5, 8MB each)
+          4. Optional Business Images (Work, Team, or Products - Max 5, 8MB each)
         </h3>
 
         <div className="space-y-4">
           <label className="cursor-pointer inline-flex items-center justify-center bg-stone-bg hover:bg-stone-bg/85 border border-border text-foreground font-mono text-[10px] uppercase font-bold tracking-widest px-4 py-3 rounded-none transition-colors">
-            {isImagesUploading ? "Uploading Showcase..." : "Select Showcase Images"}
+            {isImagesUploading ? "Uploading Images..." : "Select Business Images"}
             <input
               type="file"
               multiple
@@ -411,7 +668,7 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
               {additionalImages.map((img, idx) => (
                 <div key={idx} className="relative aspect-square border border-border bg-white rounded-none overflow-hidden shadow-sm group">
-                  <img src={img} alt="Showcase" className="w-full h-full object-cover" />
+                  <img src={img} alt="Business submission" className="w-full h-full object-cover" />
                   <button
                     type="button"
                     onClick={() => handleRemoveImage(idx)}
@@ -438,8 +695,8 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
             className="w-5 h-5 text-primary border-border focus:ring-primary focus:ring-2 rounded-none mt-0.5"
           />
           <div>
-            <span className="block text-sm font-bold text-foreground">🪄 Request AI Design Assistant Copy Help</span>
-            <span className="block text-[10px] text-muted-foreground uppercase font-mono tracking-wider mt-1">Our copywriting assistant will write headline ideas and offers based on your notes.</span>
+            <span className="block text-sm font-bold text-foreground">Request Copy Help</span>
+            <span className="block text-[10px] text-muted-foreground uppercase font-mono tracking-wider mt-1">NearHere can suggest headline and offer wording based on the notes you provide.</span>
           </div>
         </label>
 
@@ -482,7 +739,7 @@ export default function CreativeForm({ token, order, initialData }: CreativeForm
         disabled={saveLoading || isLogoUploading || isImagesUploading}
         className="w-full inline-flex items-center justify-center bg-foreground text-background border border-foreground font-bold tracking-wider uppercase text-sm py-4 transition-all hover:bg-primary hover:text-primary-foreground hover:border-primary disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer select-none rounded-none"
       >
-        {saveLoading ? "Saving Ad Details..." : "Save Ad Details & Assets"}
+        {saveLoading ? "Submitting Creative Details..." : "Submit Creative Details"}
       </button>
     </form>
   )

@@ -31,21 +31,26 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Simple bot detection
+  const isBot = userAgent ? /bot|googlebot|crawler|spider|robot|crawling|lighthouse|pingdom|uptime|slurp|yahoo|bing|baidu|yandex/i.test(userAgent) : false
+
   // Record Click Event
-  try {
-    await db.businessClickEvent.create({
-      data: {
-        businessId,
-        qrCodeId,
-        linkType: type,
-        linkLabel: label,
-        targetUrl: target,
-        userAgent,
-        ipHash,
-      },
-    })
-  } catch (err) {
-    console.error("[CLICK TRACKER ERROR] Failed to record BusinessClickEvent:", err)
+  if (!isBot) {
+    try {
+      await db.businessClickEvent.create({
+        data: {
+          businessId,
+          qrCodeId,
+          linkType: type,
+          linkLabel: label,
+          targetUrl: target,
+          userAgent,
+          ipHash,
+        },
+      })
+    } catch (err) {
+      console.error("[CLICK TRACKER ERROR] Failed to record BusinessClickEvent:", err)
+    }
   }
 
   // Redirect to target

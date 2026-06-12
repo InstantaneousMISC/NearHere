@@ -47,7 +47,7 @@ export default function AdminCreativeReviewPage() {
   }
 
   const handleApprove = async (submissionId: string) => {
-    if (!confirm("Are you sure you want to approve this postcard creative for printing?")) return
+    if (!confirm("Are you sure you want to approve this campaign creative for printing?")) return
     setSubmittingReview(true)
 
     try {
@@ -103,7 +103,7 @@ export default function AdminCreativeReviewPage() {
         approvalStatus: "REJECTED",
         approvalNotes: rejectionNotes,
       })
-      alert("Creative status updated to Needs Changes. Merchant notified.")
+      alert("Creative status updated to Needs Changes. Advertiser notified.")
       setShowRejectForm(false)
       setRejectionNotes("")
       utils.creative.getSoldSpotsForReview.invalidate()
@@ -293,7 +293,7 @@ export default function AdminCreativeReviewPage() {
         
         {/* Left Side: Listing List */}
         <div className="lg:col-span-1 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-4 max-h-[700px] overflow-y-auto select-none">
-          <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-3">Sold Campaign Slots ({filteredSpots.length})</h3>
+          <h3 className="font-bold text-slate-900 border-b border-slate-100 pb-3">Reserved Campaign Placements ({filteredSpots.length})</h3>
           
           <div className="space-y-3">
             {filteredSpots.length === 0 ? (
@@ -353,12 +353,12 @@ export default function AdminCreativeReviewPage() {
               {/* Header Title details */}
               <div className="border-b border-slate-100 pb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 text-left">
                 <div className="space-y-0.5">
-                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest block">Reviewing Merchant creative</span>
+                  <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-widest block">Reviewing Advertiser Creative</span>
                   <h2 className="font-bold text-xl text-slate-900 leading-tight">
                     {selectedOrder.advertiser.businessName}
                   </h2>
                   <p className="text-xs text-slate-500 font-medium">
-                    Category spot: <span className="font-bold text-slate-700">{selectedOrder.campaignSpot.label}</span> on campaign <span className="font-bold text-slate-700">{selectedOrder.campaign.name}</span>
+                    Campaign placement: <span className="font-bold text-slate-700">{selectedOrder.campaignSpot.label}</span> on campaign <span className="font-bold text-slate-700">{selectedOrder.campaign.name}</span>
                   </p>
                 </div>
 
@@ -415,7 +415,7 @@ export default function AdminCreativeReviewPage() {
                     ) : (
                       <span className="text-slate-400">○</span>
                     )}
-                    <span>QR tested ({(selectedOrder.qrCodes?.[0]?._count?.scans ?? 0)} live scans logged)</span>
+                    <span>QR tested ({(selectedOrder.qrCodes?.[0]?._count?.scans ?? 0)} recorded scans)</span>
                   </div>
 
                   {/* Landing page active */}
@@ -572,7 +572,7 @@ export default function AdminCreativeReviewPage() {
                                   required
                                   value={regenReason}
                                   onChange={(e) => setRegenReason(e.target.value)}
-                                  placeholder="e.g. merchant lost link / account transfer"
+                                  placeholder="e.g. advertiser lost link / account transfer"
                                   className="w-full text-[10px] bg-white border border-slate-200 px-2.5 py-1.5 text-slate-700 outline-none focus:border-slate-400"
                                 />
                               </div>
@@ -648,7 +648,7 @@ export default function AdminCreativeReviewPage() {
                         <label className="block text-xs font-bold text-red-700 uppercase tracking-wider mb-1">Rejection / Required Changes Notes</label>
                         <textarea
                           rows={3}
-                          placeholder="Tell the merchant what changes are required (e.g. please update phone format or replace low-res logo)..."
+                          placeholder="Tell the advertiser what changes are required (e.g. update the phone format or replace a low-resolution logo)..."
                           value={rejectionNotes}
                           onChange={(e) => setRejectionNotes(e.target.value)}
                           className="w-full rounded-xl border border-red-200 p-3 text-xs text-slate-800 focus:outline-none focus:ring-1 focus:ring-red-400 focus:border-red-400"
@@ -719,7 +719,7 @@ export default function AdminCreativeReviewPage() {
                     )}
                   </div>
                 ) : (
-                  <p className="text-xs text-slate-400 italic text-center py-2">Approval actions disabled. Awaiting merchant asset submission.</p>
+                  <p className="text-xs text-slate-400 italic text-center py-2">Approval actions disabled. Awaiting advertiser creative submission.</p>
                 )}
               </div>
 

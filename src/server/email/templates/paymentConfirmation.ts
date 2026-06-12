@@ -5,36 +5,35 @@ export function getPaymentConfirmationTemplate(params: {
   businessName: string
   campaignName: string
   categoryName: string
-  amount: number // in cents
+  amount: number
 }) {
   const priceDisplay = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
   }).format(params.amount / 100)
 
-  const subject = `Receipt for your NearHere Postcard campaign in ${params.campaignName}`
+  const subject = `Your NearHere campaign placement is reserved for ${params.campaignName}`
   const businessName = escapeHtml(params.businessName)
   const campaignName = escapeHtml(params.campaignName)
   const categoryName = escapeHtml(params.categoryName)
 
   const contentHtml = `
-    <h2>Payment Confirmed!</h2>
+    <h2>Campaign Placement Reserved</h2>
     <p>Hi there,</p>
-    <p>Congratulations! You have successfully purchased and locked the exclusive <strong>${categoryName}</strong> spot on the upcoming <strong>${campaignName}</strong> postcard campaign.</p>
-    <p>No other business in your industry will be featured on this mailing. You have total exclusivity for this campaign.</p>
-    
+    <p>Payment is complete and the <strong>${categoryName}</strong> placement in the <strong>${campaignName}</strong> campaign is reserved for <strong>${businessName}</strong>.</p>
+
     <div class="details-card">
-      <div class="details-title">Order Summary</div>
+      <div class="details-title">Payment Summary</div>
       <div class="details-row">
-        <span class="details-label">Business Name:</span>
+        <span class="details-label">Business:</span>
         <span class="details-value">${businessName}</span>
       </div>
       <div class="details-row">
-        <span class="details-label">Postcard Campaign:</span>
+        <span class="details-label">Campaign:</span>
         <span class="details-value">${campaignName}</span>
       </div>
       <div class="details-row">
-        <span class="details-label">Exclusive Category:</span>
+        <span class="details-label">Business Category:</span>
         <span class="details-value">${categoryName}</span>
       </div>
       <div class="details-row">
@@ -44,18 +43,17 @@ export function getPaymentConfirmationTemplate(params: {
     </div>
 
     <p><strong>What happens next?</strong></p>
-    <p>We are setting up your digital business landing page and custom tracking QR codes. Shortly, you will receive two follow-up emails:</p>
     <ol style="color: #4A4542; padding-left: 20px; margin-bottom: 24px;">
-      <li style="margin-bottom: 8px;"><strong>Claim your Profile:</strong> Create your merchant login and customize your landing page links (booking, socials, contact).</li>
-      <li><strong>Submit Ad details:</strong> Provide your logo, headline copy, and exclusive promotion for the printed postcard.</li>
+      <li style="margin-bottom: 8px;"><strong>Claim your business profile:</strong> Add your description, contact links, and business page details.</li>
+      <li><strong>Submit creative details:</strong> Provide your logo, offer, description, and preferred call to action.</li>
     </ol>
-    
-    <p>We are excited to help you grow your local customer base!</p>
+    <p>NearHere will coordinate the placement layout, print preparation, and mailing. Your unique QR destination will support basic scan and page activity reporting.</p>
+    <p style="font-size: 12px; color: #77706A;">Direct mail results vary. NearHere does not guarantee leads, calls, sales, revenue, or return on investment.</p>
   `
 
   const html = getNearHereEmailWrapper({
-    title: "Order Paid & Confirmed",
-    preheader: `Receipt for your NearHere Postcard campaign: ${params.categoryName} is locked.`,
+    title: "Campaign Placement Reserved",
+    preheader: `Payment received for ${params.businessName} in ${params.campaignName}.`,
     contentHtml,
   })
 

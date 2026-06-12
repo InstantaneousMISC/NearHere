@@ -55,7 +55,7 @@ export default function InteractiveSpotCell({
             businessName={creative.businessName || spot.label}
             description={creative.description || "Curated local provider."}
             offer={creative.offerDeal || "Exclusive Deal"}
-            phone={creative.phone || "Call Merchant"}
+            phone={creative.phone || "Call Business"}
             qrCodeUrl={qrCodeUrl}
             variant={variant}
             imageUrl={creative.logoUrl || undefined}

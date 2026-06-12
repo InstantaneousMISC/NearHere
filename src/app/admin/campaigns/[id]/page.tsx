@@ -114,7 +114,7 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
     },
     {
       label: "Open Spots Remaining",
-      description: `${openSpots} open spots left to purchase.`,
+      description: `${openSpots} campaign placements currently available.`,
       isDone: openSpots === 0 && totalSpots > 0,
       optional: true,
     },
@@ -278,7 +278,7 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
               
               <div className="border-t border-slate-100 pt-6 space-y-4">
                 <h4 className="text-sm font-bold text-slate-950 uppercase tracking-wider">
-                  Postcard Pricing Breakdown
+                  Campaign Placement Pricing
                 </h4>
                 <div className="overflow-x-auto border border-slate-200 rounded-2xl">
                   <table className="w-full text-xs text-left">
@@ -332,16 +332,16 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                           </tr>
                           <tr className="hover:bg-slate-55/10">
                             <td className="py-2 px-4 font-semibold">Front Double Slot</td>
-                            <td className="py-2 px-4">$950</td>
+                            <td className="py-2 px-4">$890</td>
                             <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
-                              {((950 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                              {((890 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
                           <tr className="hover:bg-slate-55/10">
                             <td className="py-2 px-4 font-semibold">Back Double Slot</td>
-                            <td className="py-2 px-4">$1,090</td>
+                            <td className="py-2 px-4">$990</td>
                             <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
-                              {((1090 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                              {((990 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
                           <tr className="hover:bg-slate-55/10">
@@ -418,7 +418,7 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
         {activeTab === "spots" && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-900">Postcard Ad Spots</h3>
+              <h3 className="text-lg font-bold text-slate-900">Campaign Placements</h3>
               {!isAddingSpot && !editingSpot && (
                 <button
                   type="button"
@@ -629,7 +629,7 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                             <span className="font-bold text-slate-900 text-base">{ord.advertiser.businessName}</span>
                           </div>
                           <div className="text-xs text-slate-400 font-semibold italic bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
-                            Asset Details Not Yet Submitted by Buyer
+                            Creative Details Not Yet Submitted by Advertiser
                           </div>
                         </div>
                       )

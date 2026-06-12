@@ -22,7 +22,7 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
     from = "LocalSpot Mailers <noreply@localspotmailers.com>",
   } = options
   
-  if (!process.env.RESEND_API_KEY) {
+  if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_...") {
     console.log("[EMAIL STUB] Would send email:", { to, subject })
     console.log("[EMAIL STUB] HTML:", html.substring(0, 200) + "...")
     const stubId = createHash("sha256").update(idempotencyKey).digest("hex").slice(0, 24)

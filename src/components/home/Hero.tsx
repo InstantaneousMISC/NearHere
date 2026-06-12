@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { PostcardMockup } from "./PostcardMockup"
 import { trpc } from "@/components/providers"
+import { validateZip } from "@/lib/validation"
 
 export function Hero() {
   const router = useRouter()
@@ -17,6 +18,7 @@ export function Hero() {
   const [leadSuccess, setLeadSuccess] = useState(false)
   const [leadLoading, setLeadLoading] = useState(false)
   const [leadError, setLeadError] = useState<string | null>(null)
+  const [zipValidationError, setZipValidationError] = useState<string | null>(null)
 
   const utils = trpc.useUtils()
   const createLeadMutation = trpc.lead.create.useMutation()
@@ -27,9 +29,16 @@ export function Hero() {
     setShowLeadForm(false)
     setLeadSuccess(false)
     setLeadError(null)
+    setZipValidationError(null)
 
     const cleanZip = zip.trim()
     if (!cleanZip) {
+      setSearching(false)
+      return
+    }
+
+    if (!validateZip(cleanZip)) {
+      setZipValidationError("Please enter a valid 5-digit ZIP code (e.g. 78109).")
       setSearching(false)
       return
     }
@@ -77,14 +86,13 @@ export function Hero() {
         <div className="grid gap-12 lg:grid-cols-2 lg:items-center">
           <div className="animate-fade-up">
             <span className="mb-4 block font-mono text-xs font-medium uppercase tracking-widest text-primary">
-              Physical Presence / Local Reach
+              Premium Shared Postcard Advertising
             </span>
             <h1 className="max-w-xl text-balance text-5xl font-extrabold leading-[1.1] tracking-tight md:text-7xl text-foreground">
-              Own the mailbox in your neighborhood.
+              Get mailed, get scanned, get found.
             </h1>
             <p className="mt-6 max-w-md text-pretty text-lg leading-relaxed text-muted-foreground">
-              Shared direct mail for local experts. Reach thousands of households for a fraction of
-              the cost. One plumber, one realtor, one dentist per zone.
+              A local advertising platform that combines shared mail campaigns, QR tracking, public business profiles, local offers, and website backlinks to help businesses get discovered both offline and online.
             </p>
             
             <form onSubmit={handleSubmit} className="mt-10 flex flex-col gap-4 sm:flex-row">
@@ -102,13 +110,19 @@ export function Hero() {
                   disabled={searching}
                   className="bg-foreground px-8 py-4 text-sm font-bold text-background transition-colors hover:bg-primary hover:text-primary-foreground shrink-0 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {searching ? "SEARCHING..." : "RESERVE SLOT"}
+                  {searching ? "SEARCHING..." : "FIND A CAMPAIGN"}
                 </button>
               </div>
             </form>
 
+            {zipValidationError && (
+              <div className="mt-2 text-xs text-red-500 font-mono uppercase">
+                ⚠️ {zipValidationError}
+              </div>
+            )}
+
             <p className="mt-4 font-mono text-xs text-muted-foreground">
-              Currently booking for the next drop. Test our live demo zone by entering ZIP <span className="font-bold text-foreground underline select-all">78109</span> (Converse, TX).
+              Check current campaign availability. Enter ZIP <span className="font-bold text-foreground underline select-all">78109</span> to view the Converse, Texas campaign.
             </p>
 
             {/* Launch Waitlist Lead Capture Form */}
@@ -122,7 +136,8 @@ export function Hero() {
                     Get notified when we launch
                   </h4>
                   <p className="text-xs text-muted-foreground leading-relaxed">
-                    Be the first to secure category exclusivity in your ZIP code. Join our local launch waitlist today.
+                    Share your contact details and we will let you know when a NearHere campaign
+                    becomes available in this area.
                   </p>
                 </div>
 

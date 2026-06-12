@@ -57,7 +57,7 @@ export default function CategoryAvailability({
       <div className="max-w-7xl mx-auto px-6 py-20">
         <div className="flex flex-wrap items-end justify-between gap-4 mb-10">
           <div>
-            <p className="label-mono">Category Availability • {cityName} Drop</p>
+            <p className="label-mono">Category Availability / {cityName} Campaign</p>
             <h2 className="headline-xl text-4xl md:text-5xl mt-4 font-bold">Reserve your category.</h2>
           </div>
           <p className="label-mono max-w-xs text-right hidden md:block">
@@ -159,4 +159,3 @@ export default function CategoryAvailability({
     </section>
   )
 }
-
