@@ -402,18 +402,344 @@ async function runAdminFlowTests() {
     console.log("   ✅ Print lock safeguards verified successfully.");
 
     // -------------------------------------------------------------
+    // TEST 6: Manual Booking workflow
+    // -------------------------------------------------------------
+    console.log("\n🚀 Test 6: Testing Admin Manual Booking workflow...");
+
+    // Create a new standard spot for manual booking tests
+    const manualSpot = await adminCaller.spot.create({
+      campaignId: campaign.id,
+      categoryId: exclusiveCategoryId,
+      label: "Manual Booking Spot",
+      side: PostcardSide.FRONT,
+      spotType: SpotType.STANDARD,
+      price: 50000, // $500
+      x: 70,
+      y: 70,
+      width: 10,
+      height: 10,
+    })
+
+    // 6A. Non-admin should not be allowed to search advertisers or book manually
+    await assert.rejects(
+      nonAdminCaller.order.searchAdvertisers({ query: "Excl" }),
+      (err: any) => {
+        assert.strictEqual(err.code, "FORBIDDEN")
+        return true
+      },
+      "Non-admin should not be allowed to search advertisers"
+    )
+
+    await assert.rejects(
+      nonAdminCaller.order.bookManually({
+        spotId: manualSpot.id,
+        categoryId: exclusiveCategoryId,
+        businessName: "Manual Biz",
+        contactName: "Manual Contact",
+        email: "manual-booking@test.com",
+        phone: "555-9876",
+        amount: 45000,
+      }),
+      (err: any) => {
+        assert.strictEqual(err.code, "FORBIDDEN")
+        return true
+      },
+      "Non-admin should not be allowed to book manually"
+    )
+
+    // 6B. Admin should be able to search advertisers
+    const searchRes = await adminCaller.order.searchAdvertisers({ query: "Excl" })
+    assert.ok(Array.isArray(searchRes))
+    assert.ok(searchRes.length > 0)
+    assert.strictEqual(searchRes[0].businessName, `Excl Biz ${testId}`)
+
+    // 6C. Booking with exclusive category should fail due to exclusivity conflict
+    await assert.rejects(
+      adminCaller.order.bookManually({
+        spotId: manualSpot.id,
+        categoryId: exclusiveCategoryId,
+        businessName: "Manual Biz",
+        contactName: "Manual Contact",
+        email: "manual-booking@test.com",
+        phone: "555-9876",
+        amount: 45000,
+        overrideExclusivity: false, // Enforce exclusivity
+      }),
+      (err: any) => {
+        assert.strictEqual(err.code, "CONFLICT")
+        assert.ok(err.message.includes("conflict") && err.message.includes(exclusiveCategory.name))
+        return true
+      },
+      "Should enforce category exclusivity check"
+    )
+
+    // 6D. Booking with exclusive category should succeed when overriding exclusivity
+    const bookRes = await adminCaller.order.bookManually({
+      spotId: manualSpot.id,
+      categoryId: exclusiveCategoryId,
+      businessName: "Manual Biz",
+      contactName: "Manual Contact",
+      email: "manual-booking@test.com",
+      phone: "555-9876",
+      amount: 45000, // Override price to $450
+      overrideExclusivity: true, // Force override
+      notes: "Forced reservation by Admin",
+    })
+
+    assert.ok(bookRes.orderId, "Manual booking should succeed with exclusivity override")
+
+    // 6E. Verify created order records
+    const manualOrder = await db.order.findUnique({
+      where: { id: bookRes.orderId },
+      include: {
+        campaignSpot: true,
+        advertiser: true,
+        creativeSubmission: true,
+      },
+    })
+
+    assert.ok(manualOrder)
+    assert.strictEqual(manualOrder.status, OrderStatus.PAID)
+    assert.strictEqual(manualOrder.amount, 45000) // matches custom price override
+    assert.strictEqual(manualOrder.advertiser.email, "manual-booking@test.com")
+    assert.strictEqual(manualOrder.campaignSpot.status, SpotStatus.SOLD)
+    assert.ok(manualOrder.creativeSubmission) // auto-generated creative submission
+    assert.strictEqual(manualOrder.creativeSubmission.businessName, "Manual Biz")
+
+    // 6F. Verify QR code is created
+    const manualQr = await db.qrCode.findUnique({
+      where: { orderId: bookRes.orderId },
+    })
+    assert.ok(manualQr)
+    assert.strictEqual(manualQr.type, "CAMPAIGN_SLOT")
+
+    // 6G. Verify AdminAuditLog is populated
+    const auditRecord = await db.adminAuditLog.findFirst({
+      where: {
+        adminEmail,
+        action: "MANUAL_PLACEMENT_CREATE",
+      },
+    })
+    assert.ok(auditRecord)
+    assert.ok(auditRecord.notes?.includes("Forced reservation by Admin"))
+
+    console.log("   ✅ Manual Booking endpoint, exclusivity override, audit logging, and post-payment setup verified successfully.");
+
+    // -------------------------------------------------------------
+    // TEST 7: Order Cancellation, Refund, and Spot Release workflow
+    // -------------------------------------------------------------
+    console.log("\n🚀 Test 7: Testing Order Cancellation, Refund, and Spot Release workflow...");
+
+    // Create a new standard spot for cancellation/refund tests
+    const releaseSpot = await adminCaller.spot.create({
+      campaignId: campaign.id,
+      categoryId: exclusiveCategoryId,
+      label: "Release Spot",
+      side: PostcardSide.FRONT,
+      spotType: SpotType.STANDARD,
+      price: 60000,
+      x: 80,
+      y: 80,
+      width: 10,
+      height: 10,
+    })
+
+    // 7A. Seed a CampaignOffer for checking decrement behavior
+    const testOffer = await db.campaignOffer.create({
+      data: {
+        campaignId: campaign.id,
+        adminUserId: (await db.adminUser.findUniqueOrThrow({ where: { email: adminEmail } })).id,
+        name: `Refund Offer ${testId}`,
+        token: `refund-token-${testId}`,
+        discountType: "PERCENT_OFF",
+        discountPercent: 10,
+        reservedCount: 0,
+        redeemedCount: 0,
+      }
+    })
+
+    // 7B. Non-admin should not be allowed to cancel or refund
+    await assert.rejects(
+      nonAdminCaller.order.cancelOrRefund({
+        orderId: manualOrder.id, // using order from Test 6
+        status: OrderStatus.REFUNDED,
+      }),
+      (err: any) => {
+        assert.strictEqual(err.code, "FORBIDDEN")
+        return true
+      },
+      "Non-admin should not be allowed to cancel or refund"
+    )
+
+    // 7C. Create a PENDING order with campaign offer and check CANCELLATION flow
+    const pendingOrder = await db.order.create({
+      data: {
+        campaignId: campaign.id,
+        campaignSpotId: releaseSpot.id,
+        advertiserId: advertiser.id,
+        amount: 54000,
+        creativeSubmissionToken: `pending-token-${testId}`,
+        status: OrderStatus.PENDING,
+        campaignOfferId: testOffer.id,
+      }
+    })
+
+    // Manually increment reserved count (simulating reservation)
+    await db.campaignOffer.update({
+      where: { id: testOffer.id },
+      data: { reservedCount: 1 }
+    })
+
+    // Put spot in HELD status
+    await db.campaignSpot.update({
+      where: { id: releaseSpot.id },
+      data: { status: SpotStatus.HELD }
+    })
+
+    // Cancel the pending order
+    const cancelRes = await adminCaller.order.cancelOrRefund({
+      orderId: pendingOrder.id,
+      status: OrderStatus.CANCELLED,
+      reason: "Advertiser changed mind before payment",
+    })
+    assert.strictEqual(cancelRes.status, OrderStatus.CANCELLED)
+
+    // Verify campaign spot released back to OPEN
+    const spotAfterCancel = await db.campaignSpot.findUniqueOrThrow({ where: { id: releaseSpot.id } })
+    assert.strictEqual(spotAfterCancel.status, SpotStatus.OPEN)
+
+    // Verify CampaignOffer reservedCount decremented back to 0, redeemedCount remains 0
+    const offerAfterCancel = await db.campaignOffer.findUniqueOrThrow({ where: { id: testOffer.id } })
+    assert.strictEqual(offerAfterCancel.reservedCount, 0)
+    assert.strictEqual(offerAfterCancel.redeemedCount, 0)
+
+    // 7D. Create a PAID order with campaign offer and check REFUND flow
+    // Reuse releaseSpot (it is OPEN now)
+    await db.campaignSpot.update({
+      where: { id: releaseSpot.id },
+      data: { status: SpotStatus.SOLD }
+    })
+
+    const paidOrder = await db.order.create({
+      data: {
+        campaignId: campaign.id,
+        campaignSpotId: releaseSpot.id,
+        advertiserId: advertiser.id,
+        amount: 54000,
+        creativeSubmissionToken: `paid-token-${testId}`,
+        status: OrderStatus.PAID,
+        campaignOfferId: testOffer.id,
+      }
+    })
+
+    // Seed QR code
+    const orderQr = await db.qrCode.create({
+      data: {
+        businessId: businessId,
+        orderId: paidOrder.id,
+        campaignId: campaign.id,
+        campaignSpotId: releaseSpot.id,
+        slug: `qr-refund-${testId}`,
+        destinationPath: `/b/excl-biz-slug-${testId}`,
+        status: "ACTIVE",
+      }
+    })
+
+    // Manually set redeemedCount
+    await db.campaignOffer.update({
+      where: { id: testOffer.id },
+      data: { redeemedCount: 1 }
+    })
+
+    // Refund the paid order
+    const refundRes = await adminCaller.order.cancelOrRefund({
+      orderId: paidOrder.id,
+      status: OrderStatus.REFUNDED,
+      reason: "Stripe dashboard refund request",
+    })
+    assert.strictEqual(refundRes.status, OrderStatus.REFUNDED)
+    assert.ok(refundRes.refundedAt)
+    assert.strictEqual(refundRes.refundReason, "Stripe dashboard refund request")
+
+    // Verify campaign spot released back to OPEN
+    const spotAfterRefund = await db.campaignSpot.findUniqueOrThrow({ where: { id: releaseSpot.id } })
+    assert.strictEqual(spotAfterRefund.status, SpotStatus.OPEN)
+
+    // Verify QR code is DISABLED
+    const qrAfterRefund = await db.qrCode.findUniqueOrThrow({ where: { id: orderQr.id } })
+    assert.strictEqual(qrAfterRefund.status, "DISABLED")
+
+    // Verify CampaignOffer redeemedCount decremented back to 0
+    const offerAfterRefund = await db.campaignOffer.findUniqueOrThrow({ where: { id: testOffer.id } })
+    assert.strictEqual(offerAfterRefund.redeemedCount, 0)
+
+    // 7E. Verify Campaign Status Restoration from SOLD_OUT to ACTIVE
+    // Mark campaign as SOLD_OUT
+    await db.campaign.update({
+      where: { id: campaign.id },
+      data: { status: CampaignStatus.SOLD_OUT }
+    })
+
+    // Let's create a paid order again and then refund it to trigger campaign status check
+    const paidOrderForStatus = await db.order.create({
+      data: {
+        campaignId: campaign.id,
+        campaignSpotId: releaseSpot.id,
+        advertiserId: advertiser.id,
+        amount: 60000,
+        creativeSubmissionToken: `status-token-${testId}`,
+        status: OrderStatus.PAID,
+      }
+    })
+
+    await db.campaignSpot.update({
+      where: { id: releaseSpot.id },
+      data: { status: SpotStatus.SOLD }
+    })
+
+    await adminCaller.order.cancelOrRefund({
+      orderId: paidOrderForStatus.id,
+      status: OrderStatus.REFUNDED,
+      reason: "Releasing last spot, restoring campaign status",
+    })
+
+    const campaignAfterRefund = await db.campaign.findUniqueOrThrow({ where: { id: campaign.id } })
+    assert.strictEqual(campaignAfterRefund.status, CampaignStatus.ACTIVE)
+
+    // 7F. Verify AdminAuditLog has entries for both refund and cancel actions
+    const auditLogs = await db.adminAuditLog.findMany({
+      where: {
+        adminEmail,
+        action: { in: ["ORDER_CANCEL", "ORDER_REFUND"] },
+      },
+    })
+    assert.strictEqual(auditLogs.length, 3) // 1 cancel, 2 refunds
+
+    console.log("   ✅ Order Cancellation, Refund, Spot Release, QR disabling, offer count decrement, and Campaign status restoration verified successfully.");
+
+    // -------------------------------------------------------------
     // CLEANUP
     // -------------------------------------------------------------
     console.log("\n🧹 Cleaning up test database records...");
-    await db.emailLog.deleteMany({ where: { toEmail: advertiser.email } })
-    await db.creativeSubmission.deleteMany({ where: { orderId: order.id } })
-    await db.business.delete({ where: { id: business.id } })
-    await db.order.delete({ where: { id: order.id } })
+    await db.emailLog.deleteMany({ where: { toEmail: { in: [advertiser.email, "manual-booking@test.com"] } } })
+    await db.creativeSubmission.deleteMany({ where: { order: { campaignId: campaign.id } } })
+    await db.campaignOffer.deleteMany({ where: { campaignId: campaign.id } })
+    await db.qrCode.deleteMany({ where: { campaignId: campaign.id } })
+    await db.business.deleteMany({
+      where: {
+        OR: [
+          { advertiserId: advertiser.id },
+          { email: "manual-booking@test.com" },
+        ],
+      },
+    })
+    await db.adminAuditLog.deleteMany({ where: { adminEmail } })
+    await db.order.deleteMany({ where: { campaignId: campaign.id } })
     await db.campaignSpot.deleteMany({ where: { campaignId: campaign.id } })
     await db.campaign.delete({ where: { id: campaign.id } })
     await db.businessCategory.delete({ where: { id: exclusiveCategoryId } })
     await db.businessCategory.delete({ where: { id: nonExclusiveCategoryId } })
-    await db.advertiser.delete({ where: { id: advertiser.id } })
+    await db.advertiser.deleteMany({ where: { email: { in: [merchantEmail, "manual-booking@test.com"] } } })
     await db.adminUser.delete({ where: { supabaseUserId: adminSupabaseId } })
     console.log("✅ Cleanup finished cleanly.")
 
@@ -427,17 +753,22 @@ async function runAdminFlowTests() {
     try {
       console.log("🧹 Attempting emergency cleanup...")
       await db.emailLog.deleteMany({
-        where: { toEmail: merchantEmail },
+        where: { toEmail: { in: [merchantEmail, "manual-booking@test.com"] } },
       })
       await db.adminUser.deleteMany({ where: { supabaseUserId: adminSupabaseId } })
-      await db.creativeSubmission.deleteMany({ where: { orderId } })
+      await db.creativeSubmission.deleteMany({ where: { order: { campaignId } } })
+      await db.campaignOffer.deleteMany({ where: { campaignId } })
+      await db.qrCode.deleteMany({ where: { campaignId } })
+      await db.adminAuditLog.deleteMany({ where: { adminEmail } })
       await db.order.deleteMany({ where: { campaignId } })
       await db.business.deleteMany({ where: { name: { contains: testId } } })
+      await db.business.deleteMany({ where: { email: "manual-booking@test.com" } })
       await db.campaignSpot.deleteMany({ where: { campaignId } })
       await db.campaign.deleteMany({ where: { id: campaignId } })
       if (exclusiveCategoryId) await db.businessCategory.delete({ where: { id: exclusiveCategoryId } })
       if (nonExclusiveCategoryId) await db.businessCategory.delete({ where: { id: nonExclusiveCategoryId } })
       if (advertiserId) await db.advertiser.delete({ where: { id: advertiserId } })
+      await db.advertiser.deleteMany({ where: { email: "manual-booking@test.com" } })
       console.log("🧹 Emergency cleanup completed.")
     } catch (cleanupErr) {
       console.error("🧹 Emergency cleanup failed:", cleanupErr)

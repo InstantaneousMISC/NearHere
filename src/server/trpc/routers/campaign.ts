@@ -1,6 +1,6 @@
 import { z } from "zod"
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init"
-import { CampaignStatus } from "@prisma/client"
+import { CampaignStatus, ApprovalStatus } from "@prisma/client"
 import { initializeCampaignSpots } from "../../helpers/templateSpots"
 
 export const campaignRouter = createTRPCRouter({
@@ -218,6 +218,60 @@ export const campaignRouter = createTRPCRouter({
         where: { id: input.id },
         data: { status: input.status },
       })
+
+      // Handle status-based creative updates and email notifications
+      if (input.status === CampaignStatus.PRINTED || input.status === CampaignStatus.MAILED) {
+        const targetApprovalStatus =
+          input.status === CampaignStatus.PRINTED
+            ? ApprovalStatus.PRINTED
+            : ApprovalStatus.MAILED
+
+        // Find all paid orders for this campaign
+        const orders = await ctx.db.order.findMany({
+          where: { campaignId: campaign.id, status: "PAID" },
+          include: {
+            advertiser: true,
+            campaign: true,
+            campaignSpot: true,
+            creativeSubmission: true,
+          },
+        })
+
+        const { sendLifecycleEmailOnce } = await import("@/server/email/sendLifecycleEmailOnce")
+        const { getPrintedMailedNotificationTemplate } = await import("@/server/email/templates/printedMailedNotification")
+        const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+        const merchantDashboardUrl = `${appUrl}/business/dashboard`
+
+        for (const order of orders) {
+          if (order.creativeSubmission) {
+            // Update the creative submission's approval status
+            const updatedSubmission = await ctx.db.creativeSubmission.update({
+              where: { id: order.creativeSubmission.id },
+              data: { approvalStatus: targetApprovalStatus },
+            })
+
+            const businessName = updatedSubmission.businessName || order.advertiser.businessName
+
+            const mail = getPrintedMailedNotificationTemplate({
+              businessName,
+              campaignName: order.campaign.name,
+              categoryName: order.campaignSpot.label,
+              status: input.status === CampaignStatus.PRINTED ? "PRINTED" : "MAILED",
+              merchantDashboardUrl,
+            })
+
+            await sendLifecycleEmailOnce({
+              toEmail: order.advertiser.email,
+              templateKey: input.status === CampaignStatus.PRINTED ? "printed_notification" : "mailed_notification",
+              entityType: "creative_submission",
+              entityId: updatedSubmission.id,
+              subject: mail.subject,
+              html: mail.html,
+            })
+          }
+        }
+      }
+
       return campaign
     }),
 })

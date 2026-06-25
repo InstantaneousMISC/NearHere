@@ -26,6 +26,7 @@ enum CampaignStatus {
   DESIGNING
   READY_FOR_PRINT
   PRINTING
+  PRINTED
   MAILED
   CANCELLED
 }
@@ -72,15 +73,47 @@ enum EmailStatus {
   FAILED
 }
 
+enum CampaignOfferStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum CampaignInquiryStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  NOT_INTERESTED
+  FOLLOW_UP_LATER
+  SPAM
+}
+
+enum CampaignOfferDiscountType {
+  AMOUNT_OFF
+  PERCENT_OFF
+}
+
+enum CampaignOfferEventType {
+  SCAN
+  CHECKOUT_STARTED
+  ORDER_CREATED
+  PAID
+  EXPIRED
+}
+
 // ─── Models ──────────────────────────────────────────────────────────────────
 
 model AdminUser {
   id             String   @id @default(cuid())
   supabaseUserId String   @unique
   email          String   @unique
+  name           String?
   role           UserRole @default(ADMIN)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
+
+  campaignOffers CampaignOffer[]
+  assignedInquiries CampaignInquiry[]
 }
 
 model BusinessCategory {
@@ -120,6 +153,8 @@ model Campaign {
   spots  CampaignSpot[]
   orders Order[]
   qrCodes QrCode[]
+  offers CampaignOffer[]
+  inquiries CampaignInquiry[]
 
   @@unique([state, city, slug])
 }
@@ -183,16 +218,22 @@ model Order {
   refundReason             String?
   createdAt                DateTime    @default(now())
   updatedAt                DateTime    @updatedAt
+  campaignOfferId          String?
+  originalAmount           Int?
+  discountAmount           Int?
+  finalAmount              Int?
 
   campaign           Campaign            @relation(fields: [campaignId], references: [id])
   campaignSpot       CampaignSpot        @relation(fields: [campaignSpotId], references: [id])
   advertiser         Advertiser          @relation(fields: [advertiserId], references: [id])
   creativeSubmission CreativeSubmission?
   qrCodes            QrCode[]
+  campaignOffer      CampaignOffer?      @relation(fields: [campaignOfferId], references: [id])
 
   @@index([campaignId])
   @@index([campaignSpotId])
   @@index([advertiserId])
+  @@index([campaignOfferId])
 }
 
 model CreativeSubmission {
@@ -217,6 +258,8 @@ model CreativeSubmission {
   aiPrompt         String?        @db.Text
   approvalStatus   ApprovalStatus @default(PENDING)
   approvalNotes    String?
+  draftProofUrl    String?
+  draftFeedback    String?        @db.VarChar(1000)
   submittedAt      DateTime?
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
@@ -449,4 +492,80 @@ model EmailLog {
   @@unique([templateKey, entityType, entityId, toEmail])
   @@index([toEmail])
   @@index([entityType, entityId])
+}
+
+model CampaignOffer {
+  id              String                    @id @default(cuid())
+  campaignId      String
+  adminUserId     String
+  name            String
+  token           String                    @unique
+  code            String?                   @unique
+  discountType    CampaignOfferDiscountType
+  discountAmount  Int?                      // in cents
+  discountPercent Int?                      // 1-100
+  maxRedemptions  Int?
+  scanCount       Int                       @default(0)
+  checkoutStartCount Int                    @default(0)
+  reservedCount   Int                       @default(0)
+  redeemedCount   Int                       @default(0)
+  expiresAt       DateTime?
+  status          CampaignOfferStatus       @default(ACTIVE)
+  source          String?                   @default("DOOR_TO_DOOR_CARD")
+  notes           String?                   @db.Text
+  createdAt       DateTime                  @default(now())
+  updatedAt       DateTime                  @updatedAt
+
+  campaign        Campaign                  @relation(fields: [campaignId], references: [id])
+  adminUser       AdminUser                 @relation(fields: [adminUserId], references: [id])
+  orders          Order[]
+  events          CampaignOfferEvent[]
+
+  @@index([campaignId])
+  @@index([adminUserId])
+  @@index([status])
+  @@index([expiresAt])
+}
+
+model CampaignOfferEvent {
+  id              String                  @id @default(cuid())
+  campaignOfferId String
+  eventType       CampaignOfferEventType
+  userAgent       String?                 @db.Text
+  ipHash          String?
+  createdAt       DateTime                @default(now())
+
+  campaignOffer   CampaignOffer           @relation(fields: [campaignOfferId], references: [id], onDelete: Cascade)
+
+  @@index([campaignOfferId])
+  @@index([eventType])
+}
+
+model CampaignInquiry {
+  id                     String                @id @default(cuid())
+  campaignId             String
+  name                   String?
+  businessName           String
+  email                  String?
+  phone                  String?
+  businessCategory       String?
+  websiteOrFacebook      String?
+  interestType           String?
+  preferredContactMethod String?
+  message                String?               @db.Text
+  source                 String?               @default("WEBSITE")
+  status                 CampaignInquiryStatus @default(NEW)
+  assignedToAdminId      String?
+  internalNotes          String?               @db.Text
+  convertedOrderId       String?
+  convertedAt            DateTime?
+  createdAt              DateTime              @default(now())
+  updatedAt              DateTime              @updatedAt
+
+  campaign               Campaign              @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  assignedToAdmin        AdminUser?            @relation(fields: [assignedToAdminId], references: [id], onDelete: SetNull)
+
+  @@index([campaignId])
+  @@index([assignedToAdminId])
+  @@index([status])
 }

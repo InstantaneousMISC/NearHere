@@ -1,8 +1,12 @@
 import { notFound, redirect } from "next/navigation"
+import { headers } from "next/headers"
+import crypto from "crypto"
 import { db } from "@/server/db"
 import SpotSummary from "@/components/checkout/SpotSummary"
 import CheckoutForm from "@/components/checkout/CheckoutForm"
 import { CampaignNav } from "@/components/campaign/CampaignNav"
+import { isCampaignOfferRedeemable, calculateOfferDiscount, calculateOfferPrice } from "@/server/helpers/campaignOffers"
+import { CampaignOfferDiscountType, CampaignOfferEventType } from "@prisma/client"
 
 interface CheckoutPageProps {
   params: Promise<{
@@ -13,6 +17,7 @@ interface CheckoutPageProps {
   }>
   searchParams: Promise<{
     categoryId?: string | string[]
+    offer?: string | string[]
   }>
 }
 
@@ -21,10 +26,14 @@ export default async function CheckoutPage({
   searchParams,
 }: CheckoutPageProps) {
   const { state, city, slug, spotId } = await params
-  const rawCategoryId = (await searchParams).categoryId
+  const resolvedSearchParams = await searchParams
+  const rawCategoryId = resolvedSearchParams.categoryId
   const selectedCategoryId = Array.isArray(rawCategoryId)
     ? rawCategoryId[0]
     : rawCategoryId
+
+  const rawOfferToken = resolvedSearchParams.offer
+  const offerToken = Array.isArray(rawOfferToken) ? rawOfferToken[0] : rawOfferToken
 
   // 1. Fetch Campaign
   const campaign = await db.campaign.findUnique({
@@ -51,11 +60,6 @@ export default async function CheckoutPage({
     return notFound()
   }
 
-  // If the spot is already sold, redirect back to the campaign page
-  // if (spot.status === "SOLD" || spot.status === "UNAVAILABLE") {
-  //   redirect(`/campaigns/${state}/${city}/${slug}`)
-  // }
-
   const selectedCategory = selectedCategoryId
     ? await db.businessCategory.findFirst({
         where: {
@@ -69,30 +73,54 @@ export default async function CheckoutPage({
     redirect(`/campaigns/${state}/${city}/${slug}#categories`)
   }
 
-  // if (!selectedCategory.allowsMultipleAdvertisers) {
-  //   const conflictingReservation = await db.campaignSpot.findFirst({
-  //     where: {
-  //       campaignId: campaign.id,
-  //       categoryId: selectedCategory.id,
-  //       id: { not: spot.id },
-  //       OR: [
-  //         { status: "SOLD" },
-  //         {
-  //           orders: {
-  //             some: {
-  //               status: { in: ["PENDING", "PAID"] },
-  //             },
-  //           },
-  //         },
-  //       ],
-  //     },
-  //     select: { id: true },
-  //   })
-  // 
-  //   if (conflictingReservation) {
-  //     redirect(`/campaigns/${state}/${city}/${slug}#categories`)
-  //   }
-  // }
+  // 3. Handle Campaign Offer if present
+  let campaignOffer = null
+  let discountAmount = 0
+  let finalPrice = spot.price
+  let promotedBy = ""
+  let discountDisplay = ""
+
+  if (offerToken) {
+    campaignOffer = await db.campaignOffer.findUnique({
+      where: { token: offerToken },
+      include: { adminUser: true },
+    })
+
+    if (campaignOffer && campaignOffer.campaignId === campaign.id && isCampaignOfferRedeemable(campaignOffer)) {
+      discountAmount = calculateOfferDiscount(spot.price, campaignOffer)
+      finalPrice = calculateOfferPrice(spot.price, campaignOffer)
+      promotedBy = `${campaignOffer.name} / ${campaignOffer.adminUser.name || "NearHere Representative"}`
+      discountDisplay =
+        campaignOffer.discountType === CampaignOfferDiscountType.AMOUNT_OFF
+          ? `$${((campaignOffer.discountAmount || 0) / 100).toFixed(2)} off`
+          : `${campaignOffer.discountPercent}% off`
+
+      // Log CHECKOUT_STARTED event and increment counter
+      try {
+        const headersList = await headers()
+        const userAgent = headersList.get("user-agent")
+        const ip = (headersList.get("x-forwarded-for") || "").split(",")[0].trim()
+        const ipHash = ip ? crypto.createHash("sha256").update(ip).digest("hex").slice(0, 16) : null
+
+        await db.$transaction([
+          db.campaignOffer.update({
+            where: { id: campaignOffer.id },
+            data: { checkoutStartCount: { increment: 1 } },
+          }),
+          db.campaignOfferEvent.create({
+            data: {
+              campaignOfferId: campaignOffer.id,
+              eventType: CampaignOfferEventType.CHECKOUT_STARTED,
+              userAgent,
+              ipHash,
+            },
+          }),
+        ])
+      } catch (err) {
+        console.error("Error logging checkout started event:", err)
+      }
+    }
+  }
 
   return (
     <main className="min-h-screen bg-background text-foreground">
@@ -120,6 +148,9 @@ export default async function CheckoutPage({
               categoryId={selectedCategory.id}
               categoryName={selectedCategory.name}
               campaignUrl={`/campaigns/${state}/${city}/${slug}`}
+              offerToken={campaignOffer ? offerToken : undefined}
+              discountDisplay={campaignOffer ? discountDisplay : undefined}
+              promotedBy={campaignOffer ? promotedBy : undefined}
             />
           </div>
 
@@ -134,6 +165,9 @@ export default async function CheckoutPage({
                 ...spot,
                 category: selectedCategory,
               } as any}
+              discountAmount={campaignOffer ? discountAmount : undefined}
+              finalPrice={campaignOffer ? finalPrice : undefined}
+              promotedBy={campaignOffer ? promotedBy : undefined}
             />
           </div>
         </div>

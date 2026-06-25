@@ -4,6 +4,10 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { trpc } from "@/components/providers"
 import Link from "next/link"
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Button } from "@/components/ui/button"
 
 export default function NewCampaignPage() {
   const router = useRouter()
@@ -77,261 +81,254 @@ export default function NewCampaignPage() {
 
   return (
     <div className="max-w-3xl mx-auto space-y-8 font-sans">
-      <div className="flex items-center justify-between border-b border-slate-200 pb-4">
-        <div>
+      <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="space-y-1">
           <Link
             href="/admin/campaigns"
-            className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors uppercase tracking-widest"
+            className="text-[10px] font-mono font-bold text-warm hover:text-primary transition-colors uppercase tracking-widest"
           >
             ← Back to Campaigns
           </Link>
-          <h1 className="text-3xl font-extrabold text-slate-900 mt-2">
+          <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-press leading-none mt-2">
             Create Campaign
           </h1>
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="bg-white border border-slate-200 rounded-3xl shadow-sm p-6 sm:p-8 space-y-6">
-        {error && (
-          <div className="rounded-xl bg-red-50 border border-red-200 px-4 py-3.5 text-sm text-red-700 font-medium">
-            ⚠️ {error}
-          </div>
-        )}
+      <Card className="p-6 sm:p-8">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {error && (
+            <div className="rounded-none bg-red-500/10 border border-red-500/20 px-4 py-3.5 text-xs text-red-500 font-bold uppercase tracking-wide">
+              ⚠️ {error}
+            </div>
+          )}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Campaign Name */}
-          <div className="space-y-1.5 md:col-span-2">
-            <label htmlFor="name" className="block text-sm font-bold text-slate-700">
-              Campaign Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="name"
-              type="text"
-              required
-              disabled={loading}
-              value={name}
-              onChange={e => handleNameChange(e.target.value)}
-              placeholder="e.g. Converse 10K Local Business Postcard"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Campaign Name */}
+            <div className="space-y-1.5 md:col-span-2 text-left">
+              <label htmlFor="name" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Campaign Name <span className="text-primary">*</span>
+              </label>
+              <Input
+                id="name"
+                type="text"
+                required
+                disabled={loading}
+                value={name}
+                onChange={e => handleNameChange(e.target.value)}
+                placeholder="e.g. Converse 10K Local Business Postcard"
+              />
+            </div>
+
+            {/* Slug */}
+            <div className="space-y-1.5 md:col-span-2 text-left">
+              <label htmlFor="slug" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                URL Slug <span className="text-primary">*</span>
+              </label>
+              <Input
+                id="slug"
+                type="text"
+                required
+                disabled={loading}
+                value={slug}
+                onChange={e => setSlug(e.target.value)}
+                placeholder="e.g. local-business-postcard"
+              />
+              <span className="text-[10px] text-warm font-medium block">
+                Auto-generated from name. Controls the landing page URL path segment.
+              </span>
+            </div>
+
+            {/* Postcard Size Template */}
+            <div className="space-y-1.5 md:col-span-2 text-left">
+              <label htmlFor="cardSize" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Postcard Size Format <span className="text-primary">*</span>
+              </label>
+              <select
+                id="cardSize"
+                disabled={loading}
+                value={cardSize}
+                onChange={e => setCardSize(e.target.value as "9x12" | "6x11")}
+                className="w-full rounded-none border border-input bg-card text-press h-10 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors cursor-pointer"
+              >
+                <option value="9x12">9x12 NearHere Shared Card (Premium Grid, 21 paid placements)</option>
+                <option value="6x11">6x11 Community Card (Style B: Spotlight Rail, 12 slots)</option>
+              </select>
+              <span className="text-[10px] text-warm font-medium block">
+                Determines the layout structure, dimensions, and default spots initialized for the campaign.
+              </span>
+            </div>
+
+            {/* Postcard Skin Theme */}
+            <div className="space-y-1.5 md:col-span-2 text-left">
+              <label htmlFor="cardSkin" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Postcard Skin Theme
+              </label>
+              <select
+                id="cardSkin"
+                disabled={loading}
+                value={cardSkin}
+                onChange={e => setCardSkin(e.target.value)}
+                className="w-full rounded-none border border-input bg-card text-press h-10 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors cursor-pointer"
+              >
+                <option value="cream">Cream (Traditional warm cardstock)</option>
+                <option value="dark">Slate Dark (Bold charcoal style)</option>
+                <option value="minimalist">Modern White (Clean minimalist design)</option>
+              </select>
+              <span className="text-[10px] text-warm font-medium block">
+                Controls the background styling, font colors, and border themes of the postcard templates.
+              </span>
+            </div>
+
+            {/* City */}
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="city" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                City <span className="text-primary">*</span>
+              </label>
+              <Input
+                id="city"
+                type="text"
+                required
+                disabled={loading}
+                value={city}
+                onChange={e => setCity(e.target.value)}
+                placeholder="e.g. converse"
+              />
+            </div>
+
+            {/* State */}
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="state" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                State <span className="text-primary">*</span>
+              </label>
+              <Input
+                id="state"
+                type="text"
+                required
+                disabled={loading}
+                value={state}
+                onChange={e => setState(e.target.value)}
+                placeholder="e.g. texas"
+              />
+            </div>
+
+            {/* County */}
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="county" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                County
+              </label>
+              <Input
+                id="county"
+                type="text"
+                disabled={loading}
+                value={county}
+                onChange={e => setCounty(e.target.value)}
+                placeholder="e.g. Bexar"
+              />
+            </div>
+
+            {/* ZIP Code */}
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="zipCode" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Mailing ZIP Code
+              </label>
+              <Input
+                id="zipCode"
+                type="text"
+                disabled={loading}
+                value={zipCode}
+                onChange={e => setZipCode(e.target.value)}
+                placeholder="e.g. 78109"
+              />
+            </div>
+
+            {/* Mailing Quantity */}
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="quantity" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Mailing Quantity (Homes) <span className="text-primary">*</span>
+              </label>
+              <Input
+                id="quantity"
+                type="number"
+                required
+                disabled={loading}
+                value={mailingQuantity}
+                onChange={e => setMailingQuantity(Number(e.target.value))}
+                placeholder="10000"
+              />
+            </div>
+
+            {/* Estimated Mail Date */}
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="mailDate" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Estimated Mail Date
+              </label>
+              <Input
+                id="mailDate"
+                type="date"
+                disabled={loading}
+                value={estimatedMailDate}
+                onChange={e => setEstimatedMailDate(e.target.value)}
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-1.5 md:col-span-2 text-left">
+              <label htmlFor="desc" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Campaign Description
+              </label>
+              <Textarea
+                id="desc"
+                rows={3}
+                disabled={loading}
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Enter context, target homeowner criteria..."
+              />
+            </div>
+
+            {/* Front Background URL */}
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="frontBg" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Front Background Image URL
+              </label>
+              <Input
+                id="frontBg"
+                type="url"
+                disabled={loading}
+                value={frontBackgroundUrl}
+                onChange={e => setFrontBackgroundUrl(e.target.value)}
+                placeholder="https://example.com/front-bg.jpg"
+              />
+            </div>
+
+            {/* Back Background URL */}
+            <div className="space-y-1.5 text-left">
+              <label htmlFor="backBg" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                Back Background Image URL
+              </label>
+              <Input
+                id="backBg"
+                type="url"
+                disabled={loading}
+                value={backBackgroundUrl}
+                onChange={e => setBackBackgroundUrl(e.target.value)}
+                placeholder="https://example.com/back-bg.jpg"
+              />
+            </div>
           </div>
 
-          {/* Slug */}
-          <div className="space-y-1.5 md:col-span-2">
-            <label htmlFor="slug" className="block text-sm font-bold text-slate-700">
-              URL Slug <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="slug"
-              type="text"
-              required
+          <div className="pt-4 border-t border-border">
+            <Button
+              type="submit"
               disabled={loading}
-              value={slug}
-              onChange={e => setSlug(e.target.value)}
-              placeholder="e.g. local-business-postcard"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-            <span className="text-[10px] text-slate-400 block">
-              Auto-generated from name. Controls the landing page URL path segment.
-            </span>
-          </div>
-
-          {/* Postcard Size Template */}
-          <div className="space-y-1.5 md:col-span-2">
-            <label htmlFor="cardSize" className="block text-sm font-bold text-slate-700">
-              Postcard Size Format <span className="text-red-500">*</span>
-            </label>
-            <select
-              id="cardSize"
-              disabled={loading}
-              value={cardSize}
-              onChange={e => setCardSize(e.target.value as "9x12" | "6x11")}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+              className="w-full"
             >
-              <option value="9x12">9x12 NearHere Shared Card (Premium Grid, 21 paid placements)</option>
-              <option value="6x11">6x11 Community Card (Style B: Spotlight Rail, 12 slots)</option>
-            </select>
-            <span className="text-[10px] text-slate-400 block">
-              Determines the layout structure, dimensions, and default spots initialized for the campaign.
-            </span>
+              {loading ? "Creating..." : "💾 Save Campaign"}
+            </Button>
           </div>
-
-          {/* Postcard Skin Theme */}
-          <div className="space-y-1.5 md:col-span-2">
-            <label htmlFor="cardSkin" className="block text-sm font-bold text-slate-700">
-              Postcard Skin Theme
-            </label>
-            <select
-              id="cardSkin"
-              disabled={loading}
-              value={cardSkin}
-              onChange={e => setCardSkin(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            >
-              <option value="cream">Cream (Traditional warm cardstock)</option>
-              <option value="dark">Slate Dark (Bold charcoal style)</option>
-              <option value="minimalist">Modern White (Clean minimalist design)</option>
-            </select>
-            <span className="text-[10px] text-slate-400 block">
-              Controls the background styling, font colors, and border themes of the postcard templates.
-            </span>
-          </div>
-
-          {/* City */}
-          <div className="space-y-1.5">
-            <label htmlFor="city" className="block text-sm font-bold text-slate-700">
-              City <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="city"
-              type="text"
-              required
-              disabled={loading}
-              value={city}
-              onChange={e => setCity(e.target.value)}
-              placeholder="e.g. converse"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-
-          {/* State */}
-          <div className="space-y-1.5">
-            <label htmlFor="state" className="block text-sm font-bold text-slate-700">
-              State <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="state"
-              type="text"
-              required
-              disabled={loading}
-              value={state}
-              onChange={e => setState(e.target.value)}
-              placeholder="e.g. texas"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-
-          {/* County */}
-          <div className="space-y-1.5">
-            <label htmlFor="county" className="block text-sm font-bold text-slate-700">
-              County
-            </label>
-            <input
-              id="county"
-              type="text"
-              disabled={loading}
-              value={county}
-              onChange={e => setCounty(e.target.value)}
-              placeholder="e.g. Bexar"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-
-          {/* ZIP Code */}
-          <div className="space-y-1.5">
-            <label htmlFor="zipCode" className="block text-sm font-bold text-slate-700">
-              Mailing ZIP Code
-            </label>
-            <input
-              id="zipCode"
-              type="text"
-              disabled={loading}
-              value={zipCode}
-              onChange={e => setZipCode(e.target.value)}
-              placeholder="e.g. 78109"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-
-          {/* Mailing Quantity */}
-          <div className="space-y-1.5">
-            <label htmlFor="quantity" className="block text-sm font-bold text-slate-700">
-              Mailing Quantity (Homes) <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="quantity"
-              type="number"
-              required
-              disabled={loading}
-              value={mailingQuantity}
-              onChange={e => setMailingQuantity(Number(e.target.value))}
-              placeholder="10000"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-
-          {/* Estimated Mail Date */}
-          <div className="space-y-1.5">
-            <label htmlFor="mailDate" className="block text-sm font-bold text-slate-700">
-              Estimated Mail Date
-            </label>
-            <input
-              id="mailDate"
-              type="date"
-              disabled={loading}
-              value={estimatedMailDate}
-              onChange={e => setEstimatedMailDate(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-
-          {/* Description */}
-          <div className="space-y-1.5 md:col-span-2">
-            <label htmlFor="desc" className="block text-sm font-bold text-slate-700">
-              Campaign Description
-            </label>
-            <textarea
-              id="desc"
-              rows={3}
-              disabled={loading}
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-              placeholder="Enter context, target homeowner criteria..."
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-none"
-            />
-          </div>
-
-          {/* Front Background URL */}
-          <div className="space-y-1.5">
-            <label htmlFor="frontBg" className="block text-sm font-bold text-slate-700">
-              Front Background Image URL
-            </label>
-            <input
-              id="frontBg"
-              type="url"
-              disabled={loading}
-              value={frontBackgroundUrl}
-              onChange={e => setFrontBackgroundUrl(e.target.value)}
-              placeholder="https://example.com/front-bg.jpg"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-
-          {/* Back Background URL */}
-          <div className="space-y-1.5">
-            <label htmlFor="backBg" className="block text-sm font-bold text-slate-700">
-              Back Background Image URL
-            </label>
-            <input
-              id="backBg"
-              type="url"
-              disabled={loading}
-              value={backBackgroundUrl}
-              onChange={e => setBackBackgroundUrl(e.target.value)}
-              placeholder="https://example.com/back-bg.jpg"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            />
-          </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full inline-flex items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-base px-6 py-4 shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed select-none active:scale-[0.99]"
-        >
-          {loading ? "Creating..." : "Save Campaign"}
-        </button>
-      </form>
+        </form>
+      </Card>
     </div>
   )
 }

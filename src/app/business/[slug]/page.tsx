@@ -4,6 +4,7 @@ import crypto from "crypto"
 import { headers } from "next/headers"
 import Link from "next/link"
 import type { Metadata } from "next"
+import ClaimOfferButton from "@/components/ClaimOfferButton"
 
 interface BusinessPageProps {
   params: Promise<{ slug: string }>
@@ -293,12 +294,7 @@ export default async function BusinessProfilePage({ params, searchParams }: Busi
 
             {!isExpired && (
               <div className="mt-4">
-                <button 
-                  onClick={() => alert(`Offer Code: NEARHERE-${slug.toUpperCase()}`)}
-                  className="px-4 py-2 border border-press bg-press text-paper hover:bg-[#3D3533] text-[10px] font-bold uppercase tracking-wider transition-colors"
-                >
-                  Claim Offer
-                </button>
+                <ClaimOfferButton slug={slug} />
               </div>
             )}
           </section>

@@ -3,6 +3,11 @@
 import React, { useState } from "react"
 import { trpc } from "@/lib/trpc/client"
 import { BusinessLinkType } from "@prisma/client"
+import { useUploadThing } from "@/lib/uploadthing"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
 
 export default function BusinessProfilePage() {
   const utils = trpc.useUtils()
@@ -185,12 +190,12 @@ export default function BusinessProfilePage() {
       )}
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-[#E7E0D8] select-none">
+      <div className="flex border-b border-border select-none">
         <button
           onClick={() => setActiveTab("profile")}
           className={`px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer border-b-2 transition-all ${
             activeTab === "profile"
-              ? "border-[#D13F1F] text-[#D13F1F]"
+              ? "border-primary text-primary"
               : "border-transparent text-warm hover:text-press"
           }`}
         >
@@ -200,7 +205,7 @@ export default function BusinessProfilePage() {
           onClick={() => setActiveTab("links")}
           className={`px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer border-b-2 transition-all ${
             activeTab === "links"
-              ? "border-[#D13F1F] text-[#D13F1F]"
+              ? "border-primary text-primary"
               : "border-transparent text-warm hover:text-press"
           }`}
         >
@@ -210,13 +215,13 @@ export default function BusinessProfilePage() {
 
       {/* Profile Form Tab */}
       {activeTab === "profile" && (
-        <form onSubmit={handleProfileSubmit} className="bg-white border-2 border-press p-6 rounded-none space-y-6 shadow-sm">
+        <form onSubmit={handleProfileSubmit} className="bg-card border-2 border-press p-6 rounded-none space-y-6 shadow-sm">
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
             {/* Left Column: Basic Details */}
             <div className="space-y-4">
-              <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-[#E7E0D8] pb-1">
+              <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-border pb-1">
                 Company Details
               </h3>
 
@@ -224,13 +229,12 @@ export default function BusinessProfilePage() {
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                   Business Name *
                 </label>
-                <input
+                <Input
                   type="text"
                   required
                   disabled={isPrintedOrMailed}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -238,12 +242,12 @@ export default function BusinessProfilePage() {
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                   Short Description / Tagline
                 </label>
-                <textarea
+                <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                   placeholder="Tell customers what your business does..."
-                  className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors resize-none"
+                  className="resize-none"
                 />
               </div>
 
@@ -252,23 +256,21 @@ export default function BusinessProfilePage() {
                   <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Phone Number
                   </label>
-                  <input
+                  <Input
                     type="tel"
                     disabled={isPrintedOrMailed}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
                 <div>
                   <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Email Address
                   </label>
-                  <input
+                  <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors"
                   />
                 </div>
               </div>
@@ -277,13 +279,12 @@ export default function BusinessProfilePage() {
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                   Website URL
                 </label>
-                <input
+                <Input
                   type="url"
                   placeholder="https://mybusiness.com"
                   disabled={isPrintedOrMailed}
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
-                  className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -291,7 +292,7 @@ export default function BusinessProfilePage() {
 
             {/* Right Column: Branding & Location */}
             <div className="space-y-4">
-              <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-[#E7E0D8] pb-1">
+              <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-border pb-1">
                 Visual Assets & Location
               </h3>
 
@@ -299,13 +300,12 @@ export default function BusinessProfilePage() {
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                   Logo Image URL
                 </label>
-                <input
+                <Input
                   type="url"
                   placeholder="https://uploadthing.com/..."
                   disabled={isPrintedOrMailed}
                   value={logoUrl}
                   onChange={(e) => setLogoUrl(e.target.value)}
-                  className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 />
               </div>
 
@@ -313,12 +313,11 @@ export default function BusinessProfilePage() {
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                   Cover Image URL
                 </label>
-                <input
+                <Input
                   type="url"
                   placeholder="https://uploadthing.com/..."
                   value={coverImageUrl}
                   onChange={(e) => setCoverImageUrl(e.target.value)}
-                  className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors"
                 />
               </div>
 
@@ -326,12 +325,11 @@ export default function BusinessProfilePage() {
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                   Street Address
                 </label>
-                <input
+                <Input
                   type="text"
                   placeholder="123 Main St"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
-                  className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors"
                 />
               </div>
 
@@ -340,34 +338,31 @@ export default function BusinessProfilePage() {
                   <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     City
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
-                    className="w-full rounded-none border border-rule px-2 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors"
                   />
                 </div>
                 <div className="col-span-1">
                   <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     State
                   </label>
-                  <input
+                  <Input
                     type="text"
                     placeholder="TX"
                     value={state}
                     onChange={(e) => setState(e.target.value)}
-                    className="w-full rounded-none border border-rule px-2 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors"
                   />
                 </div>
                 <div className="col-span-1">
                   <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Zip Code
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={zipCode}
                     onChange={(e) => setZipCode(e.target.value)}
-                    className="w-full rounded-none border border-rule px-2 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors"
                   />
                 </div>
               </div>
@@ -376,14 +371,14 @@ export default function BusinessProfilePage() {
 
           </div>
 
-          <div className="pt-4 border-t border-[#E7E0D8] text-right">
-            <button
+          <div className="pt-4 border-t border-border text-right">
+            <Button
               type="submit"
               disabled={updateProfileMutation.isPending}
-              className="px-6 py-3 bg-[#D13F1F] hover:bg-[#B53A1A] text-paper font-bold uppercase tracking-wider text-xs border border-press transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+              size="lg"
             >
               {updateProfileMutation.isPending ? "Saving..." : "💾 Save Changes"}
-            </button>
+            </Button>
           </div>
 
         </form>
@@ -394,8 +389,8 @@ export default function BusinessProfilePage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Left / Middle: Add / Edit Link Form */}
-          <div className="lg:col-span-1 bg-white border-2 border-press p-6 rounded-none h-fit shadow-sm space-y-4">
-            <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-[#E7E0D8] pb-1">
+          <div className="lg:col-span-1 bg-card border-2 border-press p-6 rounded-none h-fit shadow-sm space-y-4">
+            <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-border pb-1">
               {isEditingLink ? "✏️ Edit Outbound Link" : "➕ Add Outbound Link"}
             </h3>
 
@@ -407,7 +402,7 @@ export default function BusinessProfilePage() {
                 <select
                   value={linkType}
                   onChange={(e) => setLinkType(e.target.value as BusinessLinkType)}
-                  className="w-full rounded-none border border-rule bg-white px-3 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F]"
+                  className="w-full rounded-none border border-border bg-card px-3 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary"
                 >
                   <option value={BusinessLinkType.WEBSITE}>Website 🔗</option>
                   <option value={BusinessLinkType.PHONE}>Phone 📞</option>
@@ -425,13 +420,12 @@ export default function BusinessProfilePage() {
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                   Link Label
                 </label>
-                <input
+                <Input
                   type="text"
                   required
                   placeholder="e.g. Follow Us on Instagram"
                   value={linkLabel}
                   onChange={(e) => setLinkLabel(e.target.value)}
-                  className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors"
                 />
               </div>
 
@@ -439,13 +433,12 @@ export default function BusinessProfilePage() {
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                   Destination URL
                 </label>
-                <input
+                <Input
                   type="text"
                   required
                   placeholder={linkType === "PHONE" ? "tel:+1234567890" : linkType === "EMAIL" ? "mailto:name@email.com" : "https://instagram.com/mybusiness"}
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
-                  className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none focus:ring-1 focus:ring-[#D13F1F] focus:border-[#D13F1F] transition-colors"
                 />
               </div>
 
@@ -454,11 +447,10 @@ export default function BusinessProfilePage() {
                   <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Sort Order
                   </label>
-                  <input
+                  <Input
                     type="number"
                     value={linkSortOrder}
                     onChange={(e) => setLinkSortOrder(parseInt(e.target.value) || 0)}
-                    className="w-full rounded-none border border-rule px-3.5 py-2.5 text-sm text-press focus:outline-none"
                   />
                 </div>
 
@@ -468,7 +460,7 @@ export default function BusinessProfilePage() {
                       type="checkbox"
                       checked={linkIsActive}
                       onChange={(e) => setLinkIsActive(e.target.checked)}
-                      className="rounded border-[#E7E0D8] text-[#D13F1F] focus:ring-[#D13F1F]"
+                      className="rounded border-border text-primary focus:ring-primary"
                     />
                     <span>Link Active</span>
                   </label>
@@ -476,21 +468,21 @@ export default function BusinessProfilePage() {
               </div>
 
               <div className="pt-2 flex gap-3">
-                <button
+                <Button
                   type="submit"
                   disabled={upsertLinkMutation.isPending}
-                  className="flex-1 px-4 py-2.5 bg-[#D13F1F] hover:bg-[#B53A1A] text-paper font-bold uppercase tracking-wider text-xs border border-press transition-colors shadow-sm cursor-pointer disabled:opacity-50"
+                  className="flex-1"
                 >
                   {upsertLinkMutation.isPending ? "Saving..." : "💾 Save Link"}
-                </button>
+                </Button>
                 {isEditingLink && (
-                  <button
+                  <Button
                     type="button"
+                    variant="outline"
                     onClick={resetLinkForm}
-                    className="px-4 py-2.5 border border-press hover:bg-[#E7E0D8] text-xs font-bold uppercase tracking-wider text-press cursor-pointer transition-colors"
                   >
                     Cancel
-                  </button>
+                  </Button>
                 )}
               </div>
             </form>
@@ -498,13 +490,13 @@ export default function BusinessProfilePage() {
           </div>
 
           {/* Right: Active Links List */}
-          <div className="lg:col-span-2 bg-white border border-rule p-6 rounded-none h-fit shadow-sm space-y-4 select-none">
-            <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-[#E7E0D8] pb-1">
+          <div className="lg:col-span-2 bg-card border border-border p-6 rounded-none h-fit shadow-sm space-y-4 select-none">
+            <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-border pb-1">
               Active Outbound Links list
             </h3>
 
             {business?.links && business.links.length > 0 ? (
-              <div className="divide-y divide-rule">
+              <div className="divide-y divide-border">
                 {business.links.map((link) => (
                   <div key={link.id} className="py-3.5 flex items-center justify-between gap-4">
                     <div className="text-left space-y-0.5 min-w-0">
@@ -516,9 +508,9 @@ export default function BusinessProfilePage() {
                           {link.type}
                         </span>
                         {!link.isActive && (
-                          <span className="text-[9px] font-mono font-bold uppercase bg-red-50 px-2 py-0.5 text-red-500 border border-red-200">
+                          <Badge variant="destructive">
                             Inactive
-                          </span>
+                          </Badge>
                         )}
                       </div>
                       <p className="text-xs text-warm truncate break-all max-w-md font-medium">
@@ -527,18 +519,20 @@ export default function BusinessProfilePage() {
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      <button
+                      <Button
                         onClick={() => handleEditLinkClick(link)}
-                        className="px-2.5 py-1 text-[10px] border border-press hover:bg-[#E7E0D8] font-bold uppercase tracking-wider text-press transition-colors cursor-pointer"
+                        variant="outline"
+                        size="sm"
                       >
                         ✏️ Edit
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => handleDeleteLinkClick(link.id)}
-                        className="px-2.5 py-1 text-[10px] border border-red-200 hover:bg-red-50 text-red-500 font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                        variant="destructive"
+                        size="sm"
                       >
                         🗑️ Delete
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 ))}

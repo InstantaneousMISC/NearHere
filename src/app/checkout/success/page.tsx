@@ -158,7 +158,7 @@ function SuccessContent() {
               href={claimUrl}
               className="w-full inline-flex items-center justify-center bg-[#D13F1F] hover:bg-[#B53A1A] text-paper border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-4 transition-colors cursor-pointer rounded-none font-headline text-sm"
             >
-              Claim Account & Set Up Profile
+              Set Up Profile
             </Link>
             <div className="text-center">
               <Link

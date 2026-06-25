@@ -7,6 +7,7 @@ import { getCreativeSubmissionReceivedTemplate } from "@/server/email/templates/
 import { getNeedsChangesTemplate } from "@/server/email/templates/needsChanges"
 import { getApprovedForPrintTemplate } from "@/server/email/templates/approvedForPrint"
 import { getPrintedMailedNotificationTemplate } from "@/server/email/templates/printedMailedNotification"
+import { validatePhone, formatPhone, validateAndNormalizeUrl } from "@/lib/validation"
 
 export const creativeRouter = createTRPCRouter({
   // Public procedures
@@ -37,14 +38,14 @@ export const creativeRouter = createTRPCRouter({
       z.object({
         token: z.string(),
         businessName: z.string().min(1).max(200).optional(),
-        logoUrl: z.string().url().optional().or(z.literal("")),
+        logoUrl: z.string().optional().or(z.literal("")),
         additionalImages: z.array(z.string().url()).optional(),
         headline: z.string().max(80).optional(),
         offerDeal: z.string().max(160).optional(),
         description: z.string().max(300).optional(),
         cta: z.string().max(60).optional(),
         phone: z.string().optional(),
-        website: z.string().url().optional().or(z.literal("")),
+        website: z.string().optional().or(z.literal("")),
         address: z.string().optional(),
         serviceArea: z.string().optional(),
         hours: z.string().optional(),
@@ -74,6 +75,39 @@ export const creativeRouter = createTRPCRouter({
         })
       }
 
+      // Enforce input validations and sanitization
+      if (input.phone && !validatePhone(input.phone)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please enter a valid phone number (at least 10 digits).",
+        })
+      }
+      const sanitizedPhone = input.phone ? formatPhone(input.phone) : input.phone
+
+      let sanitizedWebsite = input.website || null
+      if (input.website && input.website.trim() !== "") {
+        const normalized = validateAndNormalizeUrl(input.website)
+        if (!normalized) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Please enter a valid website URL.",
+          })
+        }
+        sanitizedWebsite = normalized
+      }
+
+      let sanitizedLogoUrl = input.logoUrl || null
+      if (input.logoUrl && input.logoUrl.trim() !== "") {
+        const normalized = validateAndNormalizeUrl(input.logoUrl)
+        if (!normalized) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Please enter a valid logo image URL.",
+          })
+        }
+        sanitizedLogoUrl = normalized
+      }
+
       // Check if existing creative submission is locked
       const existingSubmission = order.creativeSubmission
       const campaign = order.campaign
@@ -91,13 +125,13 @@ export const creativeRouter = createTRPCRouter({
       if (isLocked) {
         if (existingSubmission) {
           const nameChanged = input.businessName !== undefined && input.businessName !== existingSubmission.businessName
-          const logoChanged = input.logoUrl !== undefined && input.logoUrl !== (existingSubmission.logoUrl || "")
+          const logoChanged = input.logoUrl !== undefined && sanitizedLogoUrl !== (existingSubmission.logoUrl || "")
           const headlineChanged = input.headline !== undefined && input.headline !== (existingSubmission.headline || "")
           const offerChanged = input.offerDeal !== undefined && input.offerDeal !== (existingSubmission.offerDeal || "")
           const descChanged = input.description !== undefined && input.description !== (existingSubmission.description || "")
           const ctaChanged = input.cta !== undefined && input.cta !== (existingSubmission.cta || "")
-          const phoneChanged = input.phone !== undefined && input.phone !== (existingSubmission.phone || "")
-          const websiteChanged = input.website !== undefined && input.website !== (existingSubmission.website || "")
+          const phoneChanged = input.phone !== undefined && sanitizedPhone !== (existingSubmission.phone || "")
+          const websiteChanged = input.website !== undefined && sanitizedWebsite !== (existingSubmission.website || "")
           const addressChanged = input.address !== undefined && input.address !== (existingSubmission.address || "")
 
           if (
@@ -112,13 +146,13 @@ export const creativeRouter = createTRPCRouter({
         } else {
           // If no existing submission exists, compare against advertiser defaults
           const nameChanged = input.businessName !== undefined && input.businessName !== order.advertiser.businessName
-          const logoChanged = input.logoUrl !== undefined && input.logoUrl !== ""
+          const logoChanged = input.logoUrl !== undefined && sanitizedLogoUrl !== ""
           const headlineChanged = input.headline !== undefined && input.headline !== ""
           const offerChanged = input.offerDeal !== undefined && input.offerDeal !== ""
           const descChanged = input.description !== undefined && input.description !== ""
           const ctaChanged = input.cta !== undefined && input.cta !== ""
-          const phoneChanged = input.phone !== undefined && input.phone !== order.advertiser.phone
-          const websiteChanged = input.website !== undefined && input.website !== (order.advertiser.website || "")
+          const phoneChanged = input.phone !== undefined && sanitizedPhone !== order.advertiser.phone
+          const websiteChanged = input.website !== undefined && sanitizedWebsite !== (order.advertiser.website || "")
           const addressChanged = input.address !== undefined && input.address !== (order.advertiser.businessAddress || "")
 
           if (
@@ -139,14 +173,14 @@ export const creativeRouter = createTRPCRouter({
         where: { orderId: order.id },
         update: {
           businessName: input.businessName,
-          logoUrl: input.logoUrl || null,
+          logoUrl: sanitizedLogoUrl,
           additionalImages: input.additionalImages ? JSON.stringify(input.additionalImages) : undefined,
           headline: input.headline,
           offerDeal: input.offerDeal,
           description: input.description,
           cta: input.cta,
-          phone: input.phone,
-          website: input.website || null,
+          phone: sanitizedPhone,
+          website: sanitizedWebsite,
           address: input.address,
           serviceArea: input.serviceArea,
           hours: input.hours,
@@ -166,14 +200,14 @@ export const creativeRouter = createTRPCRouter({
         create: {
           orderId: order.id,
           businessName: input.businessName,
-          logoUrl: input.logoUrl || null,
+          logoUrl: sanitizedLogoUrl,
           additionalImages: input.additionalImages ? JSON.stringify(input.additionalImages) : undefined,
           headline: input.headline,
           offerDeal: input.offerDeal,
           description: input.description,
           cta: input.cta,
-          phone: input.phone,
-          website: input.website || null,
+          phone: sanitizedPhone,
+          website: sanitizedWebsite,
           address: input.address,
           serviceArea: input.serviceArea,
           hours: input.hours,
@@ -203,10 +237,10 @@ export const creativeRouter = createTRPCRouter({
             where: { id: business.id },
             data: {
               name: input.businessName || business.name,
-              logoUrl: input.logoUrl || business.logoUrl,
+              logoUrl: sanitizedLogoUrl || business.logoUrl,
               description: input.description || business.description,
-              phone: input.phone || business.phone,
-              website: input.website || business.website,
+              phone: sanitizedPhone || business.phone,
+              website: sanitizedWebsite || business.website,
               address: input.address || business.address,
               serviceArea: input.serviceArea !== undefined ? input.serviceArea : business.serviceArea,
               hours: input.hours !== undefined ? input.hours : business.hours,
@@ -222,11 +256,11 @@ export const creativeRouter = createTRPCRouter({
               advertiserId: order.advertiserId,
               name: input.businessName || order.advertiser.businessName,
               slug: businessSlug,
-              logoUrl: input.logoUrl || null,
+              logoUrl: sanitizedLogoUrl,
               description: input.description || null,
-              phone: input.phone || order.advertiser.phone,
+              phone: sanitizedPhone || order.advertiser.phone,
               email: order.advertiser.email,
-              website: input.website || order.advertiser.website,
+              website: sanitizedWebsite || order.advertiser.website,
               address: input.address || order.advertiser.businessAddress,
               serviceArea: input.serviceArea || null,
               hours: input.hours || null,
@@ -273,6 +307,7 @@ export const creativeRouter = createTRPCRouter({
         submissionId: z.string(),
         approvalStatus: z.nativeEnum(ApprovalStatus),
         approvalNotes: z.string().optional(),
+        draftProofUrl: z.string().url().optional().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -282,13 +317,19 @@ export const creativeRouter = createTRPCRouter({
           data: {
             approvalStatus: input.approvalStatus,
             approvalNotes: input.approvalNotes,
+            ...(input.draftProofUrl !== undefined ? {
+              draftProofUrl: input.draftProofUrl,
+              draftFeedback: null,
+            } : {}),
           },
         }),
         ctx.db.creativeReviewEvent.create({
           data: {
             creativeSubmissionId: input.submissionId,
             status: input.approvalStatus,
-            notes: input.approvalNotes,
+            notes: input.draftProofUrl
+              ? `Draft proof uploaded by admin. Notes: ${input.approvalNotes || "None"}`
+              : input.approvalNotes,
             adminEmail: ctx.adminUser.email,
           },
         }),
@@ -378,6 +419,71 @@ export const creativeRouter = createTRPCRouter({
         }
       }
 
+      return submission
+    }),
+
+  approveDraft: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const order = await ctx.db.order.findUnique({
+        where: { creativeSubmissionToken: input.token },
+      })
+      if (!order) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invalid creative submission link token",
+        })
+      }
+      const submission = await ctx.db.creativeSubmission.update({
+        where: { orderId: order.id },
+        data: {
+          approvalStatus: ApprovalStatus.APPROVED,
+          draftFeedback: null,
+        },
+      })
+      await ctx.db.creativeReviewEvent.create({
+        data: {
+          creativeSubmissionId: submission.id,
+          status: ApprovalStatus.APPROVED,
+          notes: "Draft layout proof approved by advertiser.",
+          adminEmail: "advertiser@localspotmailers.com",
+        },
+      })
+      return submission
+    }),
+
+  rejectDraft: publicProcedure
+    .input(
+      z.object({
+        token: z.string(),
+        feedback: z.string().min(1).max(1000),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const order = await ctx.db.order.findUnique({
+        where: { creativeSubmissionToken: input.token },
+      })
+      if (!order) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invalid creative submission link token",
+        })
+      }
+      const submission = await ctx.db.creativeSubmission.update({
+        where: { orderId: order.id },
+        data: {
+          approvalStatus: ApprovalStatus.REJECTED,
+          draftFeedback: input.feedback,
+        },
+      })
+      await ctx.db.creativeReviewEvent.create({
+        data: {
+          creativeSubmissionId: submission.id,
+          status: ApprovalStatus.REJECTED,
+          notes: `Advertiser requested design changes: "${input.feedback}"`,
+          adminEmail: "advertiser@localspotmailers.com",
+        },
+      })
       return submission
     }),
 

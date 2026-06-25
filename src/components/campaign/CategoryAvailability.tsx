@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 
 interface CategoryDisplay {
   id: string
@@ -42,6 +42,8 @@ export default function CategoryAvailability({
   mailingQuantity = 10000,
 }: CategoryAvailabilityProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const offerToken = searchParams ? searchParams.get("offer") : null
   const cityName = city.charAt(0).toUpperCase() + city.slice(1)
 
   const formatPrice = (cents: number) => {
@@ -124,7 +126,9 @@ export default function CategoryAvailability({
               <div className="col-span-5 md:col-span-2 flex justify-end">
                 {spot.status === "OPEN" || spot.status === "HELD" ? (
                   <Link
-                    href={`/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}/checkout/${spot.id}`}
+                    href={`/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}/checkout/${spot.id}${
+                      offerToken ? `?offer=${encodeURIComponent(offerToken)}` : ""
+                    }`}
                     className="inline-flex items-center font-mono text-[10px] uppercase tracking-[0.14em] px-3 py-1.5 border border-nh-red text-nh-red bg-transparent hover:bg-nh-red hover:text-paper transition-colors rounded-none font-bold"
                   >
                     Claim Spot

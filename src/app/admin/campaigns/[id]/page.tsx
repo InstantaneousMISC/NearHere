@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use client"
 
 import { useState, use } from "react"
@@ -6,6 +7,12 @@ import { CampaignStatus, SpotStatus, ApprovalStatus } from "@prisma/client"
 import { formatPrice, formatDate } from "@/lib/utils"
 import SpotForm from "@/components/admin/SpotForm"
 import Link from "next/link"
+import CampaignOffersPanel from "@/components/admin/CampaignOffersPanel"
+import ManualBookingForm from "@/components/admin/ManualBookingForm"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table"
 
 interface CampaignDetailPageProps {
   params: Promise<{
@@ -15,9 +22,10 @@ interface CampaignDetailPageProps {
 
 export default function CampaignDetailPage({ params }: CampaignDetailPageProps) {
   const { id } = use(params)
-  const [activeTab, setActiveTab] = useState<"overview" | "spots" | "orders" | "creative">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "spots" | "orders" | "creative" | "offers">("overview")
   const [editingSpot, setEditingSpot] = useState<any | null>(null)
   const [isAddingSpot, setIsAddingSpot] = useState(false)
+  const [bookingSpot, setBookingSpot] = useState<any | null>(null)
   const [statusUpdateLoading, setStatusUpdateLoading] = useState(false)
 
   // Fetch campaign by ID
@@ -29,20 +37,22 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
 
   if (isLoading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
-        <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin" />
-        <p className="text-slate-500 font-semibold text-sm">Loading campaign details...</p>
+      <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4 animate-pulse">
+        <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-none animate-spin" />
+        <p className="text-warm font-mono font-bold text-xs uppercase tracking-wider">Loading campaign details...</p>
       </div>
     )
   }
 
   if (!campaign) {
     return (
-      <div className="text-center py-12">
-        <h2 className="text-xl font-bold text-red-600">Campaign Not Found</h2>
-        <Link href="/admin/campaigns" className="mt-4 inline-block text-blue-600 font-semibold">
-          Return to Campaigns List
-        </Link>
+      <div className="text-center py-12 space-y-4">
+        <h2 className="font-headline font-black text-xl text-primary uppercase">Campaign Not Found</h2>
+        <Button asChild variant="outline">
+          <Link href="/admin/campaigns">
+            Return to Campaigns List
+          </Link>
+        </Button>
       </div>
     )
   }
@@ -153,25 +163,36 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
   return (
     <div className="space-y-8 font-sans">
       {/* Header Block */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-slate-200 pb-6 gap-4">
-        <div className="space-y-1">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-border pb-6 gap-4">
+        <div className="space-y-1 text-left">
           <Link
             href="/admin/campaigns"
-            className="text-xs font-bold text-slate-500 hover:text-blue-600 transition-colors uppercase tracking-widest"
+            className="text-[10px] font-mono font-bold text-warm hover:text-primary transition-colors uppercase tracking-widest"
           >
             ← Back to Campaigns
           </Link>
-          <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight mt-2">
+          <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-press leading-none mt-2">
             {campaign.name}
           </h1>
-          <p className="text-slate-500 text-sm">
-            Slug: <span className="font-semibold text-slate-800">{campaign.slug}</span>
-          </p>
+          <div className="flex items-center gap-3 mt-1 flex-wrap text-xs font-medium text-warm">
+            <span>
+              Slug: <span className="font-mono font-bold text-press">{campaign.slug}</span>
+            </span>
+            <span className="text-border">|</span>
+            <Link
+              href={`/campaigns/${campaign.state.toLowerCase()}/${campaign.city.toLowerCase()}/${campaign.slug.toLowerCase()}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-headline font-bold text-primary hover:underline transition-colors inline-flex items-center gap-0.5 uppercase tracking-wider"
+            >
+              Public Page ↗
+            </Link>
+          </div>
         </div>
 
         {/* Status Actions */}
-        <div className="flex items-center gap-3">
-          <label htmlFor="campaignStatus" className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+        <div className="flex items-center gap-3 select-none">
+          <label htmlFor="campaignStatus" className="text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
             Status:
           </label>
           <select
@@ -179,7 +200,7 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
             disabled={statusUpdateLoading}
             value={campaign.status}
             onChange={(e) => handleStatusChange(e.target.value as CampaignStatus)}
-            className="bg-white rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-bold text-slate-900 focus:outline-none"
+            className="rounded-none border border-input bg-card text-press h-10 px-4 py-2 text-sm font-bold focus:outline-none focus:ring-1 focus:ring-ring transition-colors cursor-pointer"
           >
             <option value="DRAFT">Draft</option>
             <option value="ACTIVE">Active (Public)</option>
@@ -192,8 +213,8 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
       </div>
 
       {/* Tabs Menu */}
-      <div className="flex border-b border-slate-200">
-        {(["overview", "spots", "orders", "creative"] as const).map((tab) => (
+      <div className="flex border-b border-border select-none">
+        {(["overview", "spots", "orders", "creative", "offers"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -201,11 +222,12 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
               setActiveTab(tab)
               setEditingSpot(null)
               setIsAddingSpot(false)
+              setBookingSpot(null)
             }}
-            className={`px-6 py-3 font-bold text-sm border-b-2 uppercase tracking-wide transition-all ${
+            className={`px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider border-b-2 transition-all cursor-pointer ${
               activeTab === tab
-                ? "border-blue-600 text-blue-600"
-                : "border-transparent text-slate-400 hover:text-slate-950"
+                ? "border-primary text-primary"
+                : "border-transparent text-warm hover:text-press"
             }`}
           >
             {tab}
@@ -219,135 +241,135 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
         {activeTab === "overview" && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Details panel */}
-            <div className="md:col-span-2 bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-4">
-              <h3 className="text-lg font-bold text-slate-950 border-b border-slate-100 pb-2">
+            <Card className="md:col-span-2 p-6 sm:p-8 space-y-4">
+              <h3 className="font-headline font-extrabold text-lg uppercase tracking-tight text-press border-b border-border pb-2">
                 Details & Targets
               </h3>
               <div className="grid grid-cols-2 gap-6 text-sm">
                 <div>
-                  <span className="block text-slate-400 font-semibold">City</span>
-                  <span className="font-bold text-slate-800 mt-1 block">{campaign.city}</span>
+                  <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">City</span>
+                  <span className="font-headline font-bold text-lg text-press mt-1 block uppercase">{campaign.city}</span>
                 </div>
                 <div>
-                  <span className="block text-slate-400 font-semibold">State</span>
-                  <span className="font-bold text-slate-800 mt-1 block">{campaign.state}</span>
+                  <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">State</span>
+                  <span className="font-headline font-bold text-lg text-press mt-1 block uppercase">{campaign.state}</span>
                 </div>
                 <div>
-                  <span className="block text-slate-400 font-semibold">Mailing Quantity</span>
-                  <span className="font-bold text-slate-800 mt-1 block">
+                  <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Mailing Quantity</span>
+                  <span className="font-headline font-bold text-lg text-press mt-1 block">
                     {new Intl.NumberFormat().format(campaign.mailingQuantity)} homes
                   </span>
                 </div>
                 <div>
-                  <span className="block text-slate-400 font-semibold">Est. Mail Date</span>
-                  <span className="font-bold text-slate-800 mt-1 block">
+                  <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Est. Mail Date</span>
+                  <span className="font-headline font-bold text-lg text-press mt-1 block uppercase">
                     {campaign.estimatedMailDate ? formatDate(campaign.estimatedMailDate) : "Not Set"}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-slate-400 font-semibold">Card Size Format</span>
-                  <span className="font-bold text-slate-800 mt-1 block uppercase">
+                  <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Card Size Format</span>
+                  <span className="font-headline font-bold text-lg text-press mt-1 block uppercase">
                     {campaign.cardSize === "6x11" ? "6x11 Community Card" : "9x12 Shared Card"}
                   </span>
                 </div>
                 <div>
-                  <span className="block text-slate-400 font-semibold">Postcard Skin Theme</span>
-                  <span className="font-bold text-slate-800 mt-1 block capitalize">
+                  <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Postcard Skin Theme</span>
+                  <span className="font-headline font-bold text-lg text-press mt-1 block uppercase">
                     {(campaign as any).cardSkin || "cream"}
                   </span>
                 </div>
                 {campaign.county && (
                   <div>
-                    <span className="block text-slate-400 font-semibold">County</span>
-                    <span className="font-bold text-slate-800 mt-1 block">{campaign.county}</span>
+                    <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">County</span>
+                    <span className="font-headline font-bold text-lg text-press mt-1 block uppercase">{campaign.county}</span>
                   </div>
                 )}
                 {campaign.zipCode && (
                   <div>
-                    <span className="block text-slate-400 font-semibold">ZIP Code</span>
-                    <span className="font-bold text-slate-800 mt-1 block">{campaign.zipCode}</span>
+                    <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">ZIP Code</span>
+                    <span className="font-headline font-bold text-lg text-press mt-1 block uppercase">{campaign.zipCode}</span>
                   </div>
                 )}
               </div>
               {campaign.description && (
-                <div className="border-t border-slate-100 pt-4 space-y-1">
-                  <span className="block text-slate-400 font-semibold text-xs uppercase tracking-wider">Description</span>
-                  <p className="text-slate-600 text-sm leading-relaxed">{campaign.description}</p>
+                <div className="border-t border-border pt-4 space-y-1">
+                  <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Description</span>
+                  <p className="text-press text-sm leading-relaxed">{campaign.description}</p>
                 </div>
               )}
               
-              <div className="border-t border-slate-100 pt-6 space-y-4">
-                <h4 className="text-sm font-bold text-slate-950 uppercase tracking-wider">
+              <div className="border-t border-border pt-6 space-y-4">
+                <h4 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press">
                   Campaign Placement Pricing
                 </h4>
-                <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                <div className="overflow-x-auto border-2 border-press bg-card">
                   <table className="w-full text-xs text-left">
                     <thead>
-                      <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
+                      <tr className="border-b border-press bg-press/5 text-warm font-mono text-[9px] font-bold uppercase tracking-wider">
                         <th className="py-2.5 px-4">Placement / Tier</th>
                         <th className="py-2.5 px-4">Base Price</th>
                         <th className="py-2.5 px-4 text-right">Cost Per Home ({new Intl.NumberFormat().format(campaign.mailingQuantity)} homes)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 text-slate-700">
+                    <tbody className="divide-y divide-border text-press">
                       {campaign.cardSize === "6x11" ? (
                         <>
-                          <tr className="hover:bg-slate-55/10">
-                            <td className="py-2 px-4 font-semibold">Premium Spotlight (Front Left)</td>
-                            <td className="py-2 px-4">$1,000</td>
-                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Premium Spotlight (Front Left)</td>
+                            <td className="py-2 px-4 font-mono">$1,000</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
                               {((1000 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-55/10">
-                            <td className="py-2 px-4 font-semibold">Standard Feature (Front Right / Back)</td>
-                            <td className="py-2 px-4">$450</td>
-                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Standard Feature (Front Right / Back)</td>
+                            <td className="py-2 px-4 font-mono">$450</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
                               {((450 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-55/10">
-                            <td className="py-2 px-4 font-semibold">Compact Ad Space (Front Bottom)</td>
-                            <td className="py-2 px-4">$250</td>
-                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Compact Ad Space (Front Bottom)</td>
+                            <td className="py-2 px-4 font-mono">$250</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
                               {((250 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
                         </>
                       ) : (
                         <>
-                          <tr className="hover:bg-slate-55/10">
-                            <td className="py-2 px-4 font-semibold">Front Standard Slot</td>
-                            <td className="py-2 px-4">$490</td>
-                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Front Standard Spot</td>
+                            <td className="py-2 px-4 font-mono">$490</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
                               {((490 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-55/10">
-                            <td className="py-2 px-4 font-semibold">Back Standard Slot</td>
-                            <td className="py-2 px-4">$590</td>
-                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Back Standard Slot</td>
+                            <td className="py-2 px-4 font-mono">$590</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
                               {((590 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-55/10">
-                            <td className="py-2 px-4 font-semibold">Front Double Slot</td>
-                            <td className="py-2 px-4">$890</td>
-                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Front Double Slot</td>
+                            <td className="py-2 px-4 font-mono">$890</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
                               {((890 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-55/10">
-                            <td className="py-2 px-4 font-semibold">Back Double Slot</td>
-                            <td className="py-2 px-4">$990</td>
-                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Back Double Slot</td>
+                            <td className="py-2 px-4 font-mono">$990</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
                               {((990 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
-                          <tr className="hover:bg-slate-55/10">
-                            <td className="py-2 px-4 font-semibold">Premium Center Back Spot</td>
-                            <td className="py-2 px-4">$1,490</td>
-                            <td className="py-2 px-4 text-right font-mono font-bold text-slate-900">
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Premium Center Back Spot</td>
+                            <td className="py-2 px-4 font-mono">$1,490</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
                               {((1490 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
@@ -357,40 +379,38 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                   </table>
                 </div>
               </div>
-            </div>
-
+            </Card>
+ 
             {/* Campaign Readiness Checklist */}
-            <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+            <Card className="p-6 space-y-6">
               <div className="space-y-1">
-                <h3 className="text-lg font-bold text-slate-950">Readiness Checklist</h3>
-                <p className="text-xs text-slate-400 font-medium">
-                  Steps required to prepare and run this campaign.
+                <h3 className="font-headline font-extrabold text-lg uppercase tracking-tight text-press border-b border-border pb-2">Readiness Checklist</h3>
+                <p className="text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                  Steps to prepare campaign
                 </p>
               </div>
 
               <div className="space-y-4">
                 {checklist.map((item, idx) => (
                   <div key={idx} className="flex items-start gap-3 text-sm">
-                    <div className="mt-0.5 shrink-0">
+                    <div className="mt-0.5 shrink-0 select-none">
                       {item.isDone ? (
-                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-50 text-emerald-600 border border-emerald-100 font-bold text-xs">
+                        <span className="flex items-center justify-center w-5 h-5 bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold text-xs">
                           ✓
                         </span>
                       ) : item.optional ? (
-                        <span className="flex items-center justify-center w-5 h-5 rounded-full bg-amber-50 text-amber-600 border border-amber-100 font-bold text-[8px] font-mono">
+                        <span className="flex items-center justify-center w-5 h-5 bg-amber-50 text-amber-700 border border-amber-200 font-mono text-[8px] font-bold">
                           HOLD
                         </span>
                       ) : (
-                        <span className="flex items-center justify-center w-5 h-5 rounded-full border border-slate-200 bg-slate-50 text-slate-300 font-bold text-xs">
-                          
-                        </span>
+                        <span className="flex items-center justify-center w-5 h-5 border border-press bg-transparent font-bold text-xs" />
                       )}
                     </div>
-                    <div className="space-y-0.5">
-                      <span className={`font-bold block ${item.isDone ? "text-slate-500 line-through opacity-60" : "text-slate-800"}`}>
+                    <div className="space-y-0.5 text-left">
+                      <span className={`font-headline font-bold uppercase tracking-tight text-sm block ${item.isDone ? "text-warm line-through opacity-60" : "text-press"}`}>
                         {item.label}
                       </span>
-                      <span className="text-xs text-slate-400 font-medium block leading-normal">
+                      <span className="text-xs text-warm font-medium block leading-normal">
                         {item.description}
                       </span>
                     </div>
@@ -398,41 +418,39 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                 ))}
               </div>
 
-              <div className="border-t border-slate-100 pt-4 flex flex-col gap-2">
-                <div className="flex justify-between text-xs font-mono font-bold uppercase tracking-wider text-slate-400 pb-2">
+              <div className="border-t border-border pt-4 flex flex-col gap-2">
+                <div className="flex justify-between text-xs font-mono font-bold uppercase tracking-wider text-warm pb-2">
                   <span>Spots Summary</span>
                   <span>{soldSpots}/{totalSpots} Sold</span>
                 </div>
-                <Link
-                  href={`/admin/campaigns/${campaign.id}/edit`}
-                  className="w-full inline-flex items-center justify-center rounded-xl border border-slate-200 hover:border-slate-400 text-slate-700 font-bold text-sm px-4 py-3 bg-slate-50 transition-colors text-center"
-                >
-                  Edit Campaign Settings
-                </Link>
+                <Button asChild variant="outline">
+                  <Link href={`/admin/campaigns/${campaign.id}/edit`}>
+                    Edit Campaign Settings
+                  </Link>
+                </Button>
               </div>
-            </div>
+            </Card>
           </div>
         )}
 
         {/* Spots Tab */}
         {activeTab === "spots" && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
-              <h3 className="text-lg font-bold text-slate-900">Campaign Placements</h3>
-              {!isAddingSpot && !editingSpot && (
-                <button
-                  type="button"
+            <div className="flex justify-between items-center border-b border-border pb-3">
+              <h3 className="font-headline font-extrabold text-lg uppercase tracking-tight text-press">Campaign Placements</h3>
+              {!isAddingSpot && !editingSpot && !bookingSpot && (
+                <Button
                   onClick={() => setIsAddingSpot(true)}
-                  className="inline-flex items-center justify-center rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-sm px-4 py-2.5 shadow"
+                  size="sm"
                 >
                   ＋ Add Spot
-                </button>
+                </Button>
               )}
             </div>
 
             {/* Render Add/Edit Spot Form */}
-            {(isAddingSpot || editingSpot) && (
-              <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+            {(isAddingSpot || editingSpot) && !bookingSpot && (
+              <Card className="p-6">
                 <SpotForm
                   campaignId={campaign.id}
                   initialData={editingSpot || undefined}
@@ -446,171 +464,194 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                     setIsAddingSpot(false)
                   }}
                 />
-              </div>
+              </Card>
+            )}
+
+            {/* Render Manual Booking Form */}
+            {bookingSpot && (
+              <Card className="p-6">
+                <ManualBookingForm
+                  key={bookingSpot.id}
+                  spot={bookingSpot}
+                  onSaveSuccess={async () => {
+                    setBookingSpot(null)
+                    await refetch()
+                  }}
+                  onCancel={() => {
+                    setBookingSpot(null)
+                  }}
+                />
+              </Card>
             )}
 
             {/* List Table of Spots */}
-            {!isAddingSpot && !editingSpot && (
-              <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead>
-                      <tr className="border-b border-slate-100 bg-slate-55/20 text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                        <th className="py-3 px-6">Label / Category</th>
-                        <th className="py-3 px-6">Side</th>
-                        <th className="py-3 px-6">Size Tier</th>
-                        <th className="py-3 px-6">Price</th>
-                        <th className="py-3 px-6">Coordinates (x, y, w, h)</th>
-                        <th className="py-3 px-6">Status</th>
-                        <th className="py-3 px-6 text-right">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                      {campaign.spots.length === 0 ? (
-                        <tr>
-                          <td colSpan={7} className="py-10 text-center text-slate-400 italic">
-                            No spots configured yet. Click "Add Spot" to configure.
-                          </td>
-                        </tr>
-                      ) : (
-                        campaign.spots.map((spot) => (
-                          <tr key={spot.id} className="hover:bg-slate-55/10">
-                            <td className="py-3 px-6 font-bold text-slate-900">
-                              <div className="space-y-0.5">
-                                <div>{spot.label}</div>
-                                <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider block">
-                                  {spot.category.name}
-                                </span>
-                              </div>
-                            </td>
-                            <td className="py-3 px-6 text-slate-600 font-semibold">{spot.side}</td>
-                            <td className="py-3 px-6 text-slate-600 font-medium">{spot.spotType}</td>
-                            <td className="py-3 px-6 font-bold text-slate-800">
-                              {formatPrice(spot.price)}
-                            </td>
-                            <td className="py-3 px-6 text-slate-500 font-mono text-xs">
-                              {spot.x}%, {spot.y}%, {spot.width}%, {spot.height}%
-                            </td>
-                            <td className="py-3 px-6">
-                              <span
-                                className={`inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                                  spot.status === "OPEN"
-                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                    : spot.status === "HELD"
-                                    ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                    : spot.status === "SOLD"
-                                    ? "bg-slate-100 text-slate-500 border border-slate-200"
-                                    : "bg-red-50 text-red-700 border border-red-100"
-                                }`}
-                              >
-                                {spot.status}
+            {!isAddingSpot && !editingSpot && !bookingSpot && (
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="hover:bg-transparent">
+                      <TableHead className="px-6 py-4">Label / Category</TableHead>
+                      <TableHead className="px-6 py-4">Side</TableHead>
+                      <TableHead className="px-6 py-4">Size Tier</TableHead>
+                      <TableHead className="px-6 py-4">Price</TableHead>
+                      <TableHead className="px-6 py-4">Coordinates (x, y, w, h)</TableHead>
+                      <TableHead className="px-6 py-4">Status</TableHead>
+                      <TableHead className="px-6 py-4 text-right">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {campaign.spots.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} className="py-10 text-center text-warm italic">
+                          No spots configured yet. Click &quot;Add Spot&quot; to configure.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      campaign.spots.map((spot) => (
+                        <TableRow key={spot.id}>
+                          <TableCell className="px-6 py-4 font-bold text-press">
+                            <div className="space-y-0.5 text-left">
+                              <div className="font-headline font-black text-sm uppercase tracking-tight">{spot.label}</div>
+                              <span className="text-[10px] text-warm font-mono font-bold uppercase tracking-wider block">
+                                {spot.category.name}
                               </span>
-                            </td>
-                            <td className="py-3 px-6 text-right space-x-2">
-                              <button
-                                type="button"
-                                onClick={() => setEditingSpot(spot)}
-                                className="text-blue-600 hover:text-blue-700 font-bold"
+                            </div>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-warm font-bold text-xs uppercase">{spot.side}</TableCell>
+                          <TableCell className="px-6 py-4 text-warm font-medium text-xs uppercase">{spot.spotType}</TableCell>
+                          <TableCell className="px-6 py-4 font-bold text-press">
+                            {formatPrice(spot.price)}
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-warm font-mono text-xs">
+                            {spot.x}%, {spot.y}%, {spot.width}%, {spot.height}%
+                          </TableCell>
+                          <TableCell className="px-6 py-4">
+                            <Badge
+                              variant={
+                                spot.status === "OPEN"
+                                  ? "success"
+                                  : spot.status === "HELD"
+                                  ? "warning"
+                                  : spot.status === "SOLD"
+                                  ? "secondary"
+                                  : "destructive"
+                              }
+                            >
+                              {spot.status}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="px-6 py-4 text-right space-x-2">
+                            {spot.status === "OPEN" && (
+                              <Button
+                                onClick={() => setBookingSpot(spot)}
+                                size="sm"
+                                variant="outline"
+                                className="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-250"
                               >
-                                Edit
-                              </button>
-                              {spot.status === "OPEN" && (
-                                <button
-                                  type="button"
-                                  onClick={() => handleDeleteSpot(spot.id)}
-                                  className="text-red-600 hover:text-red-700 font-bold ml-2"
-                                >
-                                  Delete
-                                </button>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                                Book Manually
+                              </Button>
+                            )}
+                            <Button
+                              onClick={() => setEditingSpot(spot)}
+                              size="sm"
+                              variant="outline"
+                            >
+                              Edit
+                            </Button>
+                            {spot.status === "OPEN" && (
+                              <Button
+                                onClick={() => handleDeleteSpot(spot.id)}
+                                size="sm"
+                                variant="destructive"
+                              >
+                                Delete
+                              </Button>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </Card>
             )}
           </div>
         )}
 
         {/* Orders Tab */}
         {activeTab === "orders" && (
-          <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <thead>
-                  <tr className="border-b border-slate-100 bg-slate-55/20 text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                    <th className="py-4 px-6">Order ID</th>
-                    <th className="py-4 px-6">Business Name</th>
-                    <th className="py-4 px-6">Category Spot</th>
-                    <th className="py-4 px-6">Paid Amount</th>
-                    <th className="py-4 px-6">Date</th>
-                    <th className="py-4 px-6">Payment Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {campaign.orders.length === 0 ? (
-                    <tr>
-                      <td colSpan={6} className="py-10 text-center text-slate-400 italic">
-                        No orders recorded yet for this campaign.
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-6 py-4">Order ID</TableHead>
+                  <TableHead className="px-6 py-4">Business Name</TableHead>
+                  <TableHead className="px-6 py-4">Category Spot</TableHead>
+                  <TableHead className="px-6 py-4">Paid Amount</TableHead>
+                  <TableHead className="px-6 py-4">Date</TableHead>
+                  <TableHead className="px-6 py-4 text-right">Payment Status</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {campaign.orders.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-10 text-center text-warm italic">
+                      No orders recorded yet for this campaign.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  campaign.orders.map((ord) => (
+                    <TableRow key={ord.id}>
+                      <TableCell className="px-6 py-4 font-mono text-xs text-warm">
+                        <Link href={`/admin/orders/${ord.id}`} className="text-primary font-bold hover:underline">
+                          {ord.id.substring(0, 12)}...
+                        </Link>
+                      </TableCell>
+                      <td className="px-6 py-4 font-bold text-press">
+                        {ord.advertiser.businessName}
                       </td>
-                    </tr>
-                  ) : (
-                    campaign.orders.map((ord) => (
-                      <tr key={ord.id} className="hover:bg-slate-55/10">
-                        <td className="py-4 px-6 font-mono text-xs text-slate-400">
-                          <Link href={`/admin/orders/${ord.id}`} className="text-blue-600 hover:underline">
-                            {ord.id.substring(0, 12)}...
-                          </Link>
-                        </td>
-                        <td className="py-4 px-6 font-bold text-slate-900">
-                          {ord.advertiser.businessName}
-                        </td>
-                        <td className="py-4 px-6">
-                          <span className="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded font-medium">
-                            {ord.campaignSpot.label}
-                          </span>
-                        </td>
-                        <td className="py-4 px-6 font-bold text-slate-800">
-                          {formatPrice(ord.amount)}
-                        </td>
-                        <td className="py-4 px-6 text-slate-500 font-medium">
-                          {formatDate(ord.createdAt)}
-                        </td>
-                        <td className="py-4 px-6">
-                          <span
-                            className={`inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider ${
-                              ord.status === "PAID"
-                                ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                                : ord.status === "PENDING"
-                                ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                : "bg-slate-100 text-slate-500"
-                            }`}
-                          >
-                            {ord.status}
-                          </span>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                      <TableCell className="px-6 py-4">
+                        <span className="bg-press text-paper text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5">
+                          {ord.campaignSpot.label}
+                        </span>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 font-bold text-press">
+                        {formatPrice(ord.amount)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 font-mono text-xs text-warm font-bold">
+                        {formatDate(ord.createdAt)}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
+                        <Badge
+                          variant={
+                            ord.status === "PAID"
+                              ? "success"
+                              : ord.status === "PENDING"
+                              ? "warning"
+                              : "outline"
+                          }
+                        >
+                          {ord.status}
+                        </Badge>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </Card>
         )}
 
         {/* Creative Submissions Tab */}
         {activeTab === "creative" && (
           <div className="space-y-6">
-            <h3 className="text-lg font-bold text-slate-900">Business Ad Assets Review</h3>
+            <h3 className="font-headline font-extrabold text-lg uppercase tracking-tight text-press border-b border-border pb-3 text-left">Business Ad Assets Review</h3>
 
             <div className="grid grid-cols-1 gap-6">
               {campaign.orders.filter(o => o.status === "PAID").length === 0 ? (
-                <div className="bg-white border border-slate-200 rounded-3xl p-8 text-center text-slate-400 italic shadow-sm">
+                <Card className="p-8 text-center text-warm italic">
                   No paid creative submissions to review yet.
-                </div>
+                </Card>
               ) : (
                 campaign.orders
                   .filter((o) => o.status === "PAID")
@@ -618,76 +659,76 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                     const creative = ord.creativeSubmission
                     if (!creative) {
                       return (
-                        <div
+                        <Card
                           key={ord.id}
-                          className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex justify-between items-center"
+                          className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                         >
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                          <div className="text-left">
+                            <span className="text-[10px] text-warm font-mono font-bold uppercase tracking-wider block">
                               Category: {ord.campaignSpot.label}
                             </span>
-                            <span className="font-bold text-slate-900 text-base">{ord.advertiser.businessName}</span>
+                            <span className="font-headline font-black text-lg text-press uppercase tracking-tight">{ord.advertiser.businessName}</span>
                           </div>
-                          <div className="text-xs text-slate-400 font-semibold italic bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-100">
+                          <div className="text-xs text-warm font-semibold italic bg-press/5 px-3 py-1.5 border border-border">
                             Creative Details Not Yet Submitted by Advertiser
                           </div>
-                        </div>
+                        </Card>
                       )
                     }
 
                     return (
-                      <div
+                      <Card
                         key={ord.id}
-                        className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-sm space-y-6"
+                        className="p-6 sm:p-8 space-y-6"
                       >
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-slate-100 pb-4 gap-4">
-                          <div>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider block">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b border-border pb-4 gap-4">
+                          <div className="text-left">
+                            <span className="text-[10px] text-warm font-mono font-bold uppercase tracking-wider block">
                               Category: {ord.campaignSpot.label}
                             </span>
-                            <span className="font-extrabold text-slate-900 text-lg">
+                            <span className="font-headline font-black text-xl text-press uppercase tracking-tight">
                               {creative.businessName || ord.advertiser.businessName}
                             </span>
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <span className="text-xs font-bold text-slate-400 uppercase">Review Status:</span>
-                            <span
-                              className={`inline-block text-[10px] font-extrabold px-3 py-1.5 rounded-xl uppercase tracking-wider ${
+                            <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Review Status:</span>
+                            <Badge
+                              variant={
                                 creative.approvalStatus === "APPROVED"
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
+                                  ? "success"
                                   : creative.approvalStatus === "NEEDS_REVIEW"
-                                  ? "bg-amber-50 text-amber-700 border border-amber-100"
-                                  : "bg-blue-50 text-blue-700 border border-blue-100"
-                              }`}
+                                  ? "warning"
+                                  : "secondary"
+                              }
                             >
                               {creative.approvalStatus}
-                            </span>
+                            </Badge>
                           </div>
                         </div>
 
                         {/* Creative Details Specs */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm text-left">
                           <div className="space-y-3">
                             <div>
-                              <span className="block text-slate-400 font-semibold text-xs uppercase">Headline Copy</span>
-                              <span className="font-bold text-slate-800 text-base mt-0.5 block">
+                              <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Headline Copy</span>
+                              <span className="font-bold text-press text-base mt-0.5 block">
                                 {creative.headline || "—"}
                               </span>
                             </div>
                             <div>
-                              <span className="block text-slate-400 font-semibold text-xs uppercase">Offer Copy</span>
-                              <span className="font-bold text-slate-800 text-base mt-0.5 block">
+                              <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Offer Copy</span>
+                              <span className="font-bold text-press text-base mt-0.5 block">
                                 {creative.offerDeal || "—"}
                               </span>
                             </div>
                             <div>
-                              <span className="block text-slate-400 font-semibold text-xs uppercase">Description</span>
-                              <p className="text-slate-600 mt-0.5 leading-relaxed">{creative.description || "—"}</p>
+                              <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Description</span>
+                              <p className="text-press mt-0.5 leading-relaxed">{creative.description || "—"}</p>
                             </div>
                             <div>
-                              <span className="block text-slate-400 font-semibold text-xs uppercase">Call to Action</span>
-                              <span className="font-semibold text-slate-700 mt-0.5 block">{creative.cta || "—"}</span>
+                              <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Call to Action</span>
+                              <span className="font-semibold text-press mt-0.5 block">{creative.cta || "—"}</span>
                             </div>
                           </div>
 
@@ -695,55 +736,60 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                             {/* Logo File */}
                             {creative.logoUrl ? (
                               <div className="space-y-1.5">
-                                <span className="block text-slate-400 font-semibold text-xs uppercase">Logo Asset</span>
-                                <div className="border border-slate-200 bg-slate-50 p-2 rounded-xl inline-block max-w-[120px] max-h-[120px]">
+                                <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Logo Asset</span>
+                                <div className="border border-border bg-[#FAF8F4] p-2 inline-block max-w-[120px] max-h-[120px]">
                                   <img src={creative.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
                                 </div>
                               </div>
                             ) : (
                               <div>
-                                <span className="block text-slate-400 font-semibold text-xs uppercase">Logo Asset</span>
-                                <span className="text-xs text-slate-400 italic block mt-0.5">No logo uploaded.</span>
+                                <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Logo Asset</span>
+                                <span className="text-xs text-warm italic block mt-0.5">No logo uploaded.</span>
                               </div>
                             )}
 
                             {/* Contact overrides */}
-                            <div className="grid grid-cols-2 gap-4 text-xs">
+                            <div className="grid grid-cols-2 gap-4 text-xs font-semibold">
                               <div>
-                                <span className="block text-slate-400 font-semibold uppercase">Phone</span>
-                                <span className="font-bold text-slate-800 block mt-0.5">{creative.phone || "—"}</span>
+                                <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Phone</span>
+                                <span className="text-press block mt-0.5">{creative.phone || "—"}</span>
                               </div>
                               <div>
-                                <span className="block text-slate-400 font-semibold uppercase">Website</span>
-                                <span className="font-bold text-slate-800 block mt-0.5">{creative.website || "—"}</span>
+                                <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Website</span>
+                                <span className="text-press block mt-0.5">{creative.website || "—"}</span>
                               </div>
                             </div>
                           </div>
                         </div>
 
                         {/* Approval Action Buttons */}
-                        <div className="border-t border-slate-100 pt-4 flex justify-end gap-3">
-                          <button
+                        <div className="border-t border-border pt-4 flex justify-end gap-3">
+                          <Button
                             type="button"
                             onClick={() => handleApprovalChange(creative.id, "NEEDS_REVIEW")}
-                            className="inline-flex items-center justify-center rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-4 py-2.5 transition-colors shadow"
+                            variant="outline"
+                            className="bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200"
                           >
                             Needs Revision
-                          </button>
-                          <button
+                          </Button>
+                          <Button
                             type="button"
                             onClick={() => handleApprovalChange(creative.id, "APPROVED")}
-                            className="inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 transition-colors shadow"
                           >
                             Approve Ad Creative
-                          </button>
+                          </Button>
                         </div>
-                      </div>
+                      </Card>
                     )
                   })
               )}
             </div>
           </div>
+        )}
+
+        {/* Offers Tab */}
+        {activeTab === "offers" && (
+          <CampaignOffersPanel campaignId={campaign.id} />
         )}
       </div>
     </div>

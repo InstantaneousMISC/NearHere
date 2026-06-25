@@ -15,6 +15,9 @@ interface SpotSummaryProps {
       allowsMultipleAdvertisers: boolean
     }
   }
+  discountAmount?: number
+  finalPrice?: number
+  promotedBy?: string
 }
 
 export default function SpotSummary({
@@ -23,6 +26,9 @@ export default function SpotSummary({
   city,
   state,
   spot,
+  discountAmount,
+  finalPrice,
+  promotedBy,
 }: SpotSummaryProps) {
   const cityName = city.charAt(0).toUpperCase() + city.slice(1)
   const stateName = state.toUpperCase()
@@ -82,16 +88,40 @@ export default function SpotSummary({
 
       <hr className="border-border" />
 
-      <div className="flex flex-col items-end space-y-1">
-        <div className="flex w-full items-center justify-between">
-          <span className="font-mono text-sm font-bold uppercase tracking-wider text-foreground">
-            Total Price
+      <div className="space-y-2">
+        {discountAmount && discountAmount > 0 ? (
+          <div className="space-y-1 text-right text-xs font-mono">
+            <div className="flex justify-between text-muted-foreground">
+              <span>Original Price</span>
+              <span>{formatPrice(spot.price)}</span>
+            </div>
+            <div className="flex justify-between text-emerald-600 font-bold">
+              <span>Discount</span>
+              <span>-{formatPrice(discountAmount)}</span>
+            </div>
+            <hr className="border-border border-dashed my-1" />
+          </div>
+        ) : null}
+
+        <div className="flex flex-col items-end space-y-1">
+          <div className="flex w-full items-center justify-between">
+            <span className="font-mono text-sm font-bold uppercase tracking-wider text-foreground">
+              Total Price
+            </span>
+            <span className="font-mono text-3xl font-black text-primary">
+              {formatPrice(finalPrice !== undefined ? finalPrice : spot.price)}
+            </span>
+          </div>
+          <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            Approx. {((finalPrice !== undefined ? finalPrice : spot.price) / mailingQuantity).toFixed(1)} cents per household
           </span>
-          <span className="font-mono text-3xl font-black text-primary">{formatPrice(spot.price)}</span>
         </div>
-        <span className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
-          Approx. {(spot.price / mailingQuantity).toFixed(1)} cents per household
-        </span>
+
+        {promotedBy && (
+          <div className="bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 text-center font-mono text-[9px] uppercase tracking-wider text-emerald-700 font-bold mt-2">
+            Promoted by: {promotedBy}
+          </div>
+        )}
       </div>
 
       <div className="border border-border bg-card p-3 text-center font-mono text-[9px] uppercase leading-relaxed tracking-wider text-muted-foreground shadow-inner">

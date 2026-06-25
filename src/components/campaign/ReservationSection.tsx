@@ -11,6 +11,23 @@ interface ReservationSectionProps {
   mailingQuantity: number
   spots: ReservationSpot[]
   onSelect: (plan: ReservationPlan, spot: ReservationSpot | null) => void
+  offer?: any
+}
+
+function calculateClientOfferDiscount(priceCents: number, offer: any) {
+  if (!offer) return 0
+  if (offer.discountType === "AMOUNT_OFF") {
+    return Math.min(priceCents, offer.discountAmount || 0)
+  } else if (offer.discountType === "PERCENT_OFF") {
+    const percent = offer.discountPercent || 0
+    return Math.round((priceCents * percent) / 100)
+  }
+  return 0
+}
+
+function calculateClientOfferPrice(priceCents: number, offer: any) {
+  const discount = calculateClientOfferDiscount(priceCents, offer)
+  return Math.max(0, priceCents - discount)
 }
 
 export default function ReservationSection({
@@ -18,6 +35,7 @@ export default function ReservationSection({
   mailingQuantity,
   spots,
   onSelect,
+  offer,
 }: ReservationSectionProps) {
   const isTemplate1 = cardSize === "9x12"
   const plans: ReservationPlan[] = isTemplate1
@@ -101,9 +119,26 @@ export default function ReservationSection({
           <h2 className="headline-xl mt-4 text-4xl font-bold md:text-5xl">
             Choose Your Placement
           </h2>
-          <p className="mt-4 text-sm leading-relaxed text-press/70">
-            Select an available postcard placement type to begin. Every spot includes our full print, mailing, and online local search visibility package.
-          </p>
+          {offer ? (
+            <div className="mt-4 inline-flex flex-col items-center gap-1.5 bg-[#FAF8F4] border border-[#E7E0D8] p-4 rounded-xl shadow-sm">
+              <span className="bg-emerald-50 text-emerald-700 text-[10px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full border border-emerald-100">
+                Exclusive Campaign Offer Applied
+              </span>
+              <p className="text-sm font-bold text-press mt-1">
+                Representative attribution:{" "}
+                <span className="underline">
+                  {offer.adminUser.name || "NearHere Representative"}
+                </span>
+              </p>
+              <p className="text-xs text-warm">
+                Offer name: <span className="font-semibold text-press">{offer.name}</span> • Discount applied to all placements below
+              </p>
+            </div>
+          ) : (
+            <p className="mt-4 text-sm leading-relaxed text-press/70">
+              Select an available postcard placement type to begin. Every spot includes our full print, mailing, and online local search visibility package.
+            </p>
+          )}
         </div>
 
         {/* Plans Grid */}
@@ -117,6 +152,16 @@ export default function ReservationSection({
             const isDouble = plan.key === "front-double" || plan.key === "back-double"
             const available = isDouble ? true : Boolean(spot)
             const isSold = isDouble ? false : Boolean(spot) === false
+
+            const priceCents = plan.price * 100
+            const discountCents = offer ? calculateClientOfferDiscount(priceCents, offer) : 0
+            const finalPriceCents = priceCents - discountCents
+            const finalPrice = finalPriceCents / 100
+            const discountAmount = discountCents / 100
+
+            const costPerHome = offer && discountCents > 0
+              ? `${((finalPrice * 100) / mailingQuantity).toFixed(1)} cents per home`
+              : plan.costPerHome
 
             const buttonLabel = "Reserve This Spot"
 
@@ -141,13 +186,34 @@ export default function ReservationSection({
                     </span>
                   </div>
                   <div className="mt-6">
-                    <span className="headline-xl text-4xl">
-                      ${plan.price.toLocaleString()}
-                    </span>
-                    <span className="label-mono ml-1.5">/ campaign</span>
+                    {offer && discountCents > 0 ? (
+                      <div className="flex flex-col gap-1.5 text-left">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="text-sm text-warm line-through">
+                            ${plan.price.toLocaleString()}
+                          </span>
+                          <span className="text-[9px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded uppercase font-mono">
+                            Discounted ${discountAmount.toLocaleString()}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="headline-xl text-4xl text-nh-red font-black">
+                            ${finalPrice.toLocaleString()}
+                          </span>
+                          <span className="label-mono ml-1">/ campaign</span>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <span className="headline-xl text-4xl">
+                          ${plan.price.toLocaleString()}
+                        </span>
+                        <span className="label-mono ml-1">/ campaign</span>
+                      </div>
+                    )}
                   </div>
                   <p className="mt-2.5 font-mono text-[9px] font-bold uppercase tracking-[0.08em] text-[#D13F1F]">
-                    {plan.costPerHome}
+                    {costPerHome}
                   </p>
                   <p className="mt-4 text-xs leading-relaxed text-press/70">
                     {plan.description}

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { trpc } from "@/components/providers"
 
 export type ReservationSpot = {
@@ -35,6 +35,18 @@ interface ReservationModalProps {
   campaignId: string
   zipCode: string
   checkoutBaseUrl: string
+  offer?: any
+}
+
+function calculateClientOfferDiscount(priceCents: number, offer: any) {
+  if (!offer) return 0
+  if (offer.discountType === "AMOUNT_OFF") {
+    return Math.min(priceCents, offer.discountAmount || 0)
+  } else if (offer.discountType === "PERCENT_OFF") {
+    const percent = offer.discountPercent || 0
+    return Math.round((priceCents * percent) / 100)
+  }
+  return 0
 }
 
 export default function ReservationModal({
@@ -46,8 +58,12 @@ export default function ReservationModal({
   campaignId,
   zipCode,
   checkoutBaseUrl,
+  offer,
 }: ReservationModalProps) {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const offerToken = searchParams.get("offer") || (offer ? offer.token : null)
+
   const { data: categories = [], isLoading } = trpc.category.list.useQuery(
     undefined,
     { enabled: isOpen }
@@ -84,6 +100,11 @@ export default function ReservationModal({
   }, [categories, query])
 
   if (!isOpen || !plan) return null
+
+  const priceCents = plan.price * 100
+  const discountCents = offer ? calculateClientOfferDiscount(priceCents, offer) : 0
+  const finalPrice = (priceCents - discountCents) / 100
+  const discountAmount = discountCents / 100
 
   const selectedCategory = categories.find(
     (category) => category.id === selectedCategoryId
@@ -159,11 +180,13 @@ export default function ReservationModal({
         planKey: plan.key,
         categoryId: selectedCategory.id,
       })
-      router.push(
-        `${checkoutBaseUrl}/${spotId}?categoryId=${encodeURIComponent(
-          selectedCategory.id
-        )}`
-      )
+      let redirectUrl = `${checkoutBaseUrl}/${spotId}?categoryId=${encodeURIComponent(
+        selectedCategory.id
+      )}`
+      if (offerToken) {
+        redirectUrl += `&offer=${encodeURIComponent(offerToken)}`
+      }
+      router.push(redirectUrl)
     } catch (err: any) {
       setIsRedirecting(false)
       setError(err?.message || "Failed to initiate reservation.")
@@ -194,11 +217,24 @@ export default function ReservationModal({
         <h2 className="mt-2 font-headline text-3xl font-black uppercase">
           {plan.name}
         </h2>
-        <div className="mt-4 flex flex-wrap gap-3 border-y border-[#E7E0D8] py-3 font-mono text-[10px] font-bold uppercase">
-          <span>${plan.price.toLocaleString()} per drop</span>
+        <div className="mt-4 flex flex-wrap gap-3 border-y border-[#E7E0D8] py-3 font-mono text-[10px] font-bold uppercase items-center">
+          {offer && discountCents > 0 ? (
+            <>
+              <span className="line-through text-warm">${plan.price.toLocaleString()}</span>
+              <span className="text-nh-red font-black font-headline text-xs bg-red-55/10 px-2 py-0.5 rounded border border-[#E7E0D8]">
+                ${finalPrice.toLocaleString()} per drop
+              </span>
+              <span className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded font-extrabold uppercase text-[9px] border border-emerald-100">
+                Discounted ${discountAmount.toLocaleString()}
+              </span>
+            </>
+          ) : (
+            <span>${plan.price.toLocaleString()} per drop</span>
+          )}
           <span className="text-[#77706A]">{plan.costPerHome}</span>
           {spot && <span className="text-[#77706A]">{spot.label}</span>}
         </div>
+
 
         {success ? (
           <div className="mt-8 border border-emerald-700 bg-emerald-50 p-6 text-center">

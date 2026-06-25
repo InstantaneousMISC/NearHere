@@ -10,10 +10,14 @@ const tests = [
   "src/server/helpers/safeguards.test.ts",
   "src/server/helpers/claim.test.ts",
   "src/server/helpers/webhook.test.ts",
+  "src/server/helpers/campaignOffers.test.ts",
+  "src/server/helpers/frontToBackOffers.test.ts",
   "src/server/helpers/integration.test.ts",
   "src/server/helpers/adminFlows.test.ts",
   "src/server/helpers/lifecycle.test.ts",
   "src/server/helpers/dashFlow.test.ts",
+  "src/server/helpers/validationAndCron.test.ts",
+  "src/server/helpers/campaignInquiry.test.ts",
 ]
 
 console.log("=========================================")

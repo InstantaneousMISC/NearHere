@@ -7,12 +7,15 @@ interface CampaignNavProps {
   city?: string
   slug?: string
   isCheckoutPage?: boolean
+  isContactPage?: boolean
 }
 
-export function CampaignNav({ state, city, slug, isCheckoutPage = false }: CampaignNavProps) {
+export function CampaignNav({ state, city, slug, isCheckoutPage = false, isContactPage = false }: CampaignNavProps) {
   const campaignPath = state && city && slug 
     ? `/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}`
     : "/"
+
+  const isBackMode = isCheckoutPage || isContactPage
 
   return (
     <header className="border-b border-rule sticky top-0 bg-paper/95 backdrop-blur z-40 font-mono text-xs uppercase tracking-widest">
@@ -21,7 +24,7 @@ export function CampaignNav({ state, city, slug, isCheckoutPage = false }: Campa
           Near<span className="text-nh-red">Here</span>
         </Link>
         
-        {isCheckoutPage ? (
+        {isBackMode ? (
           <div>
             <Link
               href={campaignPath}

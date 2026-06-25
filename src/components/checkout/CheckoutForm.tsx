@@ -9,6 +9,9 @@ interface CheckoutFormProps {
   categoryName: string
   campaignUrl: string
   onLoadingChange?: (loading: boolean) => void
+  offerToken?: string
+  discountDisplay?: string
+  promotedBy?: string
 }
 
 export default function CheckoutForm({
@@ -17,6 +20,9 @@ export default function CheckoutForm({
   categoryName,
   campaignUrl,
   onLoadingChange,
+  offerToken,
+  discountDisplay,
+  promotedBy,
 }: CheckoutFormProps) {
   const [contactName, setContactName] = useState("")
   const [businessName, setBusinessName] = useState("")
@@ -73,6 +79,7 @@ export default function CheckoutForm({
         email,
         phone,
         website: formattedWebsite || undefined,
+        offerToken: offerToken || undefined,
       })
 
       if (response?.checkoutUrl) {
@@ -125,6 +132,20 @@ export default function CheckoutForm({
       {error && (
         <div className="rounded-none bg-red-500/10 border border-red-500/20 px-4 py-3.5 text-sm text-red-500 font-medium">
           ⚠️ {error}
+        </div>
+      )}
+
+      {offerToken && (
+        <div className="border border-emerald-500 bg-emerald-500/10 p-4 rounded-none font-sans text-sm flex items-center justify-between">
+          <div>
+            <span className="font-bold text-emerald-600 block uppercase text-[10px] tracking-wider font-mono">Special Promotion Applied</span>
+            <span className="text-press font-semibold text-xs md:text-sm">
+              In-person business discount applied. Promoted by: <span className="font-bold">{promotedBy}</span>
+            </span>
+          </div>
+          <span className="font-headline font-black text-emerald-600 text-lg md:text-xl">
+            {discountDisplay}
+          </span>
         </div>
       )}
 

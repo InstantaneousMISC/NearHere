@@ -24,6 +24,21 @@ export const ourFileRouter = {
     console.log("[UPLOADTHING] Additional image upload complete:", file.ufsUrl)
     return { fileUrl: file.ufsUrl }
   }),
+
+  // Draft Proof Uploader - 8MB image / 16MB PDF max sizes
+  draftProofUploader: f({
+    image: {
+      maxFileSize: "8MB",
+      maxFileCount: 1,
+    },
+    pdf: {
+      maxFileSize: "16MB",
+      maxFileCount: 1,
+    },
+  }).onUploadComplete(async ({ file }) => {
+    console.log("[UPLOADTHING] Draft proof upload complete:", file.ufsUrl)
+    return { fileUrl: file.ufsUrl }
+  }),
 } satisfies FileRouter
 
 export type OurFileRouter = typeof ourFileRouter

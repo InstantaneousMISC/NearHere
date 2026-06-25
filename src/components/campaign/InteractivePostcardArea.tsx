@@ -19,6 +19,7 @@ interface InteractivePostcardAreaProps {
   cardSize: string
   cardSkin: string
   mailingQuantity?: number
+  offer?: any
 }
 
 export default function InteractivePostcardArea({
@@ -31,6 +32,7 @@ export default function InteractivePostcardArea({
   cardSize,
   cardSkin,
   mailingQuantity = 10000,
+  offer,
 }: InteractivePostcardAreaProps) {
   const [isWaitlistOpen, setIsWaitlistOpen] = useState(false)
   const [selectedCategory, setSelectedCategory] = useState<{ id: string; name: string } | null>(null)
@@ -78,6 +80,7 @@ export default function InteractivePostcardArea({
         mailingQuantity={mailingQuantity}
         spots={spots}
         onSelect={handleOpenReservation}
+        offer={offer}
       />
 
       <section id="postcard" className="py-24 px-4 bg-stone-bg/30 border-y border-border">
@@ -121,6 +124,7 @@ export default function InteractivePostcardArea({
         campaignId={campaignId}
         zipCode={zipCode || ""}
         checkoutBaseUrl={`/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}/checkout`}
+        offer={offer}
       />
     </>
   )

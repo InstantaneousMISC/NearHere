@@ -1,116 +1,147 @@
-# 📬 Production Readiness & Deployment Guide
+# NearHere Mailers: Production Readiness Checklist & Guide
 
-This document outlines the security, configuration, and manual setup steps required to deploy the LocalSpot Mailers platform to production safely.
-
----
-
-## 🚨 CRITICAL PRODUCTION BLOCKER: Stripe Webhooks
-
-Production webhook events **must not be trusted** without signature verification. The Stripe webhook handler `/api/stripe/webhook` implements signature checking via `stripe.webhooks.constructEvent` using raw request buffers.
-
-> [!CAUTION]
-> ### Signature Verification Blockers:
-> 1. **`STRIPE_WEBHOOK_SECRET` environment variable must be set.**
->    - In production, if this variable is missing, the API route will log a critical error and return a **`500 Internal Server Error`** (`Webhook Secret Missing`). It will not fallback to unverified parsing.
->    - Forged webhook events or unsigned requests will return a **`400 Bad Request`** (`Webhook Error: ...`).
-> 2. **Local Bypass:**
->    - Local development fallback (JSON parsing without signature validation) is ONLY permitted in non-production environments when `STRIPE_WEBHOOK_SECRET` is left undefined.
+This document outlines the critical steps, configuration settings, and verification procedures required to transition the NearHere Neighborhood Mailers application from development to a secure, stable, and production-ready environment.
 
 ---
 
-## 🔒 Printed / Mailed Campaign Edit Safeguards
+## 📋 Checklist Overview
 
-To prevent discrepancies between printed materials (physical postcards) and user-updated profiles, the system enforces a strict field locking mechanism.
-
-### 1. Lock Conditions
-A profile or creative submission is considered **locked** if:
-- Any campaign associated with the business/spot has a status of `PRINTING`, `MAILED`, or `READY_FOR_PRINT`.
-- The creative submission has an `approvalStatus` of `APPROVED` (Approved for Print), `PRINTED`, or `MAILED`.
-
-### 2. Lock Behavior
-- **Frontend Protection:**
-  - Banners are displayed at the top of `/business/profile`, `/business/setup`, and `/submit-creative/[token]` indicating the lock.
-  - Print-sensitive input elements and file uploaders are disabled.
-- **Backend Enforcement:**
-  - Mutation endpoints check statuses and throw a `403 Forbidden` (`FORBIDDEN`) error if any locked print-sensitive field is modified.
-  - Digital-only fields remain editable.
-
-### 3. Field Classifications
-| Model | Print-Sensitive (Locked) | Digital-Only (Editable) |
-| :--- | :--- | :--- |
-| **Business Profile** (`/business/profile` and `/business/setup`) | Business Name (`name`), Phone (`phone`), Website (`website`), Logo URL (`logoUrl`) | Description (`description`), Cover Image (`coverImageUrl`), Address details, Outbound custom links |
-| **Creative Submission** (`/submit-creative/[token]`) | Business Name (`businessName`), Logo (`logoUrl`), Headline (`headline`), Offer (`offerDeal`), Description (`description`), CTA (`cta`), Phone (`phone`), Website (`website`), Address (`address`) | Showcase Images (`additionalImages`), Wants AI Help (`wantsAiHelp`), AI Directives (`aiPrompt`), Designer Notes (`notes`) |
-
-> [!NOTE]
-> When updating digital-only fields on an approved creative, the backend will **preserve** the approval status (e.g. `APPROVED`), avoiding resetting it to `PENDING`.
+- [ ] [1. UploadThing (File Uploads)](#1-uploadthing-file-uploads)
+- [ ] [2. Stripe (Payments & Refunds)](#2-stripe-payments--refunds)
+- [ ] [3. Supabase (Authentication & Database)](#3-supabase-authentication--database)
+- [ ] [4. Environment Configuration](#4-environment-configuration)
+- [ ] [5. Database Migrations & Pooling](#5-database-migrations--pooling)
+- [ ] [6. Email Services & Deliverability](#6-email-services--deliverability)
+- [ ] [7. Build & Deployment Checks](#7-build--deployment-checks)
 
 ---
 
-## 📋 Environment Variables Checklist
+## 1. UploadThing (File Uploads)
 
-Ensure these variables are configured in your production hosting platform (e.g. Vercel, Railway, Render):
+NearHere uses UploadThing for business logos and cover photos. To secure file uploads in production:
 
-```env
-# Database Credentials
-DATABASE_URL="postgresql://..."       # Transaction pooling URL (Prisma Client connection)
-DIRECT_URL="postgresql://..."         # Session direct connection URL (Migrations & seed)
+### 🔒 CORS & Origin Access
+1. Open the [UploadThing Dashboard](https://uploadthing.com/).
+2. Select your production App.
+3. Under **Settings / API Keys**, restrict allowed origins to your production domain(s) (e.g., `https://nearhere.com`, `https://*.nearhere.com`).
+4. Ensure files are only accepted from your verified frontends to prevent bandwidth abuse.
 
-# Supabase Auth Settings
-NEXT_PUBLIC_SUPABASE_URL="https://..."
-NEXT_PUBLIC_SUPABASE_ANON_KEY="..."
-
-# Payment Settings
-STRIPE_SECRET_KEY="sk_live_..."
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY="pk_live_..."
-STRIPE_WEBHOOK_SECRET="whsec_..."     # CRITICAL PRODUCTION BLOCKER
-
-# Asset Uploads
-UPLOADTHING_TOKEN="..."
-
-# Email Transports
-RESEND_API_KEY="re_..."
-ADMIN_EMAIL="admin@yourdomain.com"
-
-# App Settings
-NEXT_PUBLIC_APP_URL="https://yourdomain.com"
-```
+### 💾 Storage Limits & Asset Expiry
+- Verify that your subscription plan accommodates the expected volume of business assets (images average ~1MB each).
+- Clean up unused files using UploadThing's dashboard helpers if merchants abandon their onboarding draft setups.
 
 ---
 
-## 🛠️ Manual Production Setup Steps
+## 2. Stripe (Payments & Refunds)
 
-Follow this checklist when setting up a fresh production environment:
+The platform supports direct customer checkouts, manual admin bookings, and automated cancellation/refund spot releases.
 
-### Step 1: Execute Database Migrations
-Deploy the database schema to your production PostgreSQL database:
-```bash
-npx prisma db push
-```
-*(Or use `npx prisma migrate deploy` if you are using migration files).*
+### 🔑 Live API Keys
+Swap your Stripe credentials in the production environment variables:
+- `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...`
+- `STRIPE_SECRET_KEY=sk_live_...`
 
-### Step 2: Seed Business Categories
-Seed the initial category list and database templates:
-```bash
-npx prisma db seed
-```
-
-### Step 3: Register Admin Users
-Admin users are verified against local database entries. To map your production admin profile:
-1. Log in to the application frontend to create a user profile in Supabase Auth.
-2. Retrieve the user's UUID from the Supabase dashboard.
-3. Run the mapping helper or manually insert an `AdminUser` row:
-   ```bash
-   # Run the set-admin script (interactive prompt)
-   npx tsx src/bin/set-admin.ts
+### 🔗 Webhook Configuration
+In the [Stripe Dashboard](https://dashboard.stripe.com/):
+1. Navigate to **Developers > Webhooks**.
+2. Click **Add endpoint** and enter your production endpoint:
+   ```
+   https://yourdomain.com/api/stripe/webhook
+   ```
+3. Select the following events to listen to:
+   - `checkout.session.completed` (handles customer ad spot purchases)
+   - `charge.refunded` (triggers automatic ad spot release in NearHere)
+4. Copy the webhook signing secret (starts with `whsec_...`) and add it to your environment config:
+   ```
+   STRIPE_WEBHOOK_SECRET=whsec_...
    ```
 
-### Step 4: Configure Stripe Webhook Endpoint
-1. Go to the **Stripe Dashboard** -> **Developers** -> **Webhooks**.
-2. Click **Add endpoint**.
-3. Set the endpoint URL to `https://yourdomain.com/api/stripe/webhook`.
-4. Select the event: `checkout.session.completed`.
-5. Reveal the signing secret (`whsec_...`) and add it to your environment variables as `STRIPE_WEBHOOK_SECRET`.
-# Admin Campaign Placement Follow-Up
+---
 
-- Add an admin workflow to create or select a business, assign its business category, and manually secure a specific campaign spot without using the public checkout flow.
-- The workflow must enforce campaign category exclusivity, support an explicit administrative override, and create an auditable reservation/order record.
+## 3. Supabase (Authentication & Database)
+
+### 👥 Authentication Redirects
+1. Go to the [Supabase Dashboard](https://supabase.com/).
+2. Select your project and navigate to **Authentication > URL Configuration**.
+3. Set your **Site URL** to your main production domain: `https://yourdomain.com`.
+4. Add redirection patterns in the **Redirect URLs** list:
+   - `https://yourdomain.com/**`
+   - `https://yourdomain.com/auth/callback`
+
+### ✉️ Custom SMTP & Email Templates
+By default, Supabase auth has strict rate limits (e.g., 3 signup/login emails per hour) and uses default branding.
+1. Under **Authentication > Providers > Email**, enable **External SMTP provider**.
+2. Enter SMTP settings for your email service provider (e.g., Resend, Postmark, SendGrid).
+3. Customize your confirmation, invitation, and magic link templates under **Authentication > Email Templates** to match the NearHere branding.
+
+---
+
+## 4. Environment Configuration
+
+Ensure the following variables are set on your hosting platform (Vercel, AWS, etc.):
+
+| Key | Description | Production Value |
+| :--- | :--- | :--- |
+| `DATABASE_URL` | Database connection string | `postgres://...` (via transaction pooler) |
+| `DIRECT_URL` | Non-pooler connection string | `postgres://...` (session/port 5432 - for migrations) |
+| `NEXTAUTH_SECRET` | Next Auth signing secret | A long random string (e.g. generated via `openssl rand -base64 32`) |
+| `NEXT_PUBLIC_APP_URL` | Public site domain | `https://yourdomain.com` |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe publishable key | `pk_live_...` |
+| `STRIPE_SECRET_KEY` | Stripe secret API key | `sk_live_...` |
+| `STRIPE_WEBHOOK_SECRET` | Stripe signing key | `whsec_...` |
+| `UPLOADTHING_SECRET` | UploadThing token | `sk_live_...` |
+| `UPLOADTHING_APP_ID` | UploadThing app identifier | `...` |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase admin secret | `...` |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase endpoint | `https://your-project.supabase.co` |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase public key | `...` |
+
+> [!WARNING]
+> Ensure `NODE_ENV=production` is set. This locks development backdoors (e.g., dev admin mock session cookie bypasses) and enforces secure transport layer policies.
+
+---
+
+## 5. Database Migrations & Pooling
+
+### 🔌 Connection Pooling
+Because serverless environments (Next.js Edge/Serverless functions) scale rapidly, they can exhaust PostgreSQL connection limits.
+1. Connect via a pooler (e.g., Supabase Connection Pooler on port `6543` with `pgbouncer` mode set to `transaction`).
+2. Use this pooled string for `DATABASE_URL`.
+3. Use the direct connection string (port `5432`) for `DIRECT_URL` in your Prisma configuration so schema migrations run correctly.
+
+### 🚀 Running Migrations
+During deployments, run migrations using the direct database connection before restarting or promoting the code build:
+```bash
+npx prisma migrate deploy
+```
+
+---
+
+## 6. Email Services & Deliverability
+
+NearHere triggers automated notification and onboarding emails.
+
+### 🔑 Real SMTP Setup
+In development, emails are stubbed out to the console. For production:
+1. Locate your mail transporter module in `src/server/helpers/email.ts` (or equivalent email dispatcher helper).
+2. Configure a live Nodemailer or API integration using credentials from your verified domain SMTP/resend client.
+3. Verify your domain using SPF, DKIM, and DMARC DNS settings on your domain registrar to guarantee high email inbox delivery rates and prevent emails from going to spam.
+
+---
+
+## 7. Build & Deployment Checks
+
+Before promoting any branch to production, execute the following commands in a clean environment to ensure zero compilation or runtime errors:
+
+```bash
+# 1. Clear caches and install dependencies
+npm ci
+
+# 2. Verify TypeScript type safety
+npx tsc --noEmit
+
+# 3. Run the full integration & unit test suites
+npm run test
+
+# 4. Run the production bundler compilation
+npm run build
+```

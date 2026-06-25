@@ -3,7 +3,11 @@ import { formatPrice, formatDate } from "@/lib/utils"
 import Link from "next/link"
 import { OrderStatus } from "@prisma/client"
 import { getFriendlyApprovalStatusLabel, getFriendlyApprovalStatusBadgeClass } from "@/lib/statusHelper"
-
+import { Card } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table"
 
 export const revalidate = 0 // Disable cache for live stats
 
@@ -68,88 +72,87 @@ export default async function OrdersListPage({ searchParams }: OrdersListPagePro
 
   return (
     <div className="space-y-8 font-sans">
-      <div>
-        <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+      <div className="space-y-1">
+        <h1 className="font-headline font-black text-3xl uppercase tracking-tight text-press leading-none">
           Orders & Transactions
         </h1>
-        <p className="mt-1 text-slate-500">
+        <p className="text-xs text-warm font-medium">
           Monitor customer checkouts, Stripe transaction flows, and creative asset approvals.
         </p>
       </div>
 
       {/* Mini Stats Summary Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+        <Card className="p-6 flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">
+            <span className="text-[9px] font-bold font-mono text-warm uppercase tracking-wider block">
               Filtered Revenue
             </span>
-            <span className="text-2xl font-black text-slate-900">
+            <span className="font-headline font-black text-2xl text-press">
               {formatPrice(totalRevenue)}
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg border border-emerald-100">
+          <div className="w-12 h-12 rounded-none bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg border border-emerald-100">
             💵
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+        <Card className="p-6 flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">
+            <span className="text-[9px] font-bold font-mono text-warm uppercase tracking-wider block">
               Paid Bookings
             </span>
-            <span className="text-2xl font-black text-slate-900">
-              {paidCount} <span className="text-sm font-semibold text-slate-400">orders</span>
+            <span className="font-headline font-black text-2xl text-press">
+              {paidCount} <span className="text-xs text-warm font-mono font-bold">orders</span>
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-lg border border-blue-100">
+          <div className="w-12 h-12 rounded-none bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg border border-emerald-100">
             ✅
           </div>
-        </div>
+        </Card>
 
-        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm flex items-center justify-between">
+        <Card className="p-6 flex items-center justify-between">
           <div className="space-y-1">
-            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest block">
+            <span className="text-[9px] font-bold font-mono text-warm uppercase tracking-wider block">
               Pending / Holds
             </span>
-            <span className="text-2xl font-black text-slate-900">
-              {pendingCount} <span className="text-sm font-semibold text-slate-400">active</span>
+            <span className="font-headline font-black text-2xl text-press">
+              {pendingCount} <span className="text-xs text-warm font-mono font-bold">active</span>
             </span>
           </div>
-          <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg border border-amber-100">
+          <div className="w-12 h-12 rounded-none bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-lg border border-amber-100">
             ⏳
           </div>
-        </div>
+        </Card>
       </div>
 
       {/* Filter Form Panel */}
-      <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+      <Card className="p-6">
         <form method="GET" className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           {/* Search bar */}
-          <div className="space-y-1.5 md:col-span-2">
-            <label htmlFor="search" className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <div className="space-y-1.5 md:col-span-2 text-left">
+            <label htmlFor="search" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
               Search Business / Contact
             </label>
-            <input
+            <Input
               id="search"
               name="search"
               type="text"
               defaultValue={search || ""}
               placeholder="e.g. Acme Plumbing, John Doe, info@..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
             />
           </div>
 
           {/* Status filter */}
-          <div className="space-y-1.5">
-            <label htmlFor="status" className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <div className="space-y-1.5 text-left">
+            <label htmlFor="status" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
               Payment Status
             </label>
             <select
               id="status"
               name="status"
               defaultValue={status || ""}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full rounded-none border border-input bg-card text-press h-10 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors cursor-pointer"
             >
               <option value="">All Statuses</option>
               {Object.values(OrderStatus).map((val) => (
@@ -161,15 +164,15 @@ export default async function OrdersListPage({ searchParams }: OrdersListPagePro
           </div>
 
           {/* Campaign Filter */}
-          <div className="space-y-1.5">
-            <label htmlFor="campaignId" className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+          <div className="space-y-1.5 text-left">
+            <label htmlFor="campaignId" className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
               Postcard Campaign
             </label>
             <select
               id="campaignId"
               name="campaignId"
               defaultValue={campaignId || ""}
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+              className="w-full rounded-none border border-input bg-card text-press h-10 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors cursor-pointer"
             >
               <option value="all">All Campaigns</option>
               {campaigns.map((camp) => (
@@ -182,137 +185,145 @@ export default async function OrdersListPage({ searchParams }: OrdersListPagePro
 
           {/* Actions */}
           <div className="md:col-span-4 flex justify-end gap-3 pt-2">
-            <Link
-              href="/admin/orders"
-              className="inline-flex items-center justify-center rounded-xl border border-slate-200 hover:border-slate-300 bg-white font-bold text-xs px-4 py-2.5 text-slate-600 transition-colors"
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
             >
-              Clear Filters
-            </Link>
-            <button
+              <Link href="/admin/orders">
+                Clear Filters
+              </Link>
+            </Button>
+            <Button
               type="submit"
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs px-5 py-2.5 transition-colors shadow"
+              size="sm"
             >
               Apply Filters
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
+      </Card>
 
       {/* Orders Table Card */}
-      <div className="bg-white border border-slate-200 rounded-3xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead>
-              <tr className="border-b border-slate-100 bg-slate-55/20 text-slate-400 font-bold uppercase text-[10px] tracking-wider">
-                <th className="py-4 px-6">Order ID</th>
-                <th className="py-4 px-6">Business / Advertiser</th>
-                <th className="py-4 px-6">Campaign Info</th>
-                <th className="py-4 px-6">Ad Spot (Label)</th>
-                <th className="py-4 px-6">Amount</th>
-                <th className="py-4 px-6">Payment</th>
-                <th className="py-4 px-6">Creative status</th>
-                <th className="py-4 px-6">Date</th>
-                <th className="py-4 px-6 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100">
-              {orders.length === 0 ? (
-                <tr>
-                  <td colSpan={9} className="py-12 text-center text-slate-400 italic">
-                    No orders match your filter criteria.
-                  </td>
-                </tr>
-              ) : (
-                orders.map((order) => {
-                  const creativeStatus = order.creativeSubmission?.approvalStatus
-                  return (
-                    <tr key={order.id} className="hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 px-6 font-mono text-[10px] text-slate-400">
-                        <Link
-                          href={`/admin/orders/${order.id}`}
-                          className="text-blue-600 font-bold hover:underline"
-                        >
-                          {order.id.slice(0, 8)}...
-                        </Link>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="space-y-0.5">
-                          <div className="font-bold text-slate-900">{order.advertiser.businessName}</div>
-                          <div className="text-[11px] text-slate-500 font-medium">
-                            {order.advertiser.contactName} ({order.advertiser.email})
-                          </div>
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="py-4 px-6">Order ID</TableHead>
+              <TableHead className="py-4 px-6">Business / Advertiser</TableHead>
+              <TableHead className="py-4 px-6">Campaign Info</TableHead>
+              <TableHead className="py-4 px-6">Ad Spot (Label)</TableHead>
+              <TableHead className="py-4 px-6">Amount</TableHead>
+              <TableHead className="py-4 px-6">Payment</TableHead>
+              <TableHead className="py-4 px-6">Creative status</TableHead>
+              <TableHead className="py-4 px-6">Date</TableHead>
+              <TableHead className="py-4 px-6 text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orders.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={9} className="py-12 text-center text-warm italic">
+                  No orders match your filter criteria.
+                </TableCell>
+              </TableRow>
+            ) : (
+              orders.map((order) => {
+                const creativeStatus = order.creativeSubmission?.approvalStatus
+                return (
+                  <TableRow key={order.id}>
+                    <TableCell className="py-4 px-6 font-mono text-[10px] text-warm">
+                      <Link
+                        href={`/admin/orders/${order.id}`}
+                        className="text-primary font-bold hover:underline"
+                      >
+                        {order.id.slice(0, 8)}...
+                      </Link>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <div className="space-y-0.5 text-left">
+                        <div className="font-bold text-press">{order.advertiser.businessName}</div>
+                        <div className="text-[11px] text-warm font-medium">
+                          {order.advertiser.contactName} ({order.advertiser.email})
                         </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="font-semibold text-slate-700 truncate block max-w-[150px]">
-                          {order.campaign.name}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-6 text-left">
+                      <span className="font-headline font-black text-sm uppercase tracking-tight text-press truncate block max-w-[150px]">
+                        {order.campaign.name}
+                      </span>
+                      <span className="text-[10px] text-warm font-mono font-bold uppercase block mt-0.5">
+                        {order.campaign.city}, {order.campaign.state}
+                      </span>
+                    </TableCell>
+                    <TableCell className="py-4 px-6 text-left">
+                      <div className="space-y-0.5">
+                        <span className="bg-press text-paper text-[10px] font-mono font-bold uppercase tracking-wider px-2 py-0.5">
+                          {order.campaignSpot.label}
                         </span>
-                        <span className="text-[10px] text-slate-400 block font-medium uppercase mt-0.5">
-                          {order.campaign.city}, {order.campaign.state}
+                        <span className="text-[9px] text-warm block font-bold uppercase tracking-wide mt-0.5">
+                          {order.campaignSpot.side} • {order.campaignSpot.spotType}
                         </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="space-y-0.5">
-                          <span className="bg-slate-100 text-slate-700 text-xs px-2 py-0.5 rounded font-bold">
-                            {order.campaignSpot.label}
-                          </span>
-                          <span className="text-[9px] text-slate-400 block font-semibold uppercase">
-                            {order.campaignSpot.side} • {order.campaignSpot.spotType}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6 font-bold text-slate-800">
-                        {formatPrice(order.amount)}
-                      </td>
-                      <td className="py-4 px-6">
-                        <span
-                          className={`inline-block text-[9px] font-extrabold px-2 py-1 rounded-full uppercase tracking-wider ${
-                            order.status === "PAID"
-                              ? "bg-emerald-50 text-emerald-700 border border-emerald-100"
-                              : order.status === "PENDING"
-                              ? "bg-amber-50 text-amber-700 border border-amber-100 animate-pulse"
-                              : order.status === "REFUNDED"
-                              ? "bg-purple-50 text-purple-700 border border-purple-100"
-                              : "bg-slate-100 text-slate-500 border border-slate-200"
-                          }`}
+                      </div>
+                    </TableCell>
+                    <TableCell className="py-4 px-6 font-bold text-press">
+                      {formatPrice(order.amount)}
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      <Badge
+                        variant={
+                          order.status === "PAID"
+                            ? "success"
+                            : order.status === "PENDING"
+                            ? "warning"
+                            : "outline"
+                        }
+                      >
+                        {order.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="py-4 px-6">
+                      {order.status !== "PAID" ? (
+                        <span className="text-[10px] text-warm italic">—</span>
+                      ) : !creativeStatus ? (
+                        <Badge variant="outline">
+                          No Submission
+                        </Badge>
+                      ) : (
+                        <Badge
+                          variant={
+                            creativeStatus === "APPROVED"
+                              ? "success"
+                              : creativeStatus === "REJECTED"
+                              ? "destructive"
+                              : "warning"
+                          }
                         >
-                          {order.status}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        {order.status !== "PAID" ? (
-                          <span className="text-[10px] text-slate-400 italic">—</span>
-                        ) : !creativeStatus ? (
-                          <span className="bg-slate-100 border border-slate-200 text-slate-500 text-[9px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider">
-                            No Submission
-                          </span>
-                        ) : (
-                          <span
-                            className={`inline-block text-[9px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider ${getFriendlyApprovalStatusBadgeClass(creativeStatus)}`}
-                          >
-                            {getFriendlyApprovalStatusLabel(creativeStatus)}
-                          </span>
-                        )}
-                      </td>
-                      <td className="py-4 px-6 text-slate-500 font-medium">
-                        {formatDate(order.createdAt)}
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <Link
-                          href={`/admin/orders/${order.id}`}
-                          className="inline-flex items-center justify-center rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-xs px-3 py-2 border border-slate-200 transition-colors shadow-sm"
-                        >
+                          {getFriendlyApprovalStatusLabel(creativeStatus)}
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="py-4 px-6 font-mono text-xs text-warm font-bold">
+                      {formatDate(order.createdAt)}
+                    </TableCell>
+                    <TableCell className="py-4 px-6 text-right">
+                      <Button
+                        asChild
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Link href={`/admin/orders/${order.id}`}>
                           Manage
                         </Link>
-                      </td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })
+            )}
+          </TableBody>
+        </Table>
+      </Card>
     </div>
   )
 }

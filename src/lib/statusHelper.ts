@@ -6,8 +6,9 @@ export function getFriendlyApprovalStatusLabel(status: string | null | undefined
     case "APPROVED":
       return "Approved for Print"
     case "NEEDS_REVIEW":
+      return "Proof Ready / Review Needed"
     case "REJECTED":
-      return "Needs Changes"
+      return "Revision Requested"
     case "PENDING":
       return "Pending Review"
     case "PRINTED":
@@ -33,6 +34,7 @@ export function getFriendlyApprovalStatusBadgeClass(status: string | null | unde
     case "PENDING":
       return "bg-blue-50 text-blue-700 border border-blue-200 animate-pulse"
     case "NEEDS_REVIEW":
+      return "bg-amber-50 text-amber-850 border border-amber-200"
     case "REJECTED":
       return "bg-red-50 text-red-700 border border-red-200"
     default:

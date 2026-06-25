@@ -251,7 +251,7 @@ async function runLifecycleE2E() {
     })
 
     assert.strictEqual(step6Result.name, "QA Updated Business Name")
-    assert.strictEqual(step6Result.website, "https://final-website-qa.com")
+    assert.strictEqual(step6Result.website, "https://final-website-qa.com/")
     assert.strictEqual(step6Result.phone, "")
     assert.strictEqual(step6Result.logoUrl, null)
     console.log("   ✅ Guided setup wizard completed successfully with required-only fields.")
@@ -263,7 +263,7 @@ async function runLifecycleE2E() {
     const step7Result = await authedMerchantCaller.business.updateProfile({
       name: "QA Updated Business Name",
       website: "https://final-website-qa.com",
-      phone: "555-8888",
+      phone: "555-555-8888",
       description: "This is a comprehensive E2E test business description.",
       logoUrl: "https://images.unsplash.com/logo-qa.png",
       coverImageUrl: "https://images.unsplash.com/cover-qa.png",
@@ -291,7 +291,7 @@ async function runLifecycleE2E() {
       offerDeal: "$100 OFF E2E Services",
       description: "Postcard promo description.",
       cta: "Call Now!",
-      phone: "555-8888",
+      phone: "555-555-8888",
       website: "https://final-website-qa.com",
       address: "456 Test Blvd",
       notes: "Please verify print alignment.",

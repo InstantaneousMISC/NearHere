@@ -4,6 +4,7 @@ import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
+import { Button } from "@/components/ui/button"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -20,45 +21,46 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   const navItems = [
-    { name: "Dashboard", href: "/admin", icon: "📊" },
-    { name: "Campaigns", href: "/admin/campaigns", icon: "📬" },
-    { name: "Categories", href: "/admin/categories", icon: "📁" },
-    { name: "Orders", href: "/admin/orders", icon: "💳" },
-    { name: "Creative Reviews", href: "/admin/creative-review", icon: "🎨" },
+    { name: "Dashboard", href: "/admin" },
+    { name: "Campaigns", href: "/admin/campaigns" },
+    { name: "Categories", href: "/admin/categories" },
+    { name: "Orders", href: "/admin/orders" },
+    { name: "Creative Reviews", href: "/admin/creative-review" },
+    { name: "Inquiries", href: "/admin/inquiries" },
   ]
 
   return (
-    <div className="min-h-screen bg-slate-100 flex font-sans">
+    <div className="min-h-screen bg-background flex font-sans">
       {/* Sidebar */}
-      <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col justify-between shrink-0 shadow-lg select-none">
+      <aside className="w-64 bg-secondary text-secondary-foreground flex flex-col justify-between shrink-0 select-none border-r border-border">
         <div className="p-6 space-y-6">
           {/* Logo */}
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-white">
-              LS
-            </div>
-            <span className="text-white font-extrabold text-lg tracking-tight">
+          <div className="flex flex-col text-left">
+            <Link href="/" className="font-headline font-black text-2xl tracking-tighter text-primary flex items-center gap-1 select-none">
+              <span className="bg-primary px-1.5 py-0.5 text-primary-foreground">Near</span>
+              <span className="text-secondary-foreground">Here</span>
+            </Link>
+            <span className="text-[10px] font-mono tracking-widest text-muted-foreground uppercase font-bold mt-1">
               Admin Portal
             </span>
           </div>
 
-          <hr className="border-slate-800" />
+          <hr className="border-muted/20" />
 
           {/* Navigation Links */}
-          <nav className="space-y-1">
+          <nav className="space-y-1.5">
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`)
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
+                  className={`flex items-center px-4 py-3 rounded-none text-sm font-semibold transition-all ${
                     isActive
-                      ? "bg-blue-600 text-white shadow-md shadow-blue-500/10"
-                      : "hover:bg-slate-800 hover:text-white"
+                      ? "bg-primary text-primary-foreground border border-press"
+                      : "text-secondary-foreground/80 hover:bg-secondary-foreground/5 hover:text-secondary-foreground"
                   }`}
                 >
-                  <span className="text-base">{item.icon}</span>
                   <span>{item.name}</span>
                 </Link>
               )
@@ -68,21 +70,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         {/* Footer Area */}
         <div className="p-6">
-          <button
+          <Button
             type="button"
             disabled={loading}
             onClick={handleSignOut}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl border border-slate-700 text-sm font-semibold text-slate-400 hover:text-white hover:border-white transition-colors"
+            className="w-full flex items-center justify-center border border-secondary-foreground/30 hover:border-secondary-foreground bg-transparent text-secondary-foreground/80 hover:text-secondary-foreground hover:bg-secondary-foreground/5 rounded-none font-headline font-bold uppercase tracking-wider text-xs h-10 transition-all cursor-pointer"
           >
-            <span>🚪</span>
             <span>{loading ? "Signing out..." : "Sign Out"}</span>
-          </button>
+          </Button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 overflow-y-auto p-8 lg:p-10">
-        {children}
+      <main className="flex-1 overflow-y-auto p-8 lg:p-10 text-left bg-background">
+        <div className="max-w-6xl mx-auto">
+          {children}
+        </div>
       </main>
     </div>
   )

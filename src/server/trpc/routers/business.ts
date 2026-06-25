@@ -2,6 +2,7 @@ import { z } from "zod"
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init"
 import { TRPCError } from "@trpc/server"
 import { BusinessLinkType, BusinessStatus } from "@prisma/client"
+import { validatePhone, formatPhone, validateAndNormalizeUrl } from "@/lib/validation"
 
 // Helper to resolve and authenticate the business profile for the current user session
 async function getAuthedBusiness(ctx: any) {
@@ -81,9 +82,9 @@ export const businessRouter = createTRPCRouter({
         description: z.string().max(1000).optional().nullable(),
         phone: z.string().optional().nullable(),
         email: z.string().email().optional().nullable(),
-        website: z.string().url().or(z.literal("")).optional().nullable(),
-        logoUrl: z.string().url().or(z.literal("")).optional().nullable(),
-        coverImageUrl: z.string().url().or(z.literal("")).optional().nullable(),
+        website: z.string().or(z.literal("")).optional().nullable(),
+        logoUrl: z.string().or(z.literal("")).optional().nullable(),
+        coverImageUrl: z.string().or(z.literal("")).optional().nullable(),
         address: z.string().optional().nullable(),
         city: z.string().optional().nullable(),
         state: z.string().optional().nullable(),
@@ -134,24 +135,79 @@ export const businessRouter = createTRPCRouter({
         }
       }
 
-      // If business name changes, we do NOT regenerate slug to prevent breaking printed QRs.
-      // But we can check if it is valid.
-      return await ctx.db.business.update({
+      // Enforce input validations and sanitization
+      if (input.phone && !validatePhone(input.phone)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Please enter a valid phone number (at least 10 digits).",
+        })
+      }
+      const sanitizedPhone = input.phone ? formatPhone(input.phone) : input.phone
+
+      let sanitizedWebsite = input.website || null
+      if (input.website && input.website.trim() !== "") {
+        const normalized = validateAndNormalizeUrl(input.website)
+        if (!normalized) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Please enter a valid website URL.",
+          })
+        }
+        sanitizedWebsite = normalized
+      }
+
+      let sanitizedLogoUrl = input.logoUrl || null
+      if (input.logoUrl && input.logoUrl.trim() !== "") {
+        const normalized = validateAndNormalizeUrl(input.logoUrl)
+        if (!normalized) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Please enter a valid logo image URL.",
+          })
+        }
+        sanitizedLogoUrl = normalized
+      }
+
+      let sanitizedCoverImageUrl = input.coverImageUrl || null
+      if (input.coverImageUrl && input.coverImageUrl.trim() !== "") {
+        const normalized = validateAndNormalizeUrl(input.coverImageUrl)
+        if (!normalized) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Please enter a valid cover image URL.",
+          })
+        }
+        sanitizedCoverImageUrl = normalized
+      }
+
+      const updatedBusiness = await ctx.db.business.update({
         where: { id: business.id },
         data: {
           name: input.name,
           description: input.description,
-          phone: input.phone,
+          phone: sanitizedPhone,
           email: input.email,
-          website: input.website || null,
-          logoUrl: input.logoUrl || null,
-          coverImageUrl: input.coverImageUrl || null,
+          website: sanitizedWebsite,
+          logoUrl: sanitizedLogoUrl,
+          coverImageUrl: sanitizedCoverImageUrl,
           address: input.address,
           city: input.city,
           state: input.state,
           zipCode: input.zipCode,
         },
       })
+
+      // Send onboarding welcome email (idempotent sendLifecycleEmailOnce ensures it only dispatches once)
+      if (updatedBusiness.name && updatedBusiness.email) {
+        try {
+          const { sendOnboardingWelcomeEmail } = await import("@/server/email/actions")
+          await sendOnboardingWelcomeEmail(updatedBusiness.id)
+        } catch (err) {
+          console.error("[EMAIL ERROR] Failed to send onboarding welcome email:", err)
+        }
+      }
+
+      return updatedBusiness
     }),
 
   listLinks: publicProcedure.query(async ({ ctx }) => {
@@ -329,12 +385,86 @@ export const businessRouter = createTRPCRouter({
       },
     })
 
+    // 6. Last 14 days timeline (scans, views, clicks)
+    const formatDate = (date: Date) => {
+      const yyyy = date.getFullYear()
+      const mm = String(date.getMonth() + 1).padStart(2, "0")
+      const dd = String(date.getDate()).padStart(2, "0")
+      return `${yyyy}-${mm}-${dd}`
+    }
+
+    const fourteenDaysAgo = new Date()
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 13)
+    fourteenDaysAgo.setHours(0, 0, 0, 0)
+
+    const scansLast14Days = await ctx.db.qrScan.findMany({
+      where: {
+        businessId: business.id,
+        scannedAt: { gte: fourteenDaysAgo },
+      },
+      select: {
+        scannedAt: true,
+      },
+    })
+
+    const viewsLast14Days = await ctx.db.businessPageView.findMany({
+      where: {
+        businessId: business.id,
+        viewedAt: { gte: fourteenDaysAgo },
+      },
+      select: {
+        viewedAt: true,
+      },
+    })
+
+    const clicksLast14Days = await ctx.db.businessClickEvent.findMany({
+      where: {
+        businessId: business.id,
+        clickedAt: { gte: fourteenDaysAgo },
+      },
+      select: {
+        clickedAt: true,
+      },
+    })
+
+    const dailyMap: Record<string, { date: string; scans: number; views: number; clicks: number }> = {}
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date()
+      d.setDate(d.getDate() - i)
+      const dateStr = formatDate(d)
+      dailyMap[dateStr] = { date: dateStr, scans: 0, views: 0, clicks: 0 }
+    }
+
+    scansLast14Days.forEach((scan) => {
+      const dateStr = formatDate(scan.scannedAt)
+      if (dailyMap[dateStr]) {
+        dailyMap[dateStr].scans++
+      }
+    })
+
+    viewsLast14Days.forEach((view) => {
+      const dateStr = formatDate(view.viewedAt)
+      if (dailyMap[dateStr]) {
+        dailyMap[dateStr].views++
+      }
+    })
+
+    clicksLast14Days.forEach((click) => {
+      const dateStr = formatDate(click.clickedAt)
+      if (dailyMap[dateStr]) {
+        dailyMap[dateStr].clicks++
+      }
+    })
+
+    const dailyActivity = Object.values(dailyMap).sort((a, b) => a.date.localeCompare(b.date))
+
     return {
       totalScans,
       totalPageViews,
       clicksByType,
       scansByCampaign,
       recentScans,
+      dailyActivity,
     }
   }),
 
@@ -446,7 +576,7 @@ export const businessRouter = createTRPCRouter({
       }
 
       // Claim the business
-      return await ctx.db.business.update({
+      const claimedBusiness = await ctx.db.business.update({
         where: { id: business.id },
         data: {
           ownerUserId: ctx.user.id,
@@ -455,6 +585,18 @@ export const businessRouter = createTRPCRouter({
           claimTokenExpiresAt: null,
         },
       })
+
+      // Send claim success email
+      if (claimedBusiness.email) {
+        try {
+          const { sendClaimSuccessEmail } = await import("@/server/email/actions")
+          await sendClaimSuccessEmail(claimedBusiness.id)
+        } catch (err) {
+          console.error("[EMAIL ERROR] Failed to send claim success email:", err)
+        }
+      }
+
+      return claimedBusiness
     }),
 
   getMyOrders: publicProcedure.query(async ({ ctx }) => {

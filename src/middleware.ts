@@ -6,7 +6,7 @@ export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
   // Dev admin bypass
-  if (request.cookies.get('mock_admin')?.value === 'true') {
+  if (process.env.NODE_ENV !== 'production' && request.cookies.get('mock_admin')?.value === 'true') {
     user = {
       id: '6a43af92-16fe-4873-9f64-1dd278d794c2',
       email: 'admin@localspotmailers.com',
@@ -23,11 +23,14 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // Protect /business/* routes — redirect unauthenticated users to login
-  if (pathname.startsWith('/business')) {
-    if (pathname.startsWith('/business/claim')) {
-      return response
-    }
+  // Protect /business/* dashboard routes — redirect unauthenticated users to login
+  const isBusinessDashboardRoute =
+    pathname.startsWith('/business/dashboard') ||
+    pathname.startsWith('/business/profile') ||
+    pathname.startsWith('/business/analytics') ||
+    pathname.startsWith('/business/setup')
+
+  if (isBusinessDashboardRoute) {
     if (!user) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/auth/login'

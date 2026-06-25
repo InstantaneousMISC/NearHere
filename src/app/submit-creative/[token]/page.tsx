@@ -3,6 +3,7 @@ import { notFound } from "next/navigation"
 import { db } from "@/server/db"
 import CreativeForm from "@/components/creative/CreativeForm"
 import { CampaignNav } from "@/components/campaign/CampaignNav"
+import DraftProofReviewPanel from "@/components/creative/DraftProofReviewPanel"
 
 interface CreativeSubmissionPageProps {
   params: Promise<{
@@ -77,12 +78,23 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
         {/* Content Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           {/* Form Panel */}
-          <div className="lg:col-span-2 bg-card border border-border shadow-2xl p-6 sm:p-8 rounded-none">
-            <CreativeForm
-              token={token}
-              order={order as any}
-              initialData={order.creativeSubmission as any}
-            />
+          <div className="lg:col-span-2 space-y-8">
+            {order.creativeSubmission?.draftProofUrl && (
+              <DraftProofReviewPanel
+                submissionId={order.creativeSubmission.id}
+                token={token}
+                draftProofUrl={order.creativeSubmission.draftProofUrl}
+                currentStatus={order.creativeSubmission.approvalStatus}
+                draftFeedback={order.creativeSubmission.draftFeedback}
+              />
+            )}
+            <div className="bg-card border border-border shadow-2xl p-6 sm:p-8 rounded-none">
+              <CreativeForm
+                token={token}
+                order={order as any}
+                initialData={order.creativeSubmission as any}
+              />
+            </div>
           </div>
 
           {/* Guidelines Sidebar */}

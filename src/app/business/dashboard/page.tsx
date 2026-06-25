@@ -4,6 +4,10 @@ import React, { useState, useEffect } from "react"
 import Link from "next/link"
 import { trpc } from "@/lib/trpc/client"
 import QRCodeImage from "@/components/postcard/QRCodeImage"
+import { Card } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table"
 
 export default function BusinessDashboardPage() {
   const [origin, setOrigin] = useState("")
@@ -53,14 +57,14 @@ export default function BusinessDashboardPage() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-pulse text-left">
-        <div className="h-10 bg-slate-200 rounded w-1/3" />
+      <div className="space-y-6 animate-pulse text-left font-sans">
+        <div className="h-10 bg-press/10 w-1/3 rounded-none" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="h-28 bg-slate-200 rounded" />
-          <div className="h-28 bg-slate-200 rounded" />
-          <div className="h-28 bg-slate-200 rounded" />
+          <div className="h-28 bg-press/5 border border-border rounded-none" />
+          <div className="h-28 bg-press/5 border border-border rounded-none" />
+          <div className="h-28 bg-press/5 border border-border rounded-none" />
         </div>
-        <div className="h-64 bg-slate-200 rounded" />
+        <div className="h-64 bg-press/5 border border-border rounded-none" />
       </div>
     )
   }
@@ -84,6 +88,7 @@ export default function BusinessDashboardPage() {
   const hasCreativeSubmitted = !!creative?.submittedAt
   const isApprovedOrBeyond = creative && ["APPROVED", "PRINTED", "MAILED"].includes(creative.approvalStatus)
   const isCreativeRejected = creative?.approvalStatus === "REJECTED"
+  const isNeedsReview = creative?.approvalStatus === "NEEDS_REVIEW"
   const isPrinted = campaign?.status === "PRINTING" || creative?.approvalStatus === "PRINTED"
   const isMailed = campaign?.status === "MAILED" || creative?.approvalStatus === "MAILED"
 
@@ -100,6 +105,10 @@ export default function BusinessDashboardPage() {
     nextActionLabel = "Submit Creative Details"
     nextActionUrl = activeOrder ? `/submit-creative/${activeOrder.creativeSubmissionToken}` : "#"
     nextActionNotes = "Your business profile is set up. Submit your headline, offer, description, and contact details for layout."
+  } else if (isNeedsReview) {
+    nextActionLabel = "🔍 Review Postcard Layout Proof"
+    nextActionUrl = activeOrder ? `/submit-creative/${activeOrder.creativeSubmissionToken}` : "#"
+    nextActionNotes = "Your postcard layout proof is ready! Please review and approve it, or request design revisions."
   } else if (isCreativeRejected) {
     nextActionLabel = "Update Creative Details"
     nextActionUrl = activeOrder ? `/submit-creative/${activeOrder.creativeSubmissionToken}` : "#"
@@ -119,10 +128,10 @@ export default function BusinessDashboardPage() {
   }
 
   return (
-    <div className="space-y-8 text-left animate-fade-up">
+    <div className="space-y-8 text-left animate-fade-up font-sans">
       
       {/* Welcome & Profile Header */}
-      <div className="bg-white border-2 border-press p-6 rounded-none flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
+      <Card className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div className="space-y-1">
           <h1 className="font-headline font-black text-2xl uppercase text-press leading-none tracking-tight">
             Your Campaign Placement: {business?.name || "Advertiser"}
@@ -133,26 +142,45 @@ export default function BusinessDashboardPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-3 select-none">
-          <button
+          <Button
             onClick={handleCopyLink}
-            className="px-4 py-2 border border-press hover:bg-[#E7E0D8] text-xs font-bold uppercase tracking-wider text-press cursor-pointer transition-colors"
+            variant="outline"
+            size="sm"
           >
             📋 Copy Public Link
-          </button>
-          <a
-            href={`/b/${business?.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-4 py-2 bg-[#D13F1F] hover:bg-[#B53A1A] text-xs font-bold uppercase tracking-wider text-paper border border-press cursor-pointer transition-colors"
+          </Button>
+          <Button
+            asChild
+            size="sm"
           >
-            👀 View Landing Page
-          </a>
+            <Link
+              href={`/b/${business?.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              👀 View Landing Page
+            </Link>
+          </Button>
         </div>
-      </div>
+      </Card>
+
+      {isNeedsReview && activeOrder && (
+        <div className="bg-amber-500/10 border-2 border-amber-500 text-amber-900 p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-up">
+          <div className="space-y-1">
+            <h4 className="font-headline font-black text-sm uppercase tracking-tight text-amber-900 leading-tight">Postcard Proof Ready for Review!</h4>
+            <p className="text-xs font-medium">Our designers have uploaded the print proof for your postcard ad space. Please review it as soon as possible.</p>
+          </div>
+          <Button asChild size="sm" className="bg-[#D19F1F] hover:bg-[#D19F1F]/90 text-white border-transparent">
+            <Link href={`/submit-creative/${activeOrder.creativeSubmissionToken}`}>
+              Review Design Proof ↗
+            </Link>
+          </Button>
+        </div>
+      )}
 
       {/* Onboarding Checklist Section */}
-      <div className="bg-white border-2 border-press p-6 rounded-none shadow-sm space-y-4 text-left">
-        <div className="space-y-1">
+      <Card className="p-6 space-y-4">
+        <div className="space-y-1 border-b border-border pb-3">
           <h2 className="font-headline font-extrabold text-base uppercase text-press tracking-tight flex items-center gap-2">
             Campaign Setup and Status
           </h2>
@@ -161,9 +189,9 @@ export default function BusinessDashboardPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 py-2 select-none">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4 py-2 select-none text-left">
           {/* Item 1: Payment */}
-          <div className="border border-rule p-4 flex flex-col justify-between h-24 bg-paper/20">
+          <div className="border border-border p-4 flex flex-col justify-between h-24 bg-press/5">
             <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">1. Spot Reserved</span>
             <div className="flex items-center gap-2 mt-2">
               <span className="text-emerald-600 text-xl font-bold">✓</span>
@@ -172,7 +200,7 @@ export default function BusinessDashboardPage() {
           </div>
 
           {/* Item 2: Profile Setup */}
-          <div className={`border p-4 flex flex-col justify-between h-24 ${isProfileComplete ? "border-rule bg-paper/20" : "border-nh-red/30 bg-nh-red/5"}`}>
+          <div className={`border p-4 flex flex-col justify-between h-24 ${isProfileComplete ? "border-border bg-press/5" : "border-primary/20 bg-primary/5"}`}>
             <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">2. Profile Setup</span>
             <div className="flex items-center gap-2 mt-2">
               {isProfileComplete ? (
@@ -182,15 +210,15 @@ export default function BusinessDashboardPage() {
                 </>
               ) : (
                 <>
-                  <span className="text-nh-red text-base">⏳</span>
-                  <span className="text-xs font-semibold text-nh-red">Pending</span>
+                  <span className="text-primary text-base">⏳</span>
+                  <span className="text-xs font-semibold text-primary">Pending</span>
                 </>
               )}
             </div>
           </div>
 
           {/* Item 3: Creative Submission */}
-          <div className={`border p-4 flex flex-col justify-between h-24 ${hasCreativeSubmitted ? "border-rule bg-paper/20" : "border-nh-red/30 bg-nh-red/5"}`}>
+          <div className={`border p-4 flex flex-col justify-between h-24 ${hasCreativeSubmitted ? "border-border bg-press/5" : "border-primary/20 bg-primary/5"}`}>
             <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">3. Creative Submitted</span>
             <div className="flex items-center gap-2 mt-2">
               {hasCreativeSubmitted ? (
@@ -200,15 +228,15 @@ export default function BusinessDashboardPage() {
                 </>
               ) : (
                 <>
-                  <span className="text-nh-red text-base">⏳</span>
-                  <span className="text-xs font-semibold text-nh-red">Pending</span>
+                  <span className="text-primary text-base">⏳</span>
+                  <span className="text-xs font-semibold text-primary">Pending</span>
                 </>
               )}
             </div>
           </div>
 
           {/* Item 4: QR & Redirections */}
-          <div className={`border p-4 flex flex-col justify-between h-24 ${hasQrGenerated ? "border-rule bg-paper/20" : "border-nh-red/30 bg-nh-red/5"}`}>
+          <div className={`border p-4 flex flex-col justify-between h-24 ${hasQrGenerated ? "border-border bg-press/5" : "border-primary/20 bg-primary/5"}`}>
             <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">4. Tracking Ready</span>
             <div className="flex items-center gap-2 mt-2">
               {hasQrGenerated ? (
@@ -218,15 +246,15 @@ export default function BusinessDashboardPage() {
                 </>
               ) : (
                 <>
-                  <span className="text-nh-red text-base">⏳</span>
-                  <span className="text-xs font-semibold text-nh-red">Compiling</span>
+                  <span className="text-primary text-base">⏳</span>
+                  <span className="text-xs font-semibold text-primary">Compiling</span>
                 </>
               )}
             </div>
           </div>
 
           {/* Item 5: Postcard status */}
-          <div className={`border p-4 flex flex-col justify-between h-24 ${isApprovedOrBeyond ? "border-rule bg-paper/20" : isCreativeRejected ? "border-red-300 bg-red-50/50" : "border-nh-red/30 bg-nh-red/5"}`}>
+          <div className={`border p-4 flex flex-col justify-between h-24 ${isApprovedOrBeyond ? "border-border bg-press/5" : isCreativeRejected ? "border-destructive/20 bg-destructive/5" : isNeedsReview ? "border-amber-500/20 bg-amber-500/5 animate-pulse" : "border-primary/20 bg-primary/5"}`}>
             <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">5. Campaign Status</span>
             <div className="flex items-center gap-2 mt-2">
               {isMailed ? (
@@ -244,15 +272,20 @@ export default function BusinessDashboardPage() {
                   <span className="text-emerald-600 text-xl font-bold">✓</span>
                   <span className="text-xs font-semibold text-press">Approved</span>
                 </>
+              ) : isNeedsReview ? (
+                <>
+                  <span className="text-amber-600 text-base">🔍</span>
+                  <span className="text-xs font-semibold text-amber-700">Proof Ready</span>
+                </>
               ) : isCreativeRejected ? (
                 <>
-                  <span className="text-red-500 text-base">❌</span>
-                  <span className="text-xs font-semibold text-red-500">Rejected</span>
+                  <span className="text-destructive text-base">❌</span>
+                  <span className="text-xs font-semibold text-destructive">Rejected</span>
                 </>
               ) : (
                 <>
-                  <span className="text-nh-red text-base">⏳</span>
-                  <span className="text-xs font-semibold text-nh-red">Reviewing</span>
+                  <span className="text-primary text-base">⏳</span>
+                  <span className="text-xs font-semibold text-primary">Reviewing</span>
                 </>
               )}
             </div>
@@ -260,31 +293,37 @@ export default function BusinessDashboardPage() {
         </div>
 
         {/* Dynamic Action Block */}
-        <div className="p-4 bg-[#FAF8F4] border border-[#E7E0D8] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="text-left space-y-0.5 max-w-lg">
-            <span className="text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider block">Recommended Next Action</span>
+        <div className="p-4 bg-background border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
+          <div className="space-y-0.5 max-w-lg">
+            <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider block">Recommended Next Action</span>
             <p className="text-xs font-semibold text-press leading-relaxed">
               {nextActionNotes}
             </p>
           </div>
           {nextActionUrl !== "#" ? (
-            <Link
-              href={nextActionUrl}
-              className="px-5 py-2.5 bg-press text-paper hover:bg-[#3D3533] text-xs font-bold uppercase tracking-wider border border-press transition-colors cursor-pointer shrink-0 text-center"
+            <Button
+              asChild
+              size="sm"
+            >
+              <Link href={nextActionUrl}>
+                {nextActionLabel}
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              disabled
+              size="sm"
+              variant="outline"
             >
               {nextActionLabel}
-            </Link>
-          ) : (
-            <div className="px-5 py-2.5 bg-press/5 text-warm text-xs font-bold uppercase tracking-wider border border-press/20 shrink-0 text-center">
-              {nextActionLabel}
-            </div>
+            </Button>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* Business Profile Section */}
-      <div className="bg-white border-2 border-press p-6 rounded-none shadow-sm space-y-6 text-left">
-        <div className="space-y-1">
+      <Card className="p-6 space-y-6">
+        <div className="space-y-1 text-left border-b border-border pb-3">
           <h2 className="font-headline font-extrabold text-lg uppercase text-press tracking-tight">
             Business Profile
           </h2>
@@ -293,29 +332,29 @@ export default function BusinessDashboardPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-2 font-mono text-xs select-none">
-          <div className="border border-rule p-4 bg-paper/10 flex flex-col justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 py-2 font-mono text-xs select-none text-left">
+          <div className="border border-border p-4 bg-press/5 flex flex-col justify-between">
             <span className="text-[9px] font-bold text-warm uppercase tracking-wider block">Profile Status</span>
-            <span className={`text-xs font-bold uppercase ${business?.status === 'ACTIVE' ? 'text-emerald-700' : 'text-amber-700'} mt-1`}>
+            <span className={`text-xs font-bold uppercase ${business?.status === 'ACTIVE' ? 'text-emerald-700' : 'text-primary'} mt-1`}>
               ● {business?.status || 'DRAFT'}
             </span>
           </div>
 
-          <div className="border border-rule p-4 bg-paper/10 flex flex-col justify-between">
+          <div className="border border-border p-4 bg-press/5 flex flex-col justify-between">
             <span className="text-[9px] font-bold text-warm uppercase tracking-wider block">Website Backlink</span>
-            <span className={`text-xs font-bold uppercase ${business?.website ? 'text-emerald-700' : 'text-slate-500'} mt-1`}>
+            <span className={`text-xs font-bold uppercase ${business?.website ? 'text-emerald-700' : 'text-warm'} mt-1`}>
               {business?.website ? '✓ Enabled' : 'Not Configured'}
             </span>
           </div>
 
-          <div className="border border-rule p-4 bg-paper/10 flex flex-col justify-between">
+          <div className="border border-border p-4 bg-press/5 flex flex-col justify-between">
             <span className="text-[9px] font-bold text-warm uppercase tracking-wider block">Offer Shown</span>
             <span className="text-xs font-bold text-press truncate max-w-full mt-1">
               {creative?.offerDeal || 'No offer active'}
             </span>
           </div>
 
-          <div className="border border-rule p-4 bg-paper/10 flex flex-col justify-between">
+          <div className="border border-border p-4 bg-press/5 flex flex-col justify-between">
             <span className="text-[9px] font-bold text-warm uppercase tracking-wider block">QR Destination</span>
             <span className="text-xs font-bold text-press truncate max-w-full mt-1">
               /q/{qrCodes?.[0]?.slug || ''}
@@ -323,56 +362,60 @@ export default function BusinessDashboardPage() {
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-2 border-t border-border">
           <div className="space-y-1 text-xs">
             <div className="flex items-center gap-4">
-              <div>
+              <div className="text-left">
                 <span className="text-warm block uppercase font-mono text-[9px] tracking-wider">Profile Views</span>
                 <span className="font-headline font-black text-lg text-press">{analytics?.totalPageViews ?? 0}</span>
               </div>
-              <div className="border-l border-rule h-8" />
-              <div>
+              <div className="border-l border-border h-8" />
+              <div className="text-left">
                 <span className="text-warm block uppercase font-mono text-[9px] tracking-wider">Website Clicks</span>
                 <span className="font-headline font-black text-lg text-press">{analytics?.clicksByType?.WEBSITE ?? 0}</span>
               </div>
-              <div className="border-l border-rule h-8" />
-              <div>
+              <div className="border-l border-border h-8" />
+              <div className="text-left">
                 <span className="text-warm block uppercase font-mono text-[9px] tracking-wider">QR Scans</span>
                 <span className="font-headline font-black text-lg text-press">{analytics?.totalScans ?? 0}</span>
               </div>
             </div>
           </div>
-          <Link
-            href={`/business/${business?.slug}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="px-5 py-2.5 bg-press text-paper hover:bg-primary hover:text-paper hover:border-primary border border-press text-xs font-bold uppercase tracking-wider transition-colors text-center font-headline"
+          <Button
+            asChild
+            variant="outline"
           >
-            View Business Profile
-          </Link>
+            <Link
+              href={`/business/${business?.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              View Business Profile
+            </Link>
+          </Button>
         </div>
-      </div>
+      </Card>
 
       {/* Analytics Counter Row */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         
         {/* Total Scans Card */}
-        <div className="bg-white border border-rule p-6 rounded-none shadow-sm flex items-center justify-between gap-4">
+        <Card className="p-6 flex items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
               Recorded QR Scans
             </span>
-            <span className="font-headline font-black text-4xl text-[#D13F1F] leading-none block">
+            <span className="font-headline font-black text-4xl text-primary leading-none block">
               {analytics?.totalScans ?? 0}
             </span>
           </div>
-          <div className="text-3xl bg-[#FBEBE8] w-12 h-12 rounded-full flex items-center justify-center text-[#D13F1F]">
+          <div className="text-3xl bg-primary/10 w-12 h-12 flex items-center justify-center text-primary border border-primary/20">
             📱
           </div>
-        </div>
+        </Card>
 
         {/* Total Page Views Card */}
-        <div className="bg-white border border-rule p-6 rounded-none shadow-sm flex items-center justify-between gap-4">
+        <Card className="p-6 flex items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
               Landing Page Views
@@ -381,13 +424,13 @@ export default function BusinessDashboardPage() {
               {analytics?.totalPageViews ?? 0}
             </span>
           </div>
-          <div className="text-3xl bg-[#FAF8F4] w-12 h-12 rounded-full flex items-center justify-center border border-rule">
+          <div className="text-3xl bg-press/5 w-12 h-12 flex items-center justify-center border border-border">
             👀
           </div>
-        </div>
+        </Card>
 
         {/* Link Clicks Card */}
-        <div className="bg-white border border-rule p-6 rounded-none shadow-sm flex items-center justify-between gap-4">
+        <Card className="p-6 flex items-center justify-between gap-4">
           <div className="space-y-1">
             <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
               Outbound Link Clicks
@@ -396,25 +439,25 @@ export default function BusinessDashboardPage() {
               {totalClicks}
             </span>
           </div>
-          <div className="text-3xl bg-[#FFFDF9] w-12 h-12 rounded-full flex items-center justify-center border border-gold/45 text-gold">
+          <div className="text-3xl bg-accent/15 w-12 h-12 flex items-center justify-center border border-accent/40 text-accent">
             ⚡
           </div>
-        </div>
+        </Card>
 
       </div>
 
-      <p className="text-[10px] leading-relaxed text-warm">
+      <p className="text-[10px] leading-relaxed text-warm font-medium select-none text-left">
         Reporting reflects recorded QR scans, page views, and tracked outbound links. Phone calls,
         direct website visits, postcard mentions, and offline redemptions may not be fully
         attributable.
       </p>
 
-      {/* Booked Category Spot Campaigns (Inspired by Attachment) */}
-      <div className="bg-white border-2 border-press rounded-none shadow-sm overflow-hidden">
+      {/* Booked Category Spot Campaigns */}
+      <Card>
         
         {/* Section Header */}
-        <div className="p-6 border-b border-rule flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="space-y-0.5 text-left">
+        <div className="p-6 border-b border-border flex flex-col md:flex-row md:items-center justify-between gap-4 text-left">
+          <div className="space-y-0.5">
             <h2 className="font-headline font-extrabold text-lg uppercase text-press tracking-tight">
               Your Campaign Placements
             </h2>
@@ -422,28 +465,31 @@ export default function BusinessDashboardPage() {
               Campaigns where your business has a reserved placement.
             </p>
           </div>
-          <Link
-            href="/business/profile"
-            className="px-4 py-1.5 border border-press hover:bg-[#E7E0D8] text-[10px] font-bold uppercase tracking-wider text-press cursor-pointer transition-colors"
+          <Button
+            asChild
+            variant="outline"
+            size="sm"
           >
-            ✏️ Edit Creative Details
-          </Link>
+            <Link href="/business/profile">
+              ✏️ Edit Creative Details
+            </Link>
+          </Button>
         </div>
 
         {/* Campaign Slots Table */}
         <div className="overflow-x-auto select-none">
           {qrCodes && qrCodes.length > 0 ? (
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-press/5 font-mono text-[10px] font-bold text-warm uppercase tracking-wider border-b border-rule">
-                  <th className="px-6 py-4">Campaign Name</th>
-                  <th className="px-6 py-4">Business Category</th>
-                  <th className="px-6 py-4">Mailing Date</th>
-                  <th className="px-6 py-4 text-center">Recorded Scans</th>
-                  <th className="px-6 py-4 text-right">QR Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-rule font-sans text-sm font-medium text-press">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-6 py-4">Campaign Name</TableHead>
+                  <TableHead className="px-6 py-4">Business Category</TableHead>
+                  <TableHead className="px-6 py-4">Mailing Date</TableHead>
+                  <TableHead className="px-6 py-4 text-center">Recorded Scans</TableHead>
+                  <TableHead className="px-6 py-4 text-right">QR Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {qrCodes.map((qr) => {
                   const mailingDate = qr.campaign?.estimatedMailDate
                     ? new Date(qr.campaign.estimatedMailDate).toLocaleDateString("en-US", {
@@ -454,36 +500,34 @@ export default function BusinessDashboardPage() {
                     : "MOCK / DEMO"
 
                   return (
-                    <tr key={qr.id} className="hover:bg-slate-50 transition-colors">
-                      <td className="px-6 py-4 font-bold">
+                    <TableRow key={qr.id}>
+                      <TableCell className="px-6 py-4 font-headline font-black uppercase text-base text-press tracking-tight">
                         {qr.campaign?.name || "Direct Profile Link"}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="inline-block px-2.5 py-0.5 bg-press text-paper text-[10px] font-mono font-bold uppercase tracking-wider rounded-none">
+                      </TableCell>
+                      <TableCell className="px-6 py-4">
+                        <Badge variant="secondary">
                           ⭐ {qr.campaignSpot?.label || "General QR"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 font-mono text-xs text-warm font-bold">
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 font-mono text-xs text-warm font-bold">
                         {mailingDate}
-                      </td>
-                      <td className="px-6 py-4 text-center font-headline font-extrabold text-lg text-nh-red">
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-center font-headline font-extrabold text-lg text-primary">
                         {qr._count.scans}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div className="inline-flex items-center gap-3">
-                          <button
-                            onClick={() => handleDownloadQr(qr.slug, qr.campaign?.name || "profile")}
-                            className="px-3 py-1 bg-press text-paper hover:bg-[#3D3533] text-[10px] font-bold uppercase tracking-wider border border-press transition-colors cursor-pointer"
-                          >
-                            💾 Download Print QR
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
+                        <Button
+                          onClick={() => handleDownloadQr(qr.slug, qr.campaign?.name || "profile")}
+                          size="sm"
+                        >
+                          💾 Download Print QR
+                        </Button>
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           ) : (
             <div className="py-12 text-center text-warm font-medium">
               <p className="text-base">No active campaigns found.</p>
@@ -492,14 +536,14 @@ export default function BusinessDashboardPage() {
           )}
         </div>
 
-      </div>
+      </Card>
 
       {/* QR Previews & Print Guidelines */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 select-none">
         
         {/* QR Code Graphic Section */}
-        <div className="bg-white border border-rule p-6 rounded-none shadow-sm flex flex-col justify-between gap-6">
-          <div className="text-left space-y-1">
+        <Card className="p-6 flex flex-col justify-between gap-6">
+          <div className="text-left space-y-1 border-b border-border pb-3">
             <h3 className="font-headline font-extrabold text-base uppercase text-press tracking-wide">
               Your Profile QR Code
             </h3>
@@ -508,36 +552,37 @@ export default function BusinessDashboardPage() {
             </p>
           </div>
 
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-6 text-left">
             {business?.slug && (
               <QRCodeImage
                 value={`${origin}/q/profile-${business.slug}`} // Mock general profile slug
                 size={112}
               />
             )}
-            <div className="space-y-3 text-left">
+            <div className="space-y-3">
               <div className="space-y-0.5">
                 <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider block">Destination Path</span>
                 <span className="text-xs font-semibold text-press break-all">{`${origin}/b/${business?.slug}`}</span>
               </div>
-              <button
+              <Button
                 onClick={() => handleDownloadQr(`profile-${business?.slug}`, "general-profile")}
                 disabled={!business?.slug}
-                className="px-4 py-1.5 bg-white text-press hover:bg-[#E7E0D8] text-xs font-bold uppercase tracking-wider border border-press transition-colors cursor-pointer"
+                variant="outline"
+                size="sm"
               >
                 💾 Get Profile QR
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
+        </Card>
 
         {/* Print Guidelines */}
-        <div className="bg-white border border-rule p-6 rounded-none shadow-sm flex flex-col justify-between gap-4">
+        <Card className="p-6 flex flex-col justify-between gap-4">
           <div className="text-left space-y-1.5">
-            <h3 className="font-headline font-extrabold text-base uppercase text-press tracking-wide text-nh-red">
+            <h3 className="font-headline font-extrabold text-base uppercase text-primary tracking-wide">
               🖨️ Print Reliability Tips
             </h3>
-            <ul className="text-xs text-warm space-y-2 list-disc pl-5 font-medium leading-relaxed">
+            <ul className="text-xs text-warm space-y-2 list-disc pl-5 font-semibold leading-relaxed">
               <li>
                 <strong>High Error Correction (Level H):</strong> Our QR codes are pre-configured with high error tolerance so they remain scan-friendly even if smudged or slightly folded in mailboxes.
               </li>
@@ -549,7 +594,7 @@ export default function BusinessDashboardPage() {
               </li>
             </ul>
           </div>
-        </div>
+        </Card>
 
       </div>
 

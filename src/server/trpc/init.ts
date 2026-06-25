@@ -3,7 +3,12 @@ import { createServerClient } from '@supabase/ssr'
 import { db } from '@/server/db'
 import superjson from 'superjson'
 
-export async function createTRPCContext(opts: { headers: Headers }) {
+export async function createTRPCContext(opts: { headers: Headers }): Promise<{
+  db: typeof db
+  user: any
+  supabase: any
+  headers?: Headers
+}> {
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -29,7 +34,7 @@ export async function createTRPCContext(opts: { headers: Headers }) {
 
   const cookieHeader = opts.headers.get('cookie') ?? ''
   let user = null
-  if (cookieHeader.includes('mock_admin=true')) {
+  if (process.env.NODE_ENV !== 'production' && cookieHeader.includes('mock_admin=true')) {
     user = {
       id: '6a43af92-16fe-4873-9f64-1dd278d794c2',
       email: 'admin@localspotmailers.com',
@@ -46,7 +51,7 @@ export async function createTRPCContext(opts: { headers: Headers }) {
     }
   }
 
-  return { db, user, supabase }
+  return { db, user, supabase, headers: opts.headers }
 }
 
 const t = initTRPC

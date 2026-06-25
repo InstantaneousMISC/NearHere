@@ -7,6 +7,10 @@ import { getNeedsChangesTemplate } from "./templates/needsChanges"
 import { getPaymentConfirmationTemplate } from "./templates/paymentConfirmation"
 import { getPrintedMailedNotificationTemplate } from "./templates/printedMailedNotification"
 import { getSubmitPostcardCreativeTemplate } from "./templates/submitPostcardCreative"
+import { getBookingCancelledTemplate } from "./templates/bookingCancelled"
+import { getOnboardingWelcomeTemplate } from "./templates/onboardingWelcome"
+import { getClaimSuccessTemplate } from "./templates/claimSuccess"
+import { getCreativeReminderTemplate } from "./templates/creativeReminder"
 
 export const emailPreviewKeys = [
   "payment",
@@ -19,6 +23,10 @@ export const emailPreviewKeys = [
   "approved",
   "printed",
   "mailed",
+  "booking-cancelled",
+  "onboarding-welcome",
+  "claim-success",
+  "creative-reminder",
 ] as const
 
 export type EmailPreviewKey = (typeof emailPreviewKeys)[number]
@@ -101,6 +109,31 @@ export function getEmailPreview(
         categoryName,
         status: template === "printed" ? "PRINTED" : "MAILED",
         merchantDashboardUrl,
+      })
+    case "booking-cancelled":
+      return getBookingCancelledTemplate({
+        businessName,
+        campaignName,
+        categoryName,
+        amount: 49900,
+        reason: "Requested by advertiser due to schedule conflict.",
+      })
+    case "onboarding-welcome":
+      return getOnboardingWelcomeTemplate({
+        businessName,
+        merchantDashboardUrl,
+      })
+    case "claim-success":
+      return getClaimSuccessTemplate({
+        businessName,
+        merchantDashboardUrl,
+      })
+    case "creative-reminder":
+      return getCreativeReminderTemplate({
+        businessName,
+        campaignName,
+        categoryName,
+        creativeSubmissionUrl,
       })
   }
 }

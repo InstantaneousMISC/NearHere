@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation"
 import { trpc } from "@/lib/trpc/client"
 import { BusinessLinkType } from "@prisma/client"
 import Link from "next/link"
+import { useUploadThing } from "@/lib/uploadthing"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Card } from "@/components/ui/card"
 
 export default function SetupWizardPage() {
   const router = useRouter()
@@ -59,6 +65,60 @@ export default function SetupWizardPage() {
   // Validation Error States
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [saving, setSaving] = useState(false)
+
+  // UploadThing hook for Logo Uploader
+  const { startUpload: startLogoUpload, isUploading: isLogoUploading } = useUploadThing(
+    "logoUploader",
+    {
+      onClientUploadComplete: (res) => {
+        if (res && res[0]) {
+          setLogoUrl(res[0].ufsUrl)
+        }
+      },
+      onUploadError: (err) => {
+        setErrors((prev) => ({ ...prev, logoUrl: `Logo upload failed: ${err.message}` }))
+      },
+    }
+  )
+
+  // UploadThing hook for Cover Image Uploader
+  const { startUpload: startCoverUpload, isUploading: isCoverUploading } = useUploadThing(
+    "logoUploader",
+    {
+      onClientUploadComplete: (res) => {
+        if (res && res[0]) {
+          setCoverImageUrl(res[0].ufsUrl)
+        }
+      },
+      onUploadError: (err) => {
+        setErrors((prev) => ({ ...prev, coverImageUrl: `Cover upload failed: ${err.message}` }))
+      },
+    }
+  )
+
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next.logoUrl
+        return next
+      })
+      await startLogoUpload([file])
+    }
+  }
+
+  const handleCoverChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setErrors((prev) => {
+        const next = { ...prev }
+        delete next.coverImageUrl
+        return next
+      })
+      await startCoverUpload([file])
+    }
+  }
 
   // Sync business data to form states when loaded
   useEffect(() => {
@@ -261,15 +321,15 @@ export default function SetupWizardPage() {
   const creative = activeOrder?.creativeSubmission
 
   return (
-    <div className="min-h-screen bg-[#FAF8F4] flex flex-col justify-between font-sans selection:bg-[#D13F1F] selection:text-paper select-none">
+    <div className="min-h-screen bg-background flex flex-col justify-between font-sans selection:bg-primary selection:text-primary-foreground select-none">
       
       {/* Header Branding */}
-      <header className="py-6 border-b border-[#E7E0D8] bg-[#FAF8F4] shrink-0">
+      <header className="py-6 border-b border-border bg-background shrink-0">
         <div className="max-w-4xl mx-auto px-4 flex items-center justify-between">
-          <div className="font-headline font-black text-xl tracking-tighter text-[#D13F1F] flex items-center gap-0.5">
-            <span className="text-[#211D1C]">Near</span>Here
+          <div className="font-headline font-black text-xl tracking-tighter text-primary flex items-center gap-0.5">
+            <span className="text-press">Near</span>Here
           </div>
-          <span className="font-mono text-[9px] font-bold text-[#77706A] uppercase tracking-wider bg-[#211D1C]/5 px-2 py-1">
+          <span className="font-mono text-[9px] font-bold text-warm uppercase tracking-wider bg-press/5 px-2 py-1">
             Setup Step {step} of {totalSteps}
           </span>
         </div>
@@ -277,13 +337,13 @@ export default function SetupWizardPage() {
 
       {/* Main Container */}
       <main className="flex-1 max-w-xl w-full mx-auto px-4 py-12 flex flex-col justify-center">
-        <div className="bg-white border-2 border-[#211D1C] p-8 space-y-6 shadow-[0_15px_40px_rgba(33,29,28,0.06)] text-left">
+        <Card className="p-8 space-y-6 shadow-none">
           
           {/* Step Progress Bar */}
-          <div className="w-full bg-[#E7E0D8] h-1.5 rounded-none overflow-hidden mb-4">
+          <div className="w-full bg-border h-1.5 rounded-none overflow-hidden mb-4">
             <div 
               style={{ width: `${(step / totalSteps) * 100}%` }}
-              className="bg-[#D13F1F] h-full transition-all duration-300"
+              className="bg-primary h-full transition-all duration-300"
             />
           </div>
 
@@ -297,92 +357,87 @@ export default function SetupWizardPage() {
           {step === 1 && (
             <div className="space-y-4 animate-fade-up">
               <div className="space-y-1">
-                <h2 className="font-headline font-black uppercase text-lg text-[#211D1C] leading-none">
+                <h2 className="font-headline font-black uppercase text-lg text-press leading-none">
                   Step 1: Business Basics
                 </h2>
-                <p className="text-xs text-[#77706A]">
+                <p className="text-xs text-warm">
                   Define the core name and description of your business profile.
                 </p>
               </div>
 
               <div className="space-y-4 pt-2">
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Business Name *
                   </label>
-                  <input
+                  <Input
                     type="text"
                     required
                     disabled={isPrintedOrMailed}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g. Converse Plumbing Pros"
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C] disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {errors.name && <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ {errors.name}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Business Tagline / Description (Optional)
                   </label>
-                  <textarea
+                  <Textarea
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={4}
                     placeholder="Briefly describe what services you offer to local homeowners..."
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C] resize-none"
+                    className="resize-none"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Street Address (Optional)
                   </label>
-                  <input
+                  <Input
                     type="text"
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
                     placeholder="123 Commerce St"
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
                   />
                 </div>
 
                 <div className="grid grid-cols-3 gap-3">
                   <div>
-                    <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                    <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                       City
                     </label>
-                    <input
+                    <Input
                       type="text"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
                       placeholder="Converse"
-                      className="w-full rounded-none border border-[#E7E0D8] px-2 py-2.5 text-sm text-[#211D1C] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                    <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                       State
                     </label>
-                    <input
+                    <Input
                       type="text"
                       value={state}
                       onChange={(e) => setState(e.target.value)}
                       placeholder="TX"
-                      className="w-full rounded-none border border-[#E7E0D8] px-2 py-2.5 text-sm text-[#211D1C] focus:outline-none"
                     />
                   </div>
                   <div>
-                    <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                    <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                       Zip
                     </label>
-                    <input
+                    <Input
                       type="text"
                       value={zipCode}
                       onChange={(e) => setZipCode(e.target.value)}
                       placeholder="78109"
-                      className="w-full rounded-none border border-[#E7E0D8] px-2 py-2.5 text-sm text-[#211D1C] focus:outline-none"
                     />
                   </div>
                 </div>
@@ -394,10 +449,10 @@ export default function SetupWizardPage() {
           {step === 2 && (
             <div className="space-y-4 animate-fade-up">
               <div className="space-y-1">
-                <h2 className="font-headline font-black uppercase text-lg text-[#211D1C] leading-none">
+                <h2 className="font-headline font-black uppercase text-lg text-press leading-none">
                   Step 2: Contact Information
                 </h2>
-                <p className="text-xs text-[#77706A]">
+                <p className="text-xs text-warm">
                   How should local residents reach your business? Provide either a phone number or a website.
                 </p>
               </div>
@@ -410,44 +465,41 @@ export default function SetupWizardPage() {
                 )}
 
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Phone Number
                   </label>
-                  <input
+                  <Input
                     type="tel"
                     disabled={isPrintedOrMailed}
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     placeholder="e.g. 210-555-0199"
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C] disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Website URL
                   </label>
-                  <input
+                  <Input
                     type="url"
                     disabled={isPrintedOrMailed}
                     value={website}
                     onChange={(e) => setWebsite(e.target.value)}
                     placeholder="https://mybusiness.com"
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C] disabled:opacity-50 disabled:cursor-not-allowed"
                   />
                   {errors.website && <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ {errors.website}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Email Address (Optional)
                   </label>
-                  <input
+                  <Input
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="contact@mybusiness.com"
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
                   />
                   {errors.email && <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ {errors.email}</p>}
                 </div>
@@ -459,53 +511,50 @@ export default function SetupWizardPage() {
           {step === 3 && (
             <div className="space-y-4 animate-fade-up">
               <div className="space-y-1">
-                <h2 className="font-headline font-black uppercase text-lg text-[#211D1C] leading-none">
+                <h2 className="font-headline font-black uppercase text-lg text-press leading-none">
                   Step 3: Social & Action Links
                 </h2>
-                <p className="text-xs text-[#77706A]">
+                <p className="text-xs text-warm">
                   Add optional booking, Facebook, or Instagram links for visitors to your business page.
                 </p>
               </div>
 
               <div className="space-y-4 pt-2">
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Booking / Scheduling URL
                   </label>
-                  <input
+                  <Input
                     type="url"
                     value={bookingUrl}
                     onChange={(e) => setBookingUrl(e.target.value)}
                     placeholder="e.g. https://calendly.com/mybusiness"
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
                   />
                   {errors.bookingUrl && <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ {errors.bookingUrl}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Facebook Page URL
                   </label>
-                  <input
+                  <Input
                     type="url"
                     value={facebookUrl}
                     onChange={(e) => setFacebookUrl(e.target.value)}
                     placeholder="https://facebook.com/mybusiness"
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
                   />
                   {errors.facebookUrl && <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ {errors.facebookUrl}</p>}
                 </div>
 
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
                     Instagram Profile URL
                   </label>
-                  <input
+                  <Input
                     type="url"
                     value={instagramUrl}
                     onChange={(e) => setInstagramUrl(e.target.value)}
                     placeholder="https://instagram.com/mybusiness"
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
                   />
                   {errors.instagramUrl && <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ {errors.instagramUrl}</p>}
                 </div>
@@ -517,41 +566,62 @@ export default function SetupWizardPage() {
           {step === 4 && (
             <div className="space-y-4 animate-fade-up">
               <div className="space-y-1">
-                <h2 className="font-headline font-black uppercase text-lg text-[#211D1C] leading-none">
+                <h2 className="font-headline font-black uppercase text-lg text-press leading-none">
                   Step 4: Branding & Images
                 </h2>
-                <p className="text-xs text-[#77706A]">
-                  Upload URLs for your business logo and cover header image (both optional).
+                <p className="text-xs text-warm">
+                  Upload or select files for your business logo and cover header image (both optional).
                 </p>
               </div>
 
               <div className="space-y-4 pt-2">
+                {/* Logo Image */}
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
-                    Logo Image URL
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                    Business Logo (PNG, JPG, SVG - Max 4MB)
                   </label>
-                  <input
-                    type="url"
-                    disabled={isPrintedOrMailed}
-                    value={logoUrl}
-                    onChange={(e) => setLogoUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C] disabled:opacity-50 disabled:cursor-not-allowed"
-                  />
+                  <div className="flex items-center gap-4">
+                    <label className={`cursor-pointer inline-flex items-center justify-center bg-press/5 hover:bg-press/10 border border-border text-press font-mono text-[10px] uppercase font-bold tracking-widest px-4 py-3 rounded-none transition-colors ${isPrintedOrMailed ? "opacity-50 cursor-not-allowed" : ""}`}>
+                      {isLogoUploading ? "Uploading..." : logoUrl ? "Change Logo" : "Upload Logo"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isLogoUploading || isPrintedOrMailed}
+                        onChange={handleLogoChange}
+                        className="hidden"
+                      />
+                    </label>
+                    {logoUrl && (
+                      <div className="relative w-12 h-12 border border-border bg-card rounded-none overflow-hidden flex items-center justify-center p-1 shadow-sm">
+                        <img src={logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+                      </div>
+                    )}
+                  </div>
                   {errors.logoUrl && <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ {errors.logoUrl}</p>}
                 </div>
 
+                {/* Cover Image */}
                 <div>
-                  <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1.5">
-                    Cover Image URL
+                  <label className="block text-[9px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                    Cover Header Image (PNG, JPG - Max 4MB)
                   </label>
-                  <input
-                    type="url"
-                    value={coverImageUrl}
-                    onChange={(e) => setCoverImageUrl(e.target.value)}
-                    placeholder="https://..."
-                    className="w-full rounded-none border border-[#E7E0D8] px-3.5 py-2.5 text-sm text-[#211D1C] focus:outline-none"
-                  />
+                  <div className="flex items-center gap-4">
+                    <label className="cursor-pointer inline-flex items-center justify-center bg-press/5 hover:bg-press/10 border border-border text-press font-mono text-[10px] uppercase font-bold tracking-widest px-4 py-3 rounded-none transition-colors">
+                      {isCoverUploading ? "Uploading..." : coverImageUrl ? "Change Cover" : "Upload Cover"}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        disabled={isCoverUploading}
+                        onChange={handleCoverChange}
+                        className="hidden"
+                      />
+                    </label>
+                    {coverImageUrl && (
+                      <div className="relative h-12 w-32 border border-border bg-card rounded-none overflow-hidden flex items-center justify-center shadow-sm">
+                        <img src={coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                  </div>
                   {errors.coverImageUrl && <p className="text-[10px] text-red-500 font-bold mt-1">⚠️ {errors.coverImageUrl}</p>}
                 </div>
               </div>
@@ -562,37 +632,37 @@ export default function SetupWizardPage() {
           {step === 5 && (
             <div className="space-y-4 animate-fade-up">
               <div className="space-y-1">
-                <h2 className="font-headline font-black uppercase text-lg text-[#211D1C] leading-none">
+                <h2 className="font-headline font-black uppercase text-lg text-press leading-none">
                   Step 5: Postcard Creative Review
                 </h2>
-                <p className="text-xs text-[#77706A]">
+                <p className="text-xs text-warm">
                   This is the exclusive printed postcard deal details associated with your campaign purchase. It is locked because it represents printed physical material.
                 </p>
               </div>
 
               {creative ? (
-                <div className="bg-[#FAF8F4] border border-[#211D1C] p-4 text-left space-y-3 font-mono text-xs">
-                  <div className="flex justify-between border-b border-[#E7E0D8] pb-1.5">
-                    <span className="text-[#77706A] uppercase">Headline</span>
-                    <span className="font-sans font-bold text-[#211D1C]">{creative.headline || "—"}</span>
+                <div className="bg-card border border-border p-4 text-left space-y-3 font-mono text-xs">
+                  <div className="flex justify-between border-b border-border pb-1.5">
+                    <span className="text-warm uppercase">Headline</span>
+                    <span className="font-sans font-bold text-press">{creative.headline || "—"}</span>
                   </div>
-                  <div className="flex justify-between border-b border-[#E7E0D8] pb-1.5">
-                    <span className="text-[#77706A] uppercase">Deal / Offer</span>
-                    <span className="font-sans font-extrabold text-[#D13F1F] uppercase">{creative.offerDeal || "—"}</span>
+                  <div className="flex justify-between border-b border-border pb-1.5">
+                    <span className="text-warm uppercase">Deal / Offer</span>
+                    <span className="font-sans font-extrabold text-primary uppercase">{creative.offerDeal || "—"}</span>
                   </div>
-                  <div className="flex justify-between border-b border-[#E7E0D8] pb-1.5">
-                    <span className="text-[#77706A] uppercase">Creative Phone</span>
-                    <span className="text-[#211D1C]">{creative.phone || "—"}</span>
+                  <div className="flex justify-between border-b border-border pb-1.5">
+                    <span className="text-warm uppercase">Creative Phone</span>
+                    <span className="text-press">{creative.phone || "—"}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-[#77706A] uppercase">Approval Status</span>
-                    <span className="bg-[#211D1C] text-paper px-2 py-0.5 font-bold uppercase tracking-wider text-[10px]">
+                    <span className="text-warm uppercase">Approval Status</span>
+                    <Badge variant="secondary">
                       {creative.approvalStatus}
-                    </span>
+                    </Badge>
                   </div>
                 </div>
               ) : (
-                <div className="bg-[#FDF9F2] border border-[#C9993E] p-4 text-left text-xs text-[#5C4212] font-semibold">
+                <div className="bg-[#FDF9F2] border border-gold/30 p-4 text-left text-xs text-gold font-semibold">
                   📬 Postcard creative details have not been submitted yet. You can submit details after onboarding via the dashboard checklist.
                 </div>
               )}
@@ -603,16 +673,16 @@ export default function SetupWizardPage() {
           {step === 6 && (
             <div className="space-y-4 animate-fade-up">
               <div className="space-y-1">
-                <h2 className="font-headline font-black uppercase text-lg text-[#211D1C] leading-none">
+                <h2 className="font-headline font-black uppercase text-lg text-press leading-none">
                   Step 6: Preview & Launch
                 </h2>
-                <p className="text-xs text-[#77706A]">
+                <p className="text-xs text-warm">
                   Review your setup summary and launch your profile landing page.
                 </p>
               </div>
 
-              <div className="bg-[#FAF8F4] border border-[#E7E0D8] p-5 text-left space-y-3 text-xs">
-                <p className="font-bold text-[#211D1C] uppercase font-mono text-[10px] tracking-widest">Setup Summary</p>
+              <div className="bg-card border border-border p-5 text-left space-y-3 text-xs">
+                <p className="font-bold text-press uppercase font-mono text-[10px] tracking-widest">Setup Summary</p>
                 <div className="space-y-1">
                   <p><strong>Business Name:</strong> {name}</p>
                   <p><strong>Phone:</strong> {phone || "None"}</p>
@@ -629,45 +699,43 @@ export default function SetupWizardPage() {
           )}
 
           {/* Navigation Controls */}
-          <div className="flex justify-between border-t border-[#E7E0D8] pt-6 gap-3">
+          <div className="flex justify-between border-t border-border pt-6 gap-3">
             {step > 1 ? (
-              <button
+              <Button
                 type="button"
+                variant="outline"
                 onClick={handleBack}
-                className="px-5 py-2.5 border border-[#211D1C] hover:bg-[#E7E0D8] font-bold text-xs uppercase tracking-wider text-[#211D1C] transition-colors cursor-pointer"
               >
                 ➔ Back
-              </button>
+              </Button>
             ) : (
               <div />
             )}
 
             {step < totalSteps ? (
-              <button
+              <Button
                 type="button"
                 onClick={handleNext}
-                className="px-5 py-2.5 bg-[#211D1C] hover:bg-[#FAF8F4] text-[#FAF8F4] hover:text-[#211D1C] border border-[#211D1C] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer"
               >
                 Continue ➔
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 type="button"
                 onClick={handleSaveAndLaunch}
                 disabled={saving}
-                className="px-6 py-2.5 bg-[#D13F1F] hover:bg-[#B53A1A] text-paper border border-[#211D1C] font-bold text-xs uppercase tracking-widest transition-colors cursor-pointer disabled:opacity-50"
               >
                 {saving ? "Saving Onboarding..." : "🚀 Finish & Launch Profile"}
-              </button>
+              </Button>
             )}
           </div>
 
-        </div>
+        </Card>
       </main>
 
       {/* Footer branding */}
-      <footer className="py-6 text-center border-t border-[#E7E0D8] bg-[#211D1C]/5 shrink-0">
-        <p className="text-[9px] font-mono tracking-widest uppercase text-[#77706A]">
+      <footer className="py-6 text-center border-t border-border bg-press/5 shrink-0">
+        <p className="text-[9px] font-mono tracking-widest uppercase text-warm">
           Powered by NearHere Neighborhood Mailers
         </p>
       </footer>
