@@ -35,11 +35,24 @@ export const campaignInquiryRouter = createTRPCRouter({
         // Return a mock success response to trick the spam bot
         return {
           id: "spam-inquiry-prevented",
+          campaignId: input.campaignId,
           name: input.name || null,
           businessName: input.businessName,
           email: input.email || null,
+          phone: input.phone,
+          businessCategory: input.businessCategory || null,
+          websiteOrFacebook: input.websiteOrFacebook || null,
+          interestType: input.interestType || null,
+          preferredContactMethod: input.preferredContactMethod,
+          message: input.message || null,
+          source: input.source,
           status: CampaignInquiryStatus.SPAM,
+          assignedToAdminId: null,
+          internalNotes: null,
+          convertedOrderId: null,
+          convertedAt: null,
           createdAt: new Date(),
+          updatedAt: new Date(),
         }
       }
 

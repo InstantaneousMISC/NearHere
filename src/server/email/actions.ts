@@ -205,8 +205,8 @@ export async function sendProspectInquiryConfirmationEmail(inquiryId: string) {
       include: { campaign: true },
     })
 
-    if (!inquiry) {
-      console.warn(`[EMAIL ACTIONS] CampaignInquiry not found for confirmation email: ${inquiryId}`)
+    if (!inquiry || !inquiry.email) {
+      console.warn(`[EMAIL ACTIONS] CampaignInquiry or email not found for confirmation email: ${inquiryId}`)
       return
     }
 
