@@ -61,9 +61,8 @@ export default function InteractivePostcardArea({
       name:
         spot.spotType === "PREMIUM"
           ? "Premium Center Back"
-          : `${spot.side === "FRONT" ? "Front" : "Back"} ${
-              spot.spotType === "LARGE" ? "Double" : "Standard"
-            }`,
+          : `${spot.side === "FRONT" ? "Front" : "Back"} ${spot.spotType === "LARGE" ? "Double" : "Standard"
+          }`,
       price,
       description: spot.label,
       costPerHome: `${((price * 100) / mailingQuantity).toFixed(

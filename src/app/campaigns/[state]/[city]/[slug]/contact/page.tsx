@@ -103,7 +103,10 @@ export default async function CampaignContactPage({
         <div className="relative z-10 max-w-7xl mx-auto px-6 sm:px-8 w-full grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
           {/* Left Column */}
           <div className="lg:col-span-7 space-y-6 md:space-y-8 animate-fade-up text-left z-10">
-            <div className="select-none">
+            <div className="select-none space-y-2">
+              <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-stone-400 font-bold">
+                Current Campaign
+              </p>
               <div className="inline-flex items-center gap-3 px-4 py-2 border border-[#FF4A1C]/35 bg-[#12100F]/95 text-white font-sans text-xs uppercase tracking-wider rounded-md shadow-[0_0_15px_rgba(255,74,28,0.1)]">
                 <TexasIcon className="h-4 w-4 text-[#FF4A1C] animate-pulse" />
                 <span className="font-headline font-black text-sm text-[#FF4A1C]">
