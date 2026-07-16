@@ -232,7 +232,10 @@ export const creativeRouter = createTRPCRouter({
           }
         })
 
+        let businessId = ""
+
         if (business) {
+          businessId = business.id
           await ctx.db.business.update({
             where: { id: business.id },
             data: {
@@ -251,7 +254,7 @@ export const creativeRouter = createTRPCRouter({
         } else {
           const { generateSlug } = await import("@/server/helpers/generateSlug")
           const businessSlug = await generateSlug(input.businessName || order.advertiser.businessName || "business", ctx.db)
-          await ctx.db.business.create({
+          const newBusiness = await ctx.db.business.create({
             data: {
               advertiserId: order.advertiserId,
               name: input.businessName || order.advertiser.businessName,
@@ -269,6 +272,12 @@ export const creativeRouter = createTRPCRouter({
               status: "ACTIVE"
             }
           })
+          businessId = newBusiness.id
+        }
+
+        if (businessId) {
+          const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
+          await syncBusinessToDirectory(businessId)
         }
       } catch (err) {
         console.error("[CREATIVE SUBMISSION] Failed to update associated Business profile:", err)
@@ -295,6 +304,19 @@ export const creativeRouter = createTRPCRouter({
         })
       } catch (err) {
         console.error("[EMAIL ERROR] Failed to send creative submission email:", err)
+      }
+
+      // Trigger Admin Notification
+      try {
+        const { createAdminNotification } = await import("@/server/helpers/notifications")
+        await createAdminNotification({
+          type: "CREATIVE_SUBMISSION",
+          title: "Creative Details Submitted",
+          message: `Postcard creative details submitted for ${submission.businessName || order.advertiser.businessName}`,
+          link: `/admin/creative-review`,
+        })
+      } catch (err) {
+        console.error("[NOTIFICATION ERROR] Failed to trigger creative submission notification:", err)
       }
 
       return submission
@@ -419,6 +441,24 @@ export const creativeRouter = createTRPCRouter({
         }
       }
 
+      // Sync to directory on creative approval changes
+      try {
+        const associatedBiz = await ctx.db.business.findFirst({
+          where: {
+            OR: [
+              { advertiserId: order?.advertiserId },
+              { qrCodes: { some: { orderId: submission.orderId } } }
+            ]
+          }
+        })
+        if (associatedBiz) {
+          const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
+          await syncBusinessToDirectory(associatedBiz.id)
+        }
+      } catch (syncErr) {
+        console.error("[DIRECTORY SYNC ERROR] Failed to sync directory on approval status change:", syncErr)
+      }
+
       return submission
     }),
 
@@ -449,6 +489,25 @@ export const creativeRouter = createTRPCRouter({
           adminEmail: "advertiser@localspotmailers.com",
         },
       })
+
+      // Sync to directory on draft approval
+      try {
+        const associatedBiz = await ctx.db.business.findFirst({
+          where: {
+            OR: [
+              { advertiserId: order.advertiserId },
+              { qrCodes: { some: { orderId: order.id } } }
+            ]
+          }
+        })
+        if (associatedBiz) {
+          const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
+          await syncBusinessToDirectory(associatedBiz.id)
+        }
+      } catch (syncErr) {
+        console.error("[DIRECTORY SYNC ERROR] Failed to sync directory on draft approval:", syncErr)
+      }
+
       return submission
     }),
 
@@ -484,6 +543,25 @@ export const creativeRouter = createTRPCRouter({
           adminEmail: "advertiser@localspotmailers.com",
         },
       })
+
+      // Sync to directory on draft rejection
+      try {
+        const associatedBiz = await ctx.db.business.findFirst({
+          where: {
+            OR: [
+              { advertiserId: order.advertiserId },
+              { qrCodes: { some: { orderId: order.id } } }
+            ]
+          }
+        })
+        if (associatedBiz) {
+          const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
+          await syncBusinessToDirectory(associatedBiz.id)
+        }
+      } catch (syncErr) {
+        console.error("[DIRECTORY SYNC ERROR] Failed to sync directory on draft rejection:", syncErr)
+      }
+
       return submission
     }),
 

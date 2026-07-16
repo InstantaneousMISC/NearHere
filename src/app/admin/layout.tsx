@@ -5,11 +5,17 @@ import { usePathname, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
+import { trpc } from "@/components/providers"
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+
+  const { data: unreadCount } = trpc.notification.getUnreadCount.useQuery(undefined, {
+    refetchInterval: 10000, // Poll every 10s
+    retry: false,
+  })
 
   const handleSignOut = async () => {
     setLoading(true)
@@ -22,11 +28,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const navItems = [
     { name: "Dashboard", href: "/admin" },
+    { 
+      name: "Notifications", 
+      href: "/admin/notifications", 
+      badge: unreadCount && unreadCount > 0 ? unreadCount : undefined 
+    },
     { name: "Campaigns", href: "/admin/campaigns" },
     { name: "Categories", href: "/admin/categories" },
     { name: "Orders", href: "/admin/orders" },
     { name: "Creative Reviews", href: "/admin/creative-review" },
+    { name: "Businesses", href: "/admin/businesses" },
     { name: "Inquiries", href: "/admin/inquiries" },
+    { name: "Directory", href: "/admin/directory" },
+    { name: "Email Logs", href: "/admin/email-logs" },
   ]
 
   return (
@@ -55,13 +69,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center px-4 py-3 rounded-none text-sm font-semibold transition-all ${
+                  className={`flex items-center justify-between px-4 py-3 rounded-none text-sm font-semibold transition-all ${
                     isActive
                       ? "bg-primary text-primary-foreground border border-press"
                       : "text-secondary-foreground/80 hover:bg-secondary-foreground/5 hover:text-secondary-foreground"
                   }`}
                 >
                   <span>{item.name}</span>
+                  {item.badge !== undefined && (
+                    <span className="bg-[#EF4444] text-white text-[10px] font-bold px-2 py-0.5 rounded-full select-none leading-none min-w-[20px] text-center">
+                      {item.badge}
+                    </span>
+                  )}
                 </Link>
               )
             })}

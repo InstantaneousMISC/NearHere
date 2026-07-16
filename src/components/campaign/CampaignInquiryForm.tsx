@@ -11,6 +11,9 @@ interface CampaignInquiryFormProps {
   campaignUrl: string
   facebookUrl?: string | null
   source?: string
+  initialCategory?: string
+  initialSpotLabel?: string
+  onSuccess?: () => void
 }
 
 export default function CampaignInquiryForm({
@@ -18,6 +21,9 @@ export default function CampaignInquiryForm({
   campaignUrl,
   facebookUrl,
   source = "WEBSITE",
+  initialCategory = "",
+  initialSpotLabel = "",
+  onSuccess,
 }: CampaignInquiryFormProps) {
   const [name, setName] = useState("")
   const [businessName, setBusinessName] = useState("")
@@ -50,6 +56,24 @@ export default function CampaignInquiryForm({
       document.removeEventListener("mousedown", handleClickOutside)
     }
   }, [])
+
+  useEffect(() => {
+    if (initialCategory) {
+      setBusinessCategory(initialCategory)
+    }
+  }, [initialCategory])
+
+  useEffect(() => {
+    if (initialSpotLabel) {
+      const spotText = `I am interested in spot: ${initialSpotLabel.replace("_", " ")}`
+      setMessage((prev) => {
+        if (prev.includes("I am interested in spot:")) {
+          return prev.replace(/I am interested in spot: [^\n]+/, spotText)
+        }
+        return prev ? `${spotText}\n${prev}` : spotText
+      })
+    }
+  }, [initialSpotLabel])
 
   const filteredCategories = categories?.filter(cat => 
     cat.name.toLowerCase().includes(businessCategory.toLowerCase())
@@ -115,6 +139,9 @@ export default function CampaignInquiryForm({
 
       setSuccess(true)
       setLoading(false)
+      if (onSuccess) {
+        onSuccess()
+      }
     } catch (err: any) {
       console.error("[INQUIRY SUBMIT ERROR]", err)
       setError(err?.message || "An unexpected error occurred. Please try again.")
@@ -123,24 +150,17 @@ export default function CampaignInquiryForm({
   }
 
   if (success) {
+    const formattedSpot = initialSpotLabel ? initialSpotLabel.replace("_", " ").toUpperCase() : null
     return (
-      <div className="space-y-6 text-center py-8 font-sans text-white">
+      <div className="space-y-6 text-center py-4 font-sans text-white">
         <div className="rounded-none bg-emerald-500/10 border border-emerald-500/20 px-6 py-10 max-w-md mx-auto space-y-4">
           <span className="text-4xl block">📬</span>
           <h4 className="text-2xl font-headline font-black uppercase tracking-tight text-emerald-400">
-            You're on the list.
+            You're on the list{formattedSpot ? ` for ${formattedSpot}` : ""}.
           </h4>
           <p className="text-sm text-stone-300 leading-relaxed">
-            Thanks for reaching out — we received your info and will contact you soon to help with pricing, category availability, and setup.
+            Thanks for reaching out — we received your info{formattedSpot ? ` for ${formattedSpot}` : ""} and will contact you soon to help with pricing, category availability, and setup.
           </p>
-        </div>
-        <div className="pt-4 flex justify-center">
-          <a
-            href={campaignUrl}
-            className="inline-flex items-center justify-center bg-transparent border border-stone-700 text-stone-300 font-headline text-xs uppercase font-bold tracking-wider px-8 py-3.5 rounded-none hover:bg-white hover:text-[#1A1716] transition-colors"
-          >
-            ← Back to Campaign
-          </a>
         </div>
       </div>
     )

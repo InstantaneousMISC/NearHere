@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { trpc } from "@/components/providers"
 
@@ -26,6 +26,25 @@ export type ReservationPlan = {
   inquiryOnly?: boolean
 }
 
+function getPairedSpotKey(label: string): string | null {
+  const match = label.match(/^(FRONT|BACK)_([1-8])$/)
+  if (!match) return null
+  const side = match[1]
+  const num = parseInt(match[2], 10)
+  let pairedNum: number
+  if (num === 1) pairedNum = 2
+  else if (num === 2) pairedNum = 1
+  else if (num === 3) pairedNum = 4
+  else if (num === 4) pairedNum = 3
+  else if (num === 5) pairedNum = 6
+  else if (num === 6) pairedNum = 5
+  else if (num === 7) pairedNum = 8
+  else if (num === 8) pairedNum = 7
+  else return null
+
+  return `${side}_${pairedNum}`
+}
+
 interface ReservationModalProps {
   isOpen: boolean
   onClose: () => void
@@ -36,6 +55,8 @@ interface ReservationModalProps {
   zipCode: string
   checkoutBaseUrl: string
   offer?: any
+  cardSize?: string
+  setHoveredDoubleKeys?: (keys: string[]) => void
 }
 
 function calculateClientOfferDiscount(priceCents: number, offer: any) {
@@ -59,6 +80,8 @@ export default function ReservationModal({
   zipCode,
   checkoutBaseUrl,
   offer,
+  cardSize,
+  setHoveredDoubleKeys,
 }: ReservationModalProps) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -80,6 +103,27 @@ export default function ReservationModal({
   const [error, setError] = useState<string | null>(null)
   const [isRedirecting, setIsRedirecting] = useState(false)
   const getOrCreateSpot = trpc.spot.getOrCreateSpotForPlan.useMutation()
+  const [selectedSize, setSelectedSize] = useState<"REGULAR" | "DOUBLE">("REGULAR")
+
+  const pairedSpotKey = useMemo(() => spot ? getPairedSpotKey(spot.label) : null, [spot])
+  const pairedSpot = useMemo(() => pairedSpotKey ? spots.find(s => s.label === pairedSpotKey) : null, [pairedSpotKey, spots])
+  const isPairAvailable = useMemo(() => pairedSpot && (pairedSpot.status === "OPEN" || pairedSpot.status === "HELD"), [pairedSpot])
+
+  // Sync hover state when selectedSize is DOUBLE
+  useEffect(() => {
+    if (isOpen && cardSize === "9x12-16-regular" && spot && isPairAvailable && selectedSize === "DOUBLE") {
+      setHoveredDoubleKeys?.([spot.label, pairedSpot!.label])
+    } else {
+      setHoveredDoubleKeys?.([])
+    }
+  }, [isOpen, cardSize, spot, isPairAvailable, selectedSize, setHoveredDoubleKeys, pairedSpot])
+
+  // Reset selected size when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      setSelectedSize("REGULAR")
+    }
+  }, [isOpen])
 
   const soldCategoryIds = useMemo(
     () =>
@@ -101,10 +145,17 @@ export default function ReservationModal({
 
   if (!isOpen || !plan) return null
 
-  const priceCents = plan.price * 100
+  const basePrice = cardSize === "9x12-16-regular" && selectedSize === "DOUBLE"
+    ? (spot?.side === "BACK" ? 990 : 1090)
+    : plan.price
+  const priceCents = basePrice * 100
   const discountCents = offer ? calculateClientOfferDiscount(priceCents, offer) : 0
   const finalPrice = (priceCents - discountCents) / 100
   const discountAmount = discountCents / 100
+
+  const campaignRecord = spots.length > 0 ? (spots[0] as any).campaign : null
+  const quantity = campaignRecord?.mailingQuantity ?? 10000
+  const costPerHome = `${((basePrice * 100) / quantity).toFixed(1)} cents per home`
 
   const selectedCategory = categories.find(
     (category) => category.id === selectedCategoryId
@@ -177,7 +228,9 @@ export default function ReservationModal({
     try {
       const { spotId } = await getOrCreateSpot.mutateAsync({
         campaignId,
-        planKey: plan.key,
+        planKey: (cardSize === "9x12-16-regular" && selectedSize === "DOUBLE" && spot)
+          ? `9x12-16-regular-double-${spot.label}`
+          : plan.key,
         categoryId: selectedCategory.id,
       })
       let redirectUrl = `${checkoutBaseUrl}/${spotId}?categoryId=${encodeURIComponent(
@@ -220,7 +273,7 @@ export default function ReservationModal({
         <div className="mt-4 flex flex-wrap gap-3 border-y border-[#E7E0D8] py-3 font-mono text-[10px] font-bold uppercase items-center">
           {offer && discountCents > 0 ? (
             <>
-              <span className="line-through text-warm">${plan.price.toLocaleString()}</span>
+              <span className="line-through text-warm">${basePrice.toLocaleString()}</span>
               <span className="text-nh-red font-black font-headline text-xs bg-red-55/10 px-2 py-0.5 rounded border border-[#E7E0D8]">
                 ${finalPrice.toLocaleString()} per drop
               </span>
@@ -229,10 +282,10 @@ export default function ReservationModal({
               </span>
             </>
           ) : (
-            <span>${plan.price.toLocaleString()} per drop</span>
+            <span>${basePrice.toLocaleString()} per drop</span>
           )}
-          <span className="text-[#77706A]">{plan.costPerHome}</span>
-          {spot && <span className="text-[#77706A]">{spot.label}</span>}
+          <span className="text-[#77706A]">{costPerHome}</span>
+          {spot && <span className="text-[#77706A]">{spot.label.replace("_", " ")}</span>}
         </div>
 
 
@@ -254,6 +307,65 @@ export default function ReservationModal({
           </div>
         ) : (
           <>
+            {cardSize === "9x12-16-regular" && isPairAvailable && !showCustom && (
+              <div className="mt-6 border-b border-[#E7E0D8] pb-6 text-left">
+                <h3 className="font-headline font-black text-sm uppercase tracking-wide text-[#211D1C] mb-3">
+                  Choose Your Ad Size
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSize("REGULAR")}
+                    className={`flex flex-col text-left p-4 border-2 transition-all cursor-pointer ${
+                      selectedSize === "REGULAR"
+                        ? "border-[#D13F1F] bg-[#D13F1F]/5"
+                        : "border-[#E7E0D8] hover:border-[#211D1C] bg-transparent"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="font-headline font-extrabold uppercase text-base text-[#211D1C]">
+                        Regular Space
+                      </span>
+                      <span className="font-mono font-bold text-sm text-[#D13F1F]">
+                        {spot?.side === "BACK" ? "$490" : "$590"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-[#77706A] leading-normal font-sans">
+                      Use this individual advertising space.
+                    </p>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setSelectedSize("DOUBLE")}
+                    onMouseEnter={() => setHoveredDoubleKeys?.([spot!.label, pairedSpot!.label])}
+                    onMouseLeave={() => {
+                      if (selectedSize !== "DOUBLE") {
+                        setHoveredDoubleKeys?.([])
+                      }
+                    }}
+                    className={`flex flex-col text-left p-4 border-2 transition-all cursor-pointer ${
+                      selectedSize === "DOUBLE"
+                        ? "border-[#D13F1F] bg-[#D13F1F]/5"
+                        : "border-[#E7E0D8] hover:border-[#211D1C] bg-transparent"
+                    }`}
+                  >
+                    <div className="flex justify-between items-center w-full">
+                      <span className="font-headline font-extrabold uppercase text-base text-[#211D1C]">
+                        Double Space
+                      </span>
+                      <span className="font-mono font-bold text-sm text-[#D13F1F]">
+                        {spot?.side === "BACK" ? "$990" : "$1,090"}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-xs text-[#77706A] leading-normal font-sans">
+                      Combine this space with the paired space beside it for a wider advertisement.
+                    </p>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {!showCustom && (
               <div className="mt-6">
                 <label

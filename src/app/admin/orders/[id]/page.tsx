@@ -19,6 +19,7 @@ interface OrderDetailPageProps {
 export default function OrderDetailPage({ params }: OrderDetailPageProps) {
   const { id } = use(params)
   const [copied, setCopied] = useState(false)
+  const [copiedInvoice, setCopiedInvoice] = useState(false)
   const [updating, setUpdating] = useState(false)
 
   // Query order details
@@ -55,6 +56,15 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
       navigator.clipboard.writeText(link)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleCopyInvoiceLink = () => {
+    if (typeof window !== "undefined") {
+      const link = `${window.location.origin}/invoice/${order.id}`
+      navigator.clipboard.writeText(link)
+      setCopiedInvoice(true)
+      setTimeout(() => setCopiedInvoice(false), 2000)
     }
   }
 
@@ -521,6 +531,25 @@ export default function OrderDetailPage({ params }: OrderDetailPageProps) {
                   {formatPrice(order.amount)}
                 </span>
               </div>
+
+              {order.status === "PENDING" && (
+                <div className="space-y-2 border-t border-border pt-3 text-xs">
+                  <span className="text-warm font-mono uppercase tracking-wider text-[10px] block">Invoice Payment Link:</span>
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono text-press font-bold truncate flex-1 bg-press/5 border border-border p-2 rounded-none select-all">
+                      {typeof window !== "undefined" && `${window.location.origin}/invoice/${order.id}`}
+                    </span>
+                    <Button
+                      onClick={handleCopyInvoiceLink}
+                      variant="outline"
+                      size="sm"
+                      className="h-9"
+                    >
+                      {copiedInvoice ? "Copied" : "Copy"}
+                    </Button>
+                  </div>
+                </div>
+              )}
 
               {order.paidAt && (
                 <div className="flex justify-between items-center text-sm border-t border-border pt-3 font-semibold">

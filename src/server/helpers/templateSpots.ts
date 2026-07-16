@@ -63,8 +63,34 @@ export const spots6x11: SpotTemplate[] = [
   { label: "Corner Cafe", side: "BACK", spotType: "STANDARD", price: 45000, x: 68, y: 63, width: 30, height: 35, sortOrder: 12, categorySlug: "bakery-coffee" }
 ]
 
+export const spots9x12_16_regular: SpotTemplate[] = [
+  // Front Side (8 spots)
+  { label: "FRONT_1", side: "FRONT", spotType: "STANDARD", price: 59000, x: 2.5, y: 3.3333, width: 22.5, height: 45.5556, sortOrder: 1, categorySlug: "plumbing" },
+  { label: "FRONT_2", side: "FRONT", spotType: "STANDARD", price: 59000, x: 26.6667, y: 3.3333, width: 22.5, height: 45.5556, sortOrder: 2, categorySlug: "electrical" },
+  { label: "FRONT_3", side: "FRONT", spotType: "STANDARD", price: 59000, x: 50.8333, y: 3.3333, width: 22.5, height: 45.5556, sortOrder: 3, categorySlug: "hvac" },
+  { label: "FRONT_4", side: "FRONT", spotType: "STANDARD", price: 59000, x: 75.0, y: 3.3333, width: 22.5, height: 45.5556, sortOrder: 4, categorySlug: "home-cleaning" },
+  { label: "FRONT_5", side: "FRONT", spotType: "STANDARD", price: 59000, x: 2.5, y: 51.1111, width: 22.5, height: 45.5556, sortOrder: 5, categorySlug: "pest-control" },
+  { label: "FRONT_6", side: "FRONT", spotType: "STANDARD", price: 59000, x: 26.6667, y: 51.1111, width: 22.5, height: 45.5556, sortOrder: 6, categorySlug: "roofing" },
+  { label: "FRONT_7", side: "FRONT", spotType: "STANDARD", price: 59000, x: 50.8333, y: 51.1111, width: 22.5, height: 45.5556, sortOrder: 7, categorySlug: "landscaping" },
+  { label: "FRONT_8", side: "FRONT", spotType: "STANDARD", price: 59000, x: 75.0, y: 51.1111, width: 22.5, height: 45.5556, sortOrder: 8, categorySlug: "pressure-washing" },
+
+  // Back Side (8 spots)
+  { label: "BACK_1", side: "BACK", spotType: "STANDARD", price: 49000, x: 2.5, y: 3.3333, width: 18.75, height: 45.5556, sortOrder: 9, categorySlug: "real-estate" },
+  { label: "BACK_2", side: "BACK", spotType: "STANDARD", price: 49000, x: 22.9167, y: 3.3333, width: 18.75, height: 45.5556, sortOrder: 10, categorySlug: "restaurant" },
+  { label: "BACK_3", side: "BACK", spotType: "STANDARD", price: 49000, x: 58.3333, y: 3.3333, width: 18.75, height: 45.5556, sortOrder: 11, categorySlug: "dentistry" },
+  { label: "BACK_4", side: "BACK", spotType: "STANDARD", price: 49000, x: 78.75, y: 3.3333, width: 18.75, height: 45.5556, sortOrder: 12, categorySlug: "bakery-coffee" },
+  { label: "BACK_5", side: "BACK", spotType: "STANDARD", price: 49000, x: 2.5, y: 51.1111, width: 18.75, height: 45.5556, sortOrder: 13, categorySlug: "plumbing" },
+  { label: "BACK_6", side: "BACK", spotType: "STANDARD", price: 49000, x: 22.9167, y: 51.1111, width: 18.75, height: 45.5556, sortOrder: 14, categorySlug: "hvac" },
+  { label: "BACK_7", side: "BACK", spotType: "STANDARD", price: 49000, x: 58.3333, y: 51.1111, width: 18.75, height: 45.5556, sortOrder: 15, categorySlug: "pest-control" },
+  { label: "BACK_8", side: "BACK", spotType: "STANDARD", price: 49000, x: 78.75, y: 51.1111, width: 18.75, height: 45.5556, sortOrder: 16, categorySlug: "home-cleaning" },
+]
+
 export async function initializeCampaignSpots(campaignId: string, cardSize: string, db: any) {
-  const templates = cardSize === "6x11" ? spots6x11 : spots9x12
+  const templates = cardSize === "6x11"
+    ? spots6x11
+    : cardSize === "9x12-16-regular"
+      ? spots9x12_16_regular
+      : spots9x12
 
   // Fetch all active categories from the database
   const activeCategories = await db.businessCategory.findMany({

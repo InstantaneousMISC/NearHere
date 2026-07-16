@@ -5,6 +5,25 @@ import { releaseExpiredHolds } from "@/server/helpers/releaseExpiredHolds"
 import { SPOT_HOLD_DURATION_MINUTES } from "@/lib/constants"
 import { TRPCError } from "@trpc/server"
 
+function getPairedSpotKey(label: string): string | null {
+  const match = label.match(/^(FRONT|BACK)_([1-8])$/)
+  if (!match) return null
+  const side = match[1]
+  const num = parseInt(match[2], 10)
+  let pairedNum: number
+  if (num === 1) pairedNum = 2
+  else if (num === 2) pairedNum = 1
+  else if (num === 3) pairedNum = 4
+  else if (num === 4) pairedNum = 3
+  else if (num === 5) pairedNum = 6
+  else if (num === 6) pairedNum = 5
+  else if (num === 7) pairedNum = 8
+  else if (num === 8) pairedNum = 7
+  else return null
+
+  return `${side}_${pairedNum}`
+}
+
 export const spotRouter = createTRPCRouter({
   // Public procedures
   listByCampaign: publicProcedure
@@ -183,6 +202,272 @@ export const spotRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.planKey.startsWith("spot-")) {
+        const spotId = input.planKey.slice(5)
+        const spot = await ctx.db.campaignSpot.findUnique({
+          where: { id: spotId },
+        })
+        if (!spot) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Campaign spot not found",
+          })
+        }
+        return { spotId: spot.id }
+      }
+
+      if (input.planKey.startsWith("9x12-16-regular-double-")) {
+        const clickedLabel = input.planKey.slice("9x12-16-regular-double-".length)
+        const pairedLabel = getPairedSpotKey(clickedLabel)
+        if (!pairedLabel) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid spot label for double placement pairing",
+          })
+        }
+
+        const doubleSpot = await ctx.db.$transaction(async (tx: any) => {
+          const spots = await tx.campaignSpot.findMany({
+            where: {
+              campaignId: input.campaignId,
+              label: { in: [clickedLabel, pairedLabel] },
+            },
+          })
+
+          if (spots.length !== 2) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: "Underlying spots not found",
+            })
+          }
+
+          const [spotA, spotB] = spots
+          const now = new Date()
+          const isAActiveHold = spotA.status === SpotStatus.HELD && spotA.heldUntil && spotA.heldUntil > now
+          const isBActiveHold = spotB.status === SpotStatus.HELD && spotB.heldUntil && spotB.heldUntil > now
+
+          if (spotA.status === SpotStatus.SOLD || spotB.status === SpotStatus.SOLD || isAActiveHold || isBActiveHold) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "One or both underlying spots are already sold or held",
+            })
+          }
+
+          const side = spotA.side
+          const num1 = parseInt(clickedLabel.match(/\d+$/)?.[0] || "1", 10)
+          const num2 = parseInt(pairedLabel.match(/\d+$/)?.[0] || "2", 10)
+          const low = Math.min(num1, num2)
+          const high = Math.max(num1, num2)
+          const doubleLabel = `${side}_DOUBLE_${low}_${high}`
+
+          let existingDouble = await tx.campaignSpot.findFirst({
+            where: {
+              campaignId: input.campaignId,
+              label: doubleLabel,
+            },
+          })
+
+          if (existingDouble) {
+            if (existingDouble.status === SpotStatus.SOLD) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: "This double placement is already sold",
+              })
+            }
+            existingDouble = await tx.campaignSpot.update({
+              where: { id: existingDouble.id },
+              data: {
+                categoryId: input.categoryId,
+                status: SpotStatus.OPEN,
+                price: side === "FRONT" ? 109000 : 99000,
+              },
+            })
+
+            await tx.campaignSpot.updateMany({
+              where: {
+                id: { in: [spotA.id, spotB.id] },
+              },
+              data: {
+                status: SpotStatus.UNAVAILABLE,
+              },
+            })
+
+            return existingDouble
+          }
+
+          const x = Math.min(spotA.x, spotB.x)
+          const y = spotA.y
+          const width = spotA.width + spotB.width + 1.6667
+          const height = spotA.height
+
+          const newDouble = await tx.campaignSpot.create({
+            data: {
+              campaignId: input.campaignId,
+              categoryId: input.categoryId,
+              label: doubleLabel,
+              side,
+              spotType: SpotType.LARGE,
+              price: side === "FRONT" ? 109000 : 99000,
+              x,
+              y,
+              width,
+              height,
+              status: SpotStatus.OPEN,
+              sortOrder: Math.min(spotA.sortOrder, spotB.sortOrder),
+            },
+          })
+
+          await tx.campaignSpot.updateMany({
+            where: {
+              id: { in: [spotA.id, spotB.id] },
+            },
+            data: {
+              status: SpotStatus.UNAVAILABLE,
+            },
+          })
+
+          return newDouble
+        }, { isolationLevel: "Serializable" })
+
+        return { spotId: doubleSpot.id }
+      }
+
+      if (input.planKey === "front-regular" || input.planKey === "back-regular" || input.planKey === "regular") {
+        const targetSide = input.planKey.startsWith("front-") ? "FRONT" : (input.planKey.startsWith("back-") ? "BACK" : undefined)
+        const availableSpot = await ctx.db.campaignSpot.findFirst({
+          where: {
+            campaignId: input.campaignId,
+            spotType: SpotType.STANDARD,
+            status: SpotStatus.OPEN,
+            ...(targetSide ? { side: targetSide } : {}),
+          },
+          orderBy: { sortOrder: "asc" },
+        })
+        if (!availableSpot) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: `No available ${targetSide || "regular"} spots remaining on this campaign`,
+          })
+        }
+        const updated = await ctx.db.campaignSpot.update({
+          where: { id: availableSpot.id },
+          data: { categoryId: input.categoryId },
+        })
+        return { spotId: updated.id }
+      }
+
+      if (input.planKey === "front-double" || input.planKey === "back-double" || input.planKey === "double") {
+        // Only run 16-regular auto-allocator if the campaign format is indeed 16-regular
+        const campaign = await ctx.db.campaign.findUnique({
+          where: { id: input.campaignId },
+          select: { cardSize: true },
+        })
+        if (campaign?.cardSize === "9x12-16-regular") {
+          const targetSide = input.planKey.startsWith("front-") ? "FRONT" : (input.planKey.startsWith("back-") ? "BACK" : undefined)
+          const doubleSpot = await ctx.db.$transaction(async (tx: any) => {
+            const allSpots = await tx.campaignSpot.findMany({
+              where: {
+                campaignId: input.campaignId,
+                status: SpotStatus.OPEN,
+                spotType: SpotType.STANDARD,
+                ...(targetSide ? { side: targetSide } : {}),
+              },
+            })
+            const openLabels = new Set(allSpots.map((s: any) => s.label))
+
+            const sides: PostcardSide[] = targetSide ? [targetSide] : ["FRONT", "BACK"]
+            const pairings = [[1, 2], [3, 4], [5, 6], [7, 8]]
+            
+            let selectedPair: [string, string] | null = null
+            for (const side of sides) {
+              for (const [a, b] of pairings) {
+                const labelA = `${side}_${a}`
+                const labelB = `${side}_${b}`
+                if (openLabels.has(labelA) && openLabels.has(labelB)) {
+                  selectedPair = [labelA, labelB]
+                  break
+                }
+              }
+              if (selectedPair) break
+            }
+
+            if (!selectedPair) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `No available adjacent double spots remaining on the ${targetSide || "postcard"}`,
+              })
+            }
+
+            const [labelA, labelB] = selectedPair
+            const spotA = allSpots.find((s: any) => s.label === labelA)
+            const spotB = allSpots.find((s: any) => s.label === labelB)
+
+            const side = spotA.side
+            const num1 = parseInt(labelA.match(/\d+$/)?.[0] || "1", 10)
+            const num2 = parseInt(labelB.match(/\d+$/)?.[0] || "2", 10)
+            const low = Math.min(num1, num2)
+            const high = Math.max(num1, num2)
+            const doubleLabel = `${side}_DOUBLE_${low}_${high}`
+
+            let existingDouble = await tx.campaignSpot.findFirst({
+              where: {
+                campaignId: input.campaignId,
+                label: doubleLabel,
+              },
+            })
+
+            if (existingDouble) {
+              existingDouble = await tx.campaignSpot.update({
+                where: { id: existingDouble.id },
+                data: {
+                  categoryId: input.categoryId,
+                  status: SpotStatus.OPEN,
+                  price: side === "FRONT" ? 109000 : 99000,
+                },
+              })
+
+              await tx.campaignSpot.updateMany({
+                where: { id: { in: [spotA.id, spotB.id] } },
+                data: { status: SpotStatus.UNAVAILABLE },
+              })
+
+              return existingDouble
+            }
+
+            const x = Math.min(spotA.x, spotB.x)
+            const y = spotA.y
+            const width = spotA.width + spotB.width + 1.6667
+            const height = spotA.height
+
+            const newDouble = await tx.campaignSpot.create({
+              data: {
+                campaignId: input.campaignId,
+                categoryId: input.categoryId,
+                label: doubleLabel,
+                side,
+                spotType: SpotType.LARGE,
+                price: side === "FRONT" ? 109000 : 99000,
+                x,
+                y,
+                width,
+                height,
+                status: SpotStatus.OPEN,
+                sortOrder: Math.min(spotA.sortOrder, spotB.sortOrder),
+              },
+            })
+
+            await tx.campaignSpot.updateMany({
+              where: { id: { in: [spotA.id, spotB.id] } },
+              data: { status: SpotStatus.UNAVAILABLE },
+            })
+
+            return newDouble
+          }, { isolationLevel: "Serializable" })
+
+          return { spotId: doubleSpot.id }
+        }
+      }
+
       let side: PostcardSide = "FRONT"
       let spotType: SpotType = "STANDARD"
       let label = ""

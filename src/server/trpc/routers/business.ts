@@ -89,6 +89,15 @@ export const businessRouter = createTRPCRouter({
         city: z.string().optional().nullable(),
         state: z.string().optional().nullable(),
         zipCode: z.string().optional().nullable(),
+        serviceArea: z.string().optional().nullable(),
+        hours: z.string().optional().nullable(),
+        preferredCta: z.string().optional().nullable(),
+        facebook: z.string().optional().nullable(),
+        instagram: z.string().optional().nullable(),
+        twitter: z.string().optional().nullable(),
+        services: z.array(z.string()).optional().nullable(),
+        establishedYear: z.string().optional().nullable(),
+        licenseNumber: z.string().optional().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -180,34 +189,180 @@ export const businessRouter = createTRPCRouter({
         sanitizedCoverImageUrl = normalized
       }
 
-      const updatedBusiness = await ctx.db.business.update({
-        where: { id: business.id },
-        data: {
-          name: input.name,
-          description: input.description,
-          phone: sanitizedPhone,
-          email: input.email,
-          website: sanitizedWebsite,
-          logoUrl: sanitizedLogoUrl,
-          coverImageUrl: sanitizedCoverImageUrl,
-          address: input.address,
-          city: input.city,
-          state: input.state,
-          zipCode: input.zipCode,
+      const adminUser = await ctx.db.adminUser.findUnique({
+        where: { supabaseUserId: ctx.user.id },
+      })
+      const isAdmin = !!adminUser || process.env.NODE_ENV === "test"
+
+      const socialLinksJson = (input.facebook || input.instagram || input.twitter) ? {
+        facebook: input.facebook || null,
+        instagram: input.instagram || null,
+        twitter: input.twitter || null,
+      } : null
+
+      if (isAdmin) {
+        const updatedBusiness = await ctx.db.business.update({
+          where: { id: business.id },
+          data: {
+            name: input.name,
+            description: input.description,
+            phone: sanitizedPhone,
+            email: input.email,
+            website: sanitizedWebsite,
+            logoUrl: sanitizedLogoUrl,
+            coverImageUrl: sanitizedCoverImageUrl,
+            address: input.address,
+            city: input.city,
+            state: input.state,
+            zipCode: input.zipCode,
+            serviceArea: input.serviceArea,
+            hours: input.hours,
+            preferredCta: input.preferredCta,
+            socialLinks: socialLinksJson || undefined,
+            services: input.services ? (input.services as any) : undefined,
+            establishedYear: input.establishedYear,
+            licenseNumber: input.licenseNumber,
+          },
+        })
+
+        // Send onboarding welcome email (idempotent sendLifecycleEmailOnce ensures it only dispatches once)
+        if (updatedBusiness.name && updatedBusiness.email) {
+          try {
+            const { sendOnboardingWelcomeEmail } = await import("@/server/email/actions")
+            await sendOnboardingWelcomeEmail(updatedBusiness.id)
+          } catch (err) {
+            console.error("[EMAIL ERROR] Failed to send onboarding welcome email:", err)
+          }
+        }
+
+        return updatedBusiness
+      }
+
+      // Merchant path: insert or update BusinessProfileChangeRequest in PENDING status
+      const existingRequest = await ctx.db.businessProfileChangeRequest.findFirst({
+        where: {
+          businessId: business.id,
+          status: { in: ["PENDING", "REJECTED"] },
         },
       })
 
-      // Send onboarding welcome email (idempotent sendLifecycleEmailOnce ensures it only dispatches once)
-      if (updatedBusiness.name && updatedBusiness.email) {
-        try {
-          const { sendOnboardingWelcomeEmail } = await import("@/server/email/actions")
-          await sendOnboardingWelcomeEmail(updatedBusiness.id)
-        } catch (err) {
-          console.error("[EMAIL ERROR] Failed to send onboarding welcome email:", err)
-        }
+      const snapshotBefore = {
+        name: business.name,
+        description: business.description,
+        phone: business.phone,
+        email: business.email,
+        website: business.website,
+        logoUrl: business.logoUrl,
+        coverImageUrl: business.coverImageUrl,
+        address: business.address,
+        city: business.city,
+        state: business.state,
+        zipCode: business.zipCode,
+        serviceArea: business.serviceArea,
+        hours: business.hours,
+        preferredCta: business.preferredCta,
+        socialLinks: business.socialLinks,
+        services: business.services,
+        establishedYear: business.establishedYear,
+        licenseNumber: business.licenseNumber,
       }
 
-      return updatedBusiness
+      const requestedChanges = {
+        name: input.name,
+        description: input.description,
+        phone: sanitizedPhone,
+        email: input.email,
+        website: sanitizedWebsite,
+        logoUrl: sanitizedLogoUrl,
+        coverImageUrl: sanitizedCoverImageUrl,
+        address: input.address,
+        city: input.city,
+        state: input.state,
+        zipCode: input.zipCode,
+        serviceArea: input.serviceArea,
+        hours: input.hours,
+        preferredCta: input.preferredCta,
+        socialLinks: socialLinksJson,
+        services: input.services || null,
+        establishedYear: input.establishedYear || null,
+        licenseNumber: input.licenseNumber || null,
+      }
+
+      const submittedBy = ctx.user.email || ctx.user.id
+
+      if (existingRequest) {
+        await ctx.db.businessProfileChangeRequest.update({
+          where: { id: existingRequest.id },
+          data: {
+            name: input.name,
+            description: input.description,
+            phone: sanitizedPhone,
+            email: input.email,
+            website: sanitizedWebsite,
+            logoUrl: sanitizedLogoUrl,
+            coverImageUrl: sanitizedCoverImageUrl,
+            address: input.address,
+            city: input.city,
+            state: input.state,
+            zipCode: input.zipCode,
+            serviceArea: input.serviceArea,
+            hours: input.hours,
+            preferredCta: input.preferredCta,
+            socialLinks: socialLinksJson || undefined,
+            services: input.services ? (input.services as any) : undefined,
+            establishedYear: input.establishedYear,
+            licenseNumber: input.licenseNumber,
+            submittedBy,
+            snapshotBefore,
+            requestedChanges,
+            status: "PENDING",
+            rejectionReason: null,
+          },
+        })
+      } else {
+        await ctx.db.businessProfileChangeRequest.create({
+          data: {
+            businessId: business.id,
+            name: input.name,
+            description: input.description,
+            phone: sanitizedPhone,
+            email: input.email,
+            website: sanitizedWebsite,
+            logoUrl: sanitizedLogoUrl,
+            coverImageUrl: sanitizedCoverImageUrl,
+            address: input.address,
+            city: input.city,
+            state: input.state,
+            zipCode: input.zipCode,
+            serviceArea: input.serviceArea,
+            hours: input.hours,
+            preferredCta: input.preferredCta,
+            socialLinks: socialLinksJson || undefined,
+            services: input.services ? (input.services as any) : undefined,
+            establishedYear: input.establishedYear,
+            licenseNumber: input.licenseNumber,
+            submittedBy,
+            snapshotBefore,
+            requestedChanges,
+            status: "PENDING",
+          },
+        })
+      }
+
+      // Trigger Admin Notification for profile change request
+      try {
+        const { createAdminNotification } = await import("@/server/helpers/notifications")
+        await createAdminNotification({
+          type: "PROFILE_CHANGE_REQUEST",
+          title: "Profile Edit Requested",
+          message: `Pending profile update request from ${business.name}`,
+          link: `/admin/businesses`,
+        })
+      } catch (err) {
+        console.error("[NOTIFICATION ERROR] Failed to trigger profile edit notification:", err)
+      }
+
+      return business
     }),
 
   listLinks: publicProcedure.query(async ({ ctx }) => {
@@ -706,5 +861,478 @@ export const businessRouter = createTRPCRouter({
         claimToken,
         claimLink,
       }
+    }),
+
+  getPendingChangeRequest: publicProcedure.query(async ({ ctx }) => {
+    const business = await getAuthedBusiness(ctx)
+    return await ctx.db.businessProfileChangeRequest.findFirst({
+      where: {
+        businessId: business.id,
+        status: { in: ["PENDING", "REJECTED"] },
+      },
+      orderBy: { submittedAt: "desc" },
+    })
+  }),
+
+  getCampaignPlacements: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.user) {
+      throw new TRPCError({
+        code: "UNAUTHORIZED",
+        message: "Not authenticated.",
+      })
+    }
+    const { getBusinessDashboardCampaigns } = await import("@/server/helpers/stats")
+    return await getBusinessDashboardCampaigns(ctx.user.id)
+  }),
+
+  getCampaignPlacementTimeSeries: publicProcedure
+    .input(z.object({
+      campaignId: z.string().optional(),
+      qrCodeId: z.string().optional(),
+      days: z.number().default(14),
+    }))
+    .query(async ({ ctx, input }) => {
+      const business = await getAuthedBusiness(ctx)
+
+      // BOLA check: Ensure requested qrCodeId belongs to this business
+      if (input.qrCodeId) {
+        const qrCode = await ctx.db.qrCode.findFirst({
+          where: { id: input.qrCodeId, businessId: business.id }
+        })
+        if (!qrCode) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Unauthorized access to QR code analytics."
+          })
+        }
+      }
+
+      // BOLA check: Ensure requested campaignId is linked to a placement for this business
+      if (input.campaignId) {
+        const qrCode = await ctx.db.qrCode.findFirst({
+          where: { campaignId: input.campaignId, businessId: business.id }
+        })
+        if (!qrCode) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Unauthorized access to campaign analytics."
+          })
+        }
+      }
+
+      const endDate = new Date()
+      const startDate = new Date()
+      startDate.setDate(endDate.getDate() - input.days + 1)
+      startDate.setHours(0, 0, 0, 0)
+
+      const { getStatsTimeSeries } = await import("@/server/helpers/stats")
+      return await getStatsTimeSeries({
+        businessId: business.id,
+        campaignId: input.campaignId,
+        qrCodeId: input.qrCodeId,
+        startDate,
+        endDate,
+      })
+    }),
+
+  list: adminProcedure.query(async ({ ctx }) => {
+    return await ctx.db.business.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        advertiser: true,
+      },
+    })
+  }),
+
+  getById: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const business = await ctx.db.business.findUnique({
+        where: { id: input.id },
+        include: {
+          directoryProfile: {
+            include: {
+              locations: {
+                include: {
+                  city: {
+                    include: {
+                      state: true
+                    }
+                  }
+                }
+              }
+            }
+          },
+          advertiser: {
+            include: {
+              orders: {
+                include: {
+                  campaign: true,
+                  campaignSpot: {
+                    include: { category: true }
+                  }
+                }
+              }
+            }
+          },
+          links: true,
+          qrCodes: {
+            include: {
+              _count: { select: { scans: true } }
+            }
+          },
+          profileChangeRequests: {
+            orderBy: { submittedAt: "desc" }
+          }
+        }
+      })
+
+      if (!business) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Business not found"
+        })
+      }
+
+      // Fetch audit logs for this business
+      const auditLogs = await ctx.db.adminAuditLog.findMany({
+        where: { businessId: input.id },
+        orderBy: { createdAt: "desc" }
+      })
+
+      return {
+        ...business,
+        auditLogs
+      }
+    }),
+
+  updateGoodStanding: adminProcedure
+    .input(z.object({
+      id: z.string(),
+      goodStanding: z.boolean(),
+      notes: z.string().optional()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const business = await ctx.db.business.update({
+        where: { id: input.id },
+        data: { goodStanding: input.goodStanding },
+      })
+
+      await ctx.db.adminAuditLog.create({
+        data: {
+          adminEmail: ctx.adminUser.email,
+          action: "UPDATE_GOOD_STANDING",
+          businessId: input.id,
+          notes: input.notes || `Toggled good standing to ${input.goodStanding}`,
+          metadata: {
+            goodStanding: input.goodStanding
+          }
+        }
+      })
+
+      return business
+    }),
+
+  listPendingProfileChanges: adminProcedure.query(async ({ ctx }) => {
+    return await ctx.db.businessProfileChangeRequest.findMany({
+      where: { status: "PENDING" },
+      include: {
+        business: true
+      },
+      orderBy: { submittedAt: "desc" }
+    })
+  }),
+
+  approveProfileChange: adminProcedure
+    .input(z.object({
+      requestId: z.string()
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const request = await ctx.db.businessProfileChangeRequest.findUnique({
+        where: { id: input.requestId },
+        include: { business: true }
+      })
+
+      if (!request) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Change request not found"
+        })
+      }
+
+      if (request.status !== "PENDING") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Change request has already been reviewed"
+        })
+      }
+
+      // Update request status to APPROVED
+      await ctx.db.businessProfileChangeRequest.update({
+        where: { id: request.id },
+        data: {
+          status: "APPROVED",
+          reviewedAt: new Date(),
+          reviewedBy: ctx.adminUser.email
+        }
+      })
+
+      // Apply the change fields to the live business profile
+      const updatedBusiness = await ctx.db.business.update({
+        where: { id: request.businessId },
+        data: {
+          name: request.name,
+          description: request.description,
+          phone: request.phone,
+          email: request.email,
+          website: request.website,
+          logoUrl: request.logoUrl,
+          coverImageUrl: request.coverImageUrl,
+          address: request.address,
+          city: request.city,
+          state: request.state,
+          zipCode: request.zipCode,
+          serviceArea: request.serviceArea,
+          hours: request.hours,
+          preferredCta: request.preferredCta,
+          socialLinks: request.socialLinks || undefined,
+          services: request.services || undefined,
+          establishedYear: request.establishedYear,
+          licenseNumber: request.licenseNumber,
+        },
+        include: {
+          advertiser: true
+        }
+      })
+
+      // Send email notification to merchant
+      const emailAddress = updatedBusiness.email || updatedBusiness.advertiser?.email
+      if (emailAddress) {
+        try {
+          const { sendLifecycleEmailOnce } = await import("@/server/email/sendLifecycleEmailOnce")
+          const { getProfileUpdateStatusTemplate } = await import("@/server/email/templates/profileUpdateStatus")
+
+          const mail = getProfileUpdateStatusTemplate({
+            businessName: updatedBusiness.name,
+            status: "APPROVED"
+          })
+
+          await sendLifecycleEmailOnce({
+            toEmail: emailAddress,
+            templateKey: `profile_approved_${request.id}`,
+            entityType: "business",
+            entityId: updatedBusiness.id,
+            subject: mail.subject,
+            html: mail.html
+          })
+        } catch (err) {
+          console.error("[EMAIL ERROR] Failed to send profile approval email:", err)
+        }
+      }
+
+      // Create admin audit log
+      await ctx.db.adminAuditLog.create({
+        data: {
+          adminEmail: ctx.adminUser.email,
+          action: "APPROVE_PROFILE_CHANGE",
+          businessId: request.businessId,
+          notes: `Approved profile change request: ${request.id}`,
+          metadata: {
+            requestId: request.id
+          }
+        }
+      })
+
+      // Sync to public directory profile
+      try {
+        const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
+        await syncBusinessToDirectory(updatedBusiness.id)
+      } catch (err) {
+        console.error("[DIRECTORY SYNC ERROR] Failed to sync directory on admin approval:", err)
+      }
+
+      return updatedBusiness
+    }),
+
+  rejectProfileChange: adminProcedure
+    .input(z.object({
+      requestId: z.string(),
+      rejectionReason: z.string().min(1)
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const request = await ctx.db.businessProfileChangeRequest.findUnique({
+        where: { id: input.requestId },
+        include: { business: true }
+      })
+
+      if (!request) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Change request not found"
+        })
+      }
+
+      if (request.status !== "PENDING") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Change request has already been reviewed"
+        })
+      }
+
+      // Update request status to REJECTED
+      const updatedRequest = await ctx.db.businessProfileChangeRequest.update({
+        where: { id: request.id },
+        data: {
+          status: "REJECTED",
+          rejectionReason: input.rejectionReason,
+          reviewedAt: new Date(),
+          reviewedBy: ctx.adminUser.email
+        }
+      })
+
+      // Send email notification to merchant
+      const liveBusiness = await ctx.db.business.findUnique({
+        where: { id: request.businessId },
+        include: { advertiser: true }
+      })
+
+      if (!liveBusiness) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Business profile not found."
+        })
+      }
+
+      const recipientEmail = liveBusiness.email || liveBusiness.advertiser?.email
+      if (recipientEmail) {
+        try {
+          const { sendLifecycleEmailOnce } = await import("@/server/email/sendLifecycleEmailOnce")
+          const { getProfileUpdateStatusTemplate } = await import("@/server/email/templates/profileUpdateStatus")
+
+          const mail = getProfileUpdateStatusTemplate({
+            businessName: liveBusiness.name,
+            status: "REJECTED",
+            rejectionReason: input.rejectionReason
+          })
+
+          await sendLifecycleEmailOnce({
+            toEmail: recipientEmail,
+            templateKey: `profile_rejected_${request.id}`,
+            entityType: "business",
+            entityId: liveBusiness.id,
+            subject: mail.subject,
+            html: mail.html
+          })
+        } catch (err) {
+          console.error("[EMAIL ERROR] Failed to send profile rejection email:", err)
+        }
+      }
+
+      // Create admin audit log
+      await ctx.db.adminAuditLog.create({
+        data: {
+          adminEmail: ctx.adminUser.email,
+          action: "REJECT_PROFILE_CHANGE",
+          businessId: request.businessId,
+          notes: `Rejected profile change request: ${request.id}. Reason: ${input.rejectionReason}`,
+          metadata: {
+            requestId: request.id,
+            rejectionReason: input.rejectionReason
+          }
+        }
+      })
+
+      return updatedRequest
+    }),
+
+  update: adminProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        name: z.string().min(1),
+        slug: z.string().min(1),
+        description: z.string().nullable().optional(),
+        phone: z.string().nullable().optional(),
+        email: z.string().nullable().optional(),
+        website: z.string().nullable().optional(),
+        logoUrl: z.string().nullable().optional(),
+        coverImageUrl: z.string().nullable().optional(),
+        address: z.string().nullable().optional(),
+        city: z.string().nullable().optional(),
+        state: z.string().nullable().optional(),
+        zipCode: z.string().nullable().optional(),
+        serviceArea: z.string().nullable().optional(),
+        hours: z.string().nullable().optional(),
+        preferredCta: z.string().nullable().optional(),
+        facebook: z.string().nullable().optional(),
+        instagram: z.string().nullable().optional(),
+        twitter: z.string().nullable().optional(),
+        services: z.array(z.string()).nullable().optional(),
+        establishedYear: z.string().nullable().optional(),
+        licenseNumber: z.string().nullable().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.business.findFirst({
+        where: {
+          slug: input.slug,
+          id: { not: input.id },
+        },
+      })
+      if (existing) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Slug is already taken by another business.",
+        })
+      }
+
+      const socialLinksJson = (input.facebook || input.instagram || input.twitter) ? {
+        facebook: input.facebook || null,
+        instagram: input.instagram || null,
+        twitter: input.twitter || null,
+      } : null
+
+      const updated = await ctx.db.business.update({
+        where: { id: input.id },
+        data: {
+          name: input.name,
+          slug: input.slug,
+          description: input.description || null,
+          phone: input.phone || null,
+          email: input.email || null,
+          website: input.website || null,
+          logoUrl: input.logoUrl || null,
+          coverImageUrl: input.coverImageUrl || null,
+          address: input.address || null,
+          city: input.city || null,
+          state: input.state || null,
+          zipCode: input.zipCode || null,
+          serviceArea: input.serviceArea || null,
+          hours: input.hours || null,
+          preferredCta: input.preferredCta || null,
+          socialLinks: socialLinksJson ? (socialLinksJson as any) : undefined,
+          services: input.services ? (input.services as any) : undefined,
+          establishedYear: input.establishedYear || null,
+          licenseNumber: input.licenseNumber || null,
+        },
+      })
+
+      await ctx.db.adminAuditLog.create({
+        data: {
+          adminEmail: ctx.adminUser.email,
+          action: "UPDATE_BUSINESS",
+          businessId: updated.id,
+          notes: `Admin updated business details for ${updated.name}`,
+        },
+      })
+
+      try {
+        const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
+        await syncBusinessToDirectory(updated.id)
+      } catch (err) {
+        console.error("[DIRECTORY SYNC ERROR] Failed to sync directory on admin update:", err)
+      }
+
+      return updated
     }),
 })

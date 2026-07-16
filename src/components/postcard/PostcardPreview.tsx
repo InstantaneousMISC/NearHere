@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import SharedCard9x12 from "./SharedCard9x12"
 import CommunityCard6x11 from "./CommunityCard6x11"
+import Postcard9x12_16Regular from "./Postcard9x12_16Regular"
 
 interface PostcardSpot {
   id: string
@@ -33,6 +34,7 @@ interface PostcardPreviewProps {
   onReserveSpot?: (spot: PostcardSpot) => void
   cardSize?: string
   cardSkin?: string
+  hoveredDoubleKeys?: string[]
 }
 
 export default function PostcardPreview({
@@ -43,15 +45,22 @@ export default function PostcardPreview({
   onWaitlistClick,
   onReserveSpot,
   cardSize = "9x12",
-  cardSkin = "cream"
+  cardSkin = "cream",
+  hoveredDoubleKeys = []
 }: PostcardPreviewProps) {
   const router = useRouter()
   const [activeSide, setActiveSide] = useState<"FRONT" | "BACK">("FRONT")
   const sharedCardFrameRef = useRef<HTMLDivElement>(null)
   const [sharedCardScale, setSharedCardScale] = useState(1)
 
-  const cityName = city.charAt(0).toUpperCase() + city.slice(1)
-  const stateName = state.charAt(0).toUpperCase() + state.slice(1)
+  const formatLocationName = (str: string) => {
+    return decodeURIComponent(str)
+      .split(/[\s_-]+/)
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(" ")
+  }
+  const cityName = formatLocationName(city)
+  const stateName = decodeURIComponent(state).toUpperCase()
 
   // Extract mailing quantity if available
   const campaignRecord = spots.length > 0 ? (spots[0] as any).campaign : null
@@ -131,6 +140,27 @@ export default function PostcardPreview({
               homesCount={homesCount}
               spots={spots}
               onSpotClick={handleSpotClick}
+              cardSkin={cardSkin}
+            />
+          </div>
+        </div>
+      ) : cardSize === "9x12-16-regular" ? (
+        <div
+          ref={sharedCardFrameRef}
+          className="relative w-full overflow-hidden"
+          style={{ height: `${900 * sharedCardScale}px` }}
+        >
+          <div
+            className="absolute left-0 top-0 h-[900px] w-[1200px] origin-top-left"
+            style={{ transform: `scale(${sharedCardScale})` }}
+          >
+            <Postcard9x12_16Regular
+              view={activeSide === "FRONT" ? "front" : "back"}
+              locationLabel={`${cityName.toUpperCase()}, ${stateName.toUpperCase()}`}
+              homesCount={quantity}
+              spots={spots as any}
+              onSpotClick={handleSpotClick}
+              hoveredDoubleKeys={hoveredDoubleKeys}
               cardSkin={cardSkin}
             />
           </div>

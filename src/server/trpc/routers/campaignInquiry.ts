@@ -125,6 +125,19 @@ export const campaignInquiryRouter = createTRPCRouter({
         console.error(`[INQUIRY ROUTER] Failed to send admin notification email:`, err)
       }
 
+      // Trigger Admin Notification
+      try {
+        const { createAdminNotification } = await import("@/server/helpers/notifications")
+        await createAdminNotification({
+          type: "NEW_INQUIRY",
+          title: "New Inquiry Received",
+          message: `Inquiry submitted by ${inquiry.businessName} (Category: ${inquiry.businessCategory || "General"})`,
+          link: `/admin/inquiries`,
+        })
+      } catch (err) {
+        console.error("[NOTIFICATION ERROR] Failed to trigger inquiry notification:", err)
+      }
+
       return inquiry
     }),
 

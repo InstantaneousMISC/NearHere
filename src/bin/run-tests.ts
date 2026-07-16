@@ -5,6 +5,7 @@ const tests = [
   "src/server/helpers/generateSlug.test.ts",
   "src/server/helpers/generateQrSlug.test.ts",
   "src/server/helpers/templateSpots.test.ts",
+  "src/server/helpers/postcard16regular.test.ts",
   "src/server/helpers/email.test.ts",
   "src/server/helpers/validation.test.ts",
   "src/server/helpers/safeguards.test.ts",
@@ -18,6 +19,11 @@ const tests = [
   "src/server/helpers/dashFlow.test.ts",
   "src/server/helpers/validationAndCron.test.ts",
   "src/server/helpers/campaignInquiry.test.ts",
+  "src/server/helpers/directory.test.ts",
+  "src/server/helpers/stats.test.ts",
+  "src/server/helpers/mvpFlow.test.ts",
+  "src/server/helpers/productionHardening.test.ts",
+  "src/server/helpers/adminNotifications.test.ts",
 ]
 
 console.log("=========================================")
@@ -39,6 +45,11 @@ for (const test of tests) {
   const result = spawnSync("npx", ["tsx", test], {
     stdio: "inherit",
     shell: true,
+    env: {
+      ...process.env,
+      NODE_ENV: "test",
+      RESEND_API_KEY: "re_...", // Force stub mode during tests to avoid test pollution from system environment variables
+    },
   })
   const endTest = Date.now()
 

@@ -333,8 +333,37 @@ export const orderRouter = createTRPCRouter({
       })
 
       return {
-        ...order,
-        business,
+        id: order.id,
+        status: order.status,
+        amount: order.amount,
+        creativeSubmissionToken: order.creativeSubmissionToken,
+        campaign: {
+          id: order.campaign.id,
+          name: order.campaign.name,
+          slug: order.campaign.slug,
+          city: order.campaign.city,
+          state: order.campaign.state,
+        },
+        campaignSpot: {
+          id: order.campaignSpot.id,
+          label: order.campaignSpot.label,
+          spotType: order.campaignSpot.spotType,
+          category: {
+            id: order.campaignSpot.category.id,
+            name: order.campaignSpot.category.name,
+            slug: order.campaignSpot.category.slug,
+          },
+        },
+        advertiser: {
+          id: order.advertiser.id,
+          businessName: order.advertiser.businessName,
+        },
+        business: business ? {
+          id: business.id,
+          name: business.name,
+          slug: business.slug,
+          claimToken: business.claimToken,
+        } : null,
       }
     }),
 
@@ -593,6 +622,23 @@ export const orderRouter = createTRPCRouter({
         console.error("[MANUAL BOOKING ERROR] Audit log creation failed:", err)
       }
 
+      // Create Admin Notification
+      try {
+        const amountFormatted = (input.amount / 100).toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+        })
+        const { createAdminNotification } = await import("@/server/helpers/notifications")
+        await createAdminNotification({
+          type: "INVOICE_PAID",
+          title: "Manual Booking Created",
+          message: `Manual booking of ${amountFormatted} created for ${input.businessName} (Campaign: ${spot.campaign.name})`,
+          link: `/admin/orders/${order.id}`,
+        })
+      } catch (err) {
+        console.error("[NOTIFICATION ERROR] Failed to trigger manual booking notification:", err)
+      }
+
       return { orderId: order.id }
     }),
 
@@ -636,14 +682,46 @@ export const orderRouter = createTRPCRouter({
         })
 
         // Release the Campaign Spot
-        await tx.campaignSpot.update({
-          where: { id: order.campaignSpotId },
-          data: {
-            status: SpotStatus.OPEN,
-            heldUntil: null,
-            heldBySessionId: null,
-          },
-        })
+        if (order.campaignSpot.label.includes("_DOUBLE_")) {
+          await tx.campaignSpot.update({
+            where: { id: order.campaignSpotId },
+            data: {
+              status: SpotStatus.UNAVAILABLE,
+              heldUntil: null,
+              heldBySessionId: null,
+            },
+          })
+
+          const match = order.campaignSpot.label.match(/^(FRONT|BACK)_DOUBLE_(\d+)_(\d+)$/)
+          if (match) {
+            const side = match[1]
+            const u1 = match[2]
+            const u2 = match[3]
+            const label1 = `${side}_${u1}`
+            const label2 = `${side}_${u2}`
+
+            await tx.campaignSpot.updateMany({
+              where: {
+                campaignId: order.campaignId,
+                label: { in: [label1, label2] },
+              },
+              data: {
+                status: SpotStatus.OPEN,
+                heldUntil: null,
+                heldBySessionId: null,
+              },
+            })
+          }
+        } else {
+          await tx.campaignSpot.update({
+            where: { id: order.campaignSpotId },
+            data: {
+              status: SpotStatus.OPEN,
+              heldUntil: null,
+              heldBySessionId: null,
+            },
+          })
+        }
 
         // Disable QR Code if it exists
         await tx.qrCode.updateMany({
@@ -713,4 +791,390 @@ export const orderRouter = createTRPCRouter({
 
       return updatedOrder
     }),
+
+  createInvoice: adminProcedure
+    .input(
+      z.object({
+        spotId: z.string(),
+        categoryId: z.string(),
+        advertiserId: z.string().optional(),
+        contactName: z.string().min(1),
+        businessName: z.string().min(1),
+        email: z.string().email().transform((val) => val.trim().toLowerCase()),
+        phone: z.string().min(1),
+        website: z.string().optional().or(z.literal("")),
+        businessAddress: z.string().optional().or(z.literal("")),
+        amount: z.number().int().nonnegative(), // in cents
+        overrideExclusivity: z.boolean().default(false),
+        notes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const spot = await ctx.db.campaignSpot.findUnique({
+        where: { id: input.spotId },
+        include: { category: true, campaign: true },
+      })
+
+      if (!spot) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Campaign spot not found",
+        })
+      }
+
+      if (spot.status === SpotStatus.SOLD) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Spot is already sold.",
+        })
+      }
+
+      // Check category exclusivity
+      const targetCategory = await ctx.db.businessCategory.findUnique({
+        where: { id: input.categoryId },
+      })
+
+      if (!targetCategory) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Selected category not found",
+        })
+      }
+
+      if (!targetCategory.allowsMultipleAdvertisers && !input.overrideExclusivity) {
+        const conflictingSpot = await ctx.db.campaignSpot.findFirst({
+          where: {
+            campaignId: spot.campaignId,
+            categoryId: targetCategory.id,
+            id: { not: spot.id },
+            status: { in: [SpotStatus.SOLD, SpotStatus.HELD] },
+          },
+          include: {
+            orders: {
+              where: { status: "PAID" },
+              include: { advertiser: true },
+              take: 1,
+            },
+          },
+        })
+
+        if (conflictingSpot) {
+          const conflictingBusiness =
+            conflictingSpot.orders[0]?.advertiser?.businessName || "another business"
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: `Exclusivity conflict: The "${targetCategory.name}" category is already taken by "${conflictingBusiness}" in this campaign.`,
+          })
+        }
+      }
+
+      const creativeSubmissionToken = generateCreativeToken()
+
+      const { order, advertiser } = await ctx.db.$transaction(
+        async (tx) => {
+          // Upsert advertiser
+          const advertiser = input.advertiserId
+            ? await tx.advertiser.update({
+                where: { id: input.advertiserId },
+                data: {
+                  contactName: input.contactName,
+                  businessName: input.businessName,
+                  phone: input.phone,
+                  website: input.website || null,
+                  businessAddress: input.businessAddress || null,
+                },
+              })
+            : await tx.advertiser.upsert({
+                where: { email: input.email },
+                update: {
+                  contactName: input.contactName,
+                  businessName: input.businessName,
+                  phone: input.phone,
+                  website: input.website || null,
+                  businessAddress: input.businessAddress || null,
+                },
+                create: {
+                  email: input.email,
+                  contactName: input.contactName,
+                  businessName: input.businessName,
+                  phone: input.phone,
+                  website: input.website || null,
+                  businessAddress: input.businessAddress || null,
+                },
+              })
+
+          // Secure the spot as HELD
+          const heldUntil = new Date()
+          heldUntil.setHours(heldUntil.getHours() + 24)
+
+
+          await tx.campaignSpot.update({
+            where: { id: spot.id },
+            data: {
+              categoryId: targetCategory.id,
+              status: SpotStatus.HELD,
+              heldUntil,
+              heldBySessionId: `invoice-${creativeSubmissionToken.slice(0, 8)}`,
+            },
+          })
+
+          // Create the order as PENDING
+          const order = await tx.order.create({
+            data: {
+              campaignId: spot.campaignId,
+              campaignSpotId: spot.id,
+              advertiserId: advertiser.id,
+              amount: input.amount,
+              status: OrderStatus.PENDING,
+              creativeSubmissionToken,
+              creativeSubmission: {
+                create: {
+                  businessName: input.businessName,
+                },
+              },
+            },
+          })
+
+          return { order, advertiser }
+        },
+        { isolationLevel: "Serializable" }
+      )
+
+      // Create a business profile record if it doesn't exist
+      let business = null
+      try {
+        const { ensureBusinessForOrder } = await import("@/server/helpers/postPayment")
+        business = await ensureBusinessForOrder(order.id)
+      } catch (err) {
+        console.error("[INVOICE ERROR] Failed to ensure business record:", err)
+      }
+
+      // Send Invoice Email to merchant
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      const paymentLink = `${appUrl}/invoice/${order.id}`
+
+      try {
+        const { sendLifecycleEmailOnce } = await import("@/server/email/sendLifecycleEmailOnce")
+        const { getInvoiceSentTemplate } = await import("@/server/email/templates/invoiceSent")
+
+        const mail = getInvoiceSentTemplate({
+          businessName: input.businessName,
+          campaignName: spot.campaign.name,
+          categoryName: targetCategory.name,
+          amount: input.amount,
+          paymentLink,
+        })
+
+        await sendLifecycleEmailOnce({
+          toEmail: advertiser.email,
+          templateKey: "invoice_sent",
+          entityType: "order",
+          entityId: order.id,
+          subject: mail.subject,
+          html: mail.html,
+        })
+      } catch (err) {
+        console.error("[INVOICE EMAIL ERROR] Failed to send invoice email:", err)
+      }
+
+      // Write Admin Audit Log
+      try {
+        await ctx.db.adminAuditLog.create({
+          data: {
+            adminEmail: ctx.adminUser.email,
+            action: "CREATE_INVOICE",
+            businessId: business?.id || null,
+            notes: input.notes || `Invoice generated for ${input.businessName} (Amount: $${(input.amount / 100).toFixed(2)})`,
+            metadata: {
+              campaignId: spot.campaignId,
+              campaignSpotId: spot.id,
+              advertiserId: order.advertiserId,
+              amount: input.amount,
+              overrideExclusivity: input.overrideExclusivity,
+              paymentLink,
+            },
+          },
+        })
+      } catch (err) {
+        console.error("[INVOICE AUDIT ERROR] Failed to create audit log:", err)
+      }
+
+      // Create Admin Notification
+      try {
+        const amountFormatted = (input.amount / 100).toLocaleString("en-US", {
+          style: "currency",
+          currency: "USD",
+        })
+        const { createAdminNotification } = await import("@/server/helpers/notifications")
+        await createAdminNotification({
+          type: "PENDING_ORDER",
+          title: "Invoice Generated",
+          message: `Invoice of ${amountFormatted} generated for ${input.businessName} (Campaign: ${spot.campaign.name})`,
+          link: `/admin/orders/${order.id}`,
+        })
+      } catch (err) {
+        console.error("[NOTIFICATION ERROR] Failed to trigger invoice notification:", err)
+      }
+
+      return { orderId: order.id, paymentLink }
+    }),
+
+  getOrRenewStripeSession: publicProcedure
+    .input(z.object({ orderId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const order = await ctx.db.order.findUnique({
+        where: { id: input.orderId },
+        include: {
+          campaign: true,
+          campaignSpot: {
+            include: { category: true },
+          },
+          advertiser: true,
+        },
+      })
+
+      if (!order) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice / Order not found",
+        })
+      }
+
+      if (order.status !== OrderStatus.PENDING) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This invoice is no longer pending payment.",
+        })
+      }
+
+      // Check if campaign is already closed or cancelled
+      if (order.campaign.status === CampaignStatus.CLOSED || order.campaign.status === CampaignStatus.CANCELLED) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The associated campaign has been closed or cancelled.",
+        })
+      }
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+
+      // Check if there is an existing checkout session and retrieve it from Stripe to check if it's still open
+      let sessionUrl = null
+      if (order.stripeCheckoutSessionId) {
+        try {
+          const session = await stripe.checkout.sessions.retrieve(order.stripeCheckoutSessionId)
+          if (session && session.status === "open" && session.url) {
+            sessionUrl = session.url
+          }
+        } catch (err) {
+          console.warn("Could not retrieve existing Stripe session, will create a new one:", err)
+        }
+      }
+
+      // If no valid session exists or it expired, create a new one!
+      if (!sessionUrl) {
+        try {
+          const session = await stripe.checkout.sessions.create({
+            line_items: [
+              {
+                price_data: {
+                  currency: "usd",
+                  unit_amount: order.amount,
+                  product_data: {
+                    name: `${order.campaignSpot.category.name} Ad Space`,
+                    description: `Exclusive advertisement space for the "${order.campaignSpot.category.name}" industry category on the "${order.campaign.name}" postcard campaign.`,
+                  },
+                },
+                quantity: 1,
+              },
+            ],
+            mode: "payment",
+            customer_email: order.advertiser.email,
+            client_reference_id: order.id,
+            success_url: `${appUrl}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${appUrl}/checkout/cancel?session_id={CHECKOUT_SESSION_ID}`,
+          })
+
+          // Save new Stripe session ID to the order
+          await ctx.db.order.update({
+            where: { id: order.id },
+            data: {
+              stripeCheckoutSessionId: session.id,
+            },
+          })
+
+          sessionUrl = session.url
+        } catch (error) {
+          console.error("[STRIPE ERROR] Failed to renew checkout session:", error)
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Could not initialize payment flow with Stripe. Please try again later.",
+          })
+        }
+      }
+
+      return { checkoutUrl: sessionUrl }
+    }),
+
+  getInvoice: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const order = await ctx.db.order.findUnique({
+        where: { id: input.id },
+        include: {
+          campaign: true,
+          campaignSpot: {
+            include: { category: true },
+          },
+          advertiser: true,
+        },
+      })
+
+      if (!order) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Invoice not found",
+        })
+      }
+
+      // Return a strictly sanitized DTO payload for public invoices (excludes creativeSubmissionToken, claimToken, etc.)
+      return {
+        id: order.id,
+        status: order.status,
+        amount: order.amount,
+        originalAmount: order.originalAmount,
+        discountAmount: order.discountAmount,
+        finalAmount: order.finalAmount,
+        paidAt: order.paidAt,
+        createdAt: order.createdAt,
+        campaign: {
+          id: order.campaign.id,
+          name: order.campaign.name,
+          slug: order.campaign.slug,
+          city: order.campaign.city,
+          state: order.campaign.state,
+          mailingQuantity: order.campaign.mailingQuantity,
+          estimatedMailDate: order.campaign.estimatedMailDate,
+        },
+        campaignSpot: {
+          id: order.campaignSpot.id,
+          label: order.campaignSpot.label,
+          spotType: order.campaignSpot.spotType,
+          price: order.campaignSpot.price,
+          status: order.campaignSpot.status,
+          category: {
+            id: order.campaignSpot.category.id,
+            name: order.campaignSpot.category.name,
+            slug: order.campaignSpot.category.slug,
+          },
+        },
+        advertiser: {
+          businessName: order.advertiser.businessName,
+          contactName: order.advertiser.contactName,
+          email: order.advertiser.email,
+          phone: order.advertiser.phone,
+        },
+      }
+    }),
 })
+
+

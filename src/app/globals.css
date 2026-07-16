@@ -114,3 +114,103 @@
 .animate-fade-up {
   animation: fade-up 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
+
+/* ─── Directory Dark Theme Override ───────────────────────────────────────── */
+.directory-dark {
+  --nh-paper-white: #12100F;
+  --nh-press-gray: #FAF8F4;
+  --nh-red: #FF4A1C;
+  --nh-warm-gray: #A39E98;
+  --nh-border-gray: #2E2A28;
+
+  --background: #12100F;
+  --foreground: #FAF8F4;
+  --card: #1A1716;
+  --card-foreground: #FAF8F4;
+  --border: #2E2A28;
+  --input: #2E2A28;
+}
+
+/* Ensure background of directory pages uses the overridden paper color */
+.directory-dark.bg-paper,
+.directory-dark .bg-paper {
+  background-color: #12100F !important;
+}
+
+/* Ensure child elements with explicit light backgrounds adapt inside dark theme */
+.directory-dark .bg-white {
+  background-color: #1A1716 !important;
+}
+.directory-dark .bg-\[\#FAF8F4\] {
+  background-color: #1A1716 !important;
+}
+
+/* Fix social buttons and offer blocks on the profile page */
+.directory-dark .bg-press {
+  background-color: #2E2A28 !important;
+}
+.directory-dark .bg-\[\#FDF9F2\] {
+  background-color: #1E1B1A !important;
+  border-color: #FF4A1C !important;
+  color: #FAF8F4 !important;
+}
+.directory-dark .text-\[\#5C4212\] {
+  color: #FAF8F4 !important;
+}
+.directory-dark .text-gold {
+  color: #C9993E !important;
+}
+
+/* Fix text and border colors */
+.directory-dark .text-press {
+  color: #FAF8F4 !important;
+}
+.directory-dark .text-warm {
+  color: #A39E98 !important;
+}
+.directory-dark .border-rule {
+  border-color: #2E2A28 !important;
+}
+.directory-dark .divide-rule > :not([hidden]) ~ :not([hidden]) {
+  border-color: #2E2A28 !important;
+}
+
+/* Ensure the footer remains dark instead of inverting */
+.directory-dark footer.bg-press {
+  background-color: #0E0D0C !important;
+  border-top-color: #1E1B1A !important;
+}
+.directory-dark footer.bg-press * {
+  color: #FAF8F4 !important;
+}
+.directory-dark footer.bg-press .text-nh-red {
+  color: #FF4A1C !important;
+}
+.directory-dark footer.bg-press .border-t {
+  border-top-color: #1E1B1A !important;
+}
+.directory-dark footer.bg-press p {
+  color: #A39E98 !important;
+}
+
+/* Ensure CampaignNav header adapts inside directory-dark */
+.directory-dark header.sticky {
+  background-color: rgba(18, 16, 15, 0.95) !important;
+  border-bottom-color: #1E1B1A !important;
+}
+.directory-dark header.sticky * {
+  color: #FAF8F4 !important;
+}
+.directory-dark header.sticky .text-nh-red {
+  color: #FF4A1C !important;
+}
+.directory-dark header.sticky .bg-nh-red {
+  background-color: #FF4A1C !important;
+  color: #FAF8F4 !important;
+}
+.directory-dark header.sticky .bg-nh-red:hover {
+  background-color: #FAF8F4 !important;
+  color: #12100F !important;
+}
+
+

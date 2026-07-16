@@ -5,6 +5,7 @@ import type {
   ReservationSpot,
 } from "./ReservationModal"
 import { TEMPLATE_1_PRICING } from "@/lib/nearHereSharedCard9x12"
+import { useMemo } from "react"
 
 interface ReservationSectionProps {
   cardSize: string
@@ -38,8 +39,9 @@ export default function ReservationSection({
   offer,
 }: ReservationSectionProps) {
   const isTemplate1 = cardSize === "9x12"
-  const plans: ReservationPlan[] = isTemplate1
-    ? [
+  const plans: ReservationPlan[] = useMemo(() => {
+    if (cardSize === "9x12") {
+      return [
         {
           key: "front-standard",
           name: "Front Standard",
@@ -76,7 +78,39 @@ export default function ReservationSection({
           description: "The largest and highest-value placement beside the mailing panel.",
         },
       ]
-    : [
+    } else if (cardSize === "9x12-16-regular") {
+      return [
+        {
+          key: "front-regular",
+          name: "Front Regular",
+          price: 590,
+          costPerHome: `${((590 * 100) / mailingQuantity).toFixed(1)} cents per home`,
+          description: "High-visibility standard placement on the landscape postcard front.",
+        },
+        {
+          key: "back-regular",
+          name: "Back Regular",
+          price: 490,
+          costPerHome: `${((490 * 100) / mailingQuantity).toFixed(1)} cents per home`,
+          description: "Cost-effective standard placement on the landscape postcard back.",
+        },
+        {
+          key: "front-double",
+          name: "Front Double",
+          price: 1090,
+          costPerHome: `${((1090 * 100) / mailingQuantity).toFixed(1)} cents per home`,
+          description: "Two adjacent front positions for a wider, higher-impact creative banner.",
+        },
+        {
+          key: "back-double",
+          name: "Back Double",
+          price: 990,
+          costPerHome: `${((990 * 100) / mailingQuantity).toFixed(1)} cents per home`,
+          description: "Two adjacent back positions for a wider, higher-impact creative banner.",
+        },
+      ]
+    } else {
+      return [
         {
           key: "standard",
           name: "Standard Feature",
@@ -91,15 +125,65 @@ export default function ReservationSection({
           costPerHome: `${((1000 * 100) / mailingQuantity).toFixed(1)} cents per home`,
           description: "The largest Community Card placement with priority visibility.",
         },
+        {
+          key: "compact",
+          name: "Compact Placement",
+          price: 250,
+          costPerHome: `${((250 * 100) / mailingQuantity).toFixed(1)} cents per home`,
+          description: "A smaller front-bottom ad space ideal for cafes or bakeries.",
+        },
       ]
+    }
+  }, [cardSize, mailingQuantity])
+
+  const hasOpenPairingFront = useMemo(() => {
+    if (cardSize !== "9x12-16-regular") return false
+    const openLabels = new Set(spots.filter(s => s.status === "OPEN" && s.side === "FRONT").map(s => s.label))
+    const pairings = [[1, 2], [3, 4], [5, 6], [7, 8]]
+    for (const [a, b] of pairings) {
+      if (openLabels.has(`FRONT_${a}`) && openLabels.has(`FRONT_${b}`)) return true
+    }
+    return false
+  }, [spots, cardSize])
+
+  const hasOpenPairingBack = useMemo(() => {
+    if (cardSize !== "9x12-16-regular") return false
+    const openLabels = new Set(spots.filter(s => s.status === "OPEN" && s.side === "BACK").map(s => s.label))
+    const pairings = [[1, 2], [3, 4], [5, 6], [7, 8]]
+    for (const [a, b] of pairings) {
+      if (openLabels.has(`BACK_${a}`) && openLabels.has(`BACK_${b}`)) return true
+    }
+    return false
+  }, [spots, cardSize])
+
+  const hasOpenPairing = useMemo(() => {
+    if (cardSize !== "9x12-16-regular") return false
+    const openLabels = new Set(spots.filter(s => s.status === "OPEN").map(s => s.label))
+    const pairings = [[1, 2], [3, 4], [5, 6], [7, 8]]
+    const sides = ["FRONT", "BACK"]
+    for (const side of sides) {
+      for (const [a, b] of pairings) {
+        if (openLabels.has(`${side}_${a}`) && openLabels.has(`${side}_${b}`)) {
+          return true
+        }
+      }
+    }
+    return false
+  }, [spots, cardSize])
 
   const findSpot = (plan: ReservationPlan) =>
     spots.find((spot) => {
       if (spot.status !== "OPEN" && spot.status !== "HELD") return false
-      if (plan.key === "front-standard") {
+      if (plan.key === "front-standard" || plan.key === "front-regular") {
         return spot.side === "FRONT" && spot.spotType === "STANDARD"
       }
-      if (plan.key === "back-standard") {
+      if (plan.key === "back-standard" || plan.key === "back-regular") {
+        return spot.side === "BACK" && spot.spotType === "STANDARD"
+      }
+      if (plan.key === "front-double") {
+        return spot.side === "FRONT" && spot.spotType === "STANDARD"
+      }
+      if (plan.key === "back-double") {
         return spot.side === "BACK" && spot.spotType === "STANDARD"
       }
       if (plan.key === "premium-center" || plan.key === "premium") {
@@ -107,6 +191,9 @@ export default function ReservationSection({
       }
       if (plan.key === "standard") {
         return spot.spotType === "STANDARD" || spot.spotType === "SMALL"
+      }
+      if (plan.key === "regular") {
+        return spot.spotType === "STANDARD" && (spot.label.startsWith("FRONT_") || spot.label.startsWith("BACK_"))
       }
       return false
     }) || null
@@ -144,14 +231,32 @@ export default function ReservationSection({
         {/* Plans Grid */}
         <div
           className={`mt-12 grid gap-px border border-rule bg-rule ${
-            isTemplate1 ? "md:grid-cols-2 lg:grid-cols-5" : "md:grid-cols-2"
+            isTemplate1 
+              ? "md:grid-cols-2 lg:grid-cols-5" 
+              : (cardSize === "9x12-16-regular" ? "md:grid-cols-2 lg:grid-cols-4" : "md:grid-cols-2")
           }`}
         >
           {plans.map((plan) => {
             const spot = findSpot(plan)
-            const isDouble = plan.key === "front-double" || plan.key === "back-double"
-            const available = isDouble ? true : Boolean(spot)
-            const isSold = isDouble ? false : Boolean(spot) === false
+            const isDouble = plan.key === "front-double" || plan.key === "back-double" || plan.key === "double"
+            const available = plan.key === "front-double" && cardSize === "9x12-16-regular"
+              ? hasOpenPairingFront
+              : plan.key === "back-double" && cardSize === "9x12-16-regular"
+                ? hasOpenPairingBack
+                : plan.key === "double"
+                  ? hasOpenPairing
+                  : isDouble
+                    ? true
+                    : Boolean(spot)
+            const isSold = plan.key === "front-double" && cardSize === "9x12-16-regular"
+              ? !hasOpenPairingFront
+              : plan.key === "back-double" && cardSize === "9x12-16-regular"
+                ? !hasOpenPairingBack
+                : plan.key === "double"
+                  ? !hasOpenPairing
+                  : isDouble
+                    ? false
+                    : Boolean(spot) === false
 
             const priceCents = plan.price * 100
             const discountCents = offer ? calculateClientOfferDiscount(priceCents, offer) : 0

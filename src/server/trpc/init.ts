@@ -34,13 +34,28 @@ export async function createTRPCContext(opts: { headers: Headers }): Promise<{
 
   const cookieHeader = opts.headers.get('cookie') ?? ''
   let user = null
-  if (process.env.NODE_ENV !== 'production' && cookieHeader.includes('mock_admin=true')) {
-    user = {
-      id: '6a43af92-16fe-4873-9f64-1dd278d794c2',
-      email: 'admin@localspotmailers.com',
-      role: 'authenticated',
-    } as any
-  } else {
+  if (process.env.NODE_ENV !== 'production') {
+    if (cookieHeader.includes('mock_admin=true')) {
+      user = {
+        id: '6a43af92-16fe-4873-9f64-1dd278d794c2',
+        email: 'admin@localspotmailers.com',
+        role: 'authenticated',
+      } as any
+    } else {
+      const cookies = cookieHeader.split(';').map((c) => c.trim())
+      const emailCookie = cookies.find((c) => c.startsWith('mock_user_email='))
+      const idCookie = cookies.find((c) => c.startsWith('mock_user_id='))
+      if (emailCookie && idCookie) {
+        user = {
+          id: idCookie.split('=')[1],
+          email: decodeURIComponent(emailCookie.split('=')[1]),
+          role: 'authenticated',
+        } as any
+      }
+    }
+  }
+  
+  if (!user) {
     try {
       const {
         data: { user: authUser },

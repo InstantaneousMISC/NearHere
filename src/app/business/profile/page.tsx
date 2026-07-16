@@ -8,16 +8,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import { PREPOPULATED_SERVICES, GENERAL_SERVICES } from "@/lib/constants"
 
 export default function BusinessProfilePage() {
   const utils = trpc.useUtils()
   
   // Tab states: "profile" or "links"
   const [activeTab, setActiveTab] = useState<"profile" | "links">("profile")
+  const [showComparison, setShowComparison] = useState(false)
 
-  // Query profile details
-  const { data: business, isLoading } = trpc.business.getMyBusiness.useQuery()
+  // Query profile details and pending requests
+  const { data: business, isLoading: isBusinessLoading } = trpc.business.getMyBusiness.useQuery()
   const { data: orders, isLoading: isLoadingOrders } = trpc.business.getMyOrders.useQuery()
+  const { data: pendingRequest, isLoading: isLoadingPending } = trpc.business.getPendingChangeRequest.useQuery()
 
   const isPrintedOrMailed = React.useMemo(() => {
     if (!orders) return false
@@ -39,7 +42,8 @@ export default function BusinessProfilePage() {
   const updateProfileMutation = trpc.business.updateProfile.useMutation({
     onSuccess: () => {
       utils.business.getMyBusiness.invalidate()
-      alert("Profile updated successfully!")
+      utils.business.getPendingChangeRequest.invalidate()
+      alert("Profile update request submitted successfully for admin review!")
     },
     onError: (err) => {
       alert(`Error updating profile: ${err.message}`)
@@ -79,6 +83,16 @@ export default function BusinessProfilePage() {
   const [city, setCity] = useState("")
   const [state, setState] = useState("")
   const [zipCode, setZipCode] = useState("")
+  const [serviceArea, setServiceArea] = useState("")
+  const [hours, setHours] = useState("")
+  const [preferredCta, setPreferredCta] = useState("")
+  const [facebook, setFacebook] = useState("")
+  const [instagram, setInstagram] = useState("")
+  const [twitter, setTwitter] = useState("")
+  const [establishedYear, setEstablishedYear] = useState("")
+  const [licenseNumber, setLicenseNumber] = useState("")
+  const [services, setServices] = useState<string[]>([])
+  const [customService, setCustomService] = useState("")
 
   // Link Form States
   const [linkId, setLinkId] = useState<string | undefined>(undefined)
@@ -89,22 +103,39 @@ export default function BusinessProfilePage() {
   const [linkIsActive, setLinkIsActive] = useState(true)
   const [isEditingLink, setIsEditingLink] = useState(false)
 
-  // Sync business data to form states when loaded
+  // Sync business/pending data to form states when loaded
   React.useEffect(() => {
     if (business) {
-      setName(business.name || "")
-      setDescription(business.description || "")
-      setPhone(business.phone || "")
-      setEmail(business.email || "")
-      setWebsite(business.website || "")
-      setLogoUrl(business.logoUrl || "")
-      setCoverImageUrl(business.coverImageUrl || "")
-      setAddress(business.address || "")
-      setCity(business.city || "")
-      setState(business.state || "")
-      setZipCode(business.zipCode || "")
+      // Use pending values if a request is currently pending approval
+      const isPending = pendingRequest && pendingRequest.status === "PENDING"
+      const source = isPending ? pendingRequest : business
+
+      setName(source.name || "")
+      setDescription(source.description || "")
+      setPhone(source.phone || "")
+      setEmail(source.email || "")
+      setWebsite(source.website || "")
+      setLogoUrl(source.logoUrl || "")
+      setCoverImageUrl(source.coverImageUrl || "")
+      setAddress(source.address || "")
+      setCity(source.city || "")
+      setState(source.state || "")
+      setZipCode(source.zipCode || "")
+      setServiceArea(source.serviceArea || "")
+      setHours(source.hours || "")
+      setPreferredCta(source.preferredCta || "")
+      setEstablishedYear(source.establishedYear || "")
+      setLicenseNumber(source.licenseNumber || "")
+
+      const loadedServices = source.services && Array.isArray(source.services) ? (source.services as string[]) : []
+      setServices(loadedServices)
+
+      const socials = source.socialLinks && typeof source.socialLinks === "object" ? (source.socialLinks as any) : null
+      setFacebook(socials?.facebook || "")
+      setInstagram(socials?.instagram || "")
+      setTwitter(socials?.twitter || "")
     }
-  }, [business])
+  }, [business, pendingRequest])
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -120,6 +151,15 @@ export default function BusinessProfilePage() {
       city,
       state,
       zipCode,
+      serviceArea,
+      hours,
+      preferredCta,
+      facebook,
+      instagram,
+      twitter,
+      services,
+      establishedYear,
+      licenseNumber,
     })
   }
 
@@ -161,7 +201,64 @@ export default function BusinessProfilePage() {
     setIsEditingLink(false)
   }
 
-  if (isLoading || isLoadingOrders) {
+  const getChangedFields = () => {
+    if (!business || !pendingRequest || pendingRequest.status !== "PENDING") return []
+    const fields: { label: string; live: string; pending: string }[] = []
+    
+    const checkField = (key: string, label: string) => {
+      const liveVal = String((business as any)[key] || "")
+      const pendingVal = String((pendingRequest as any)[key] || "")
+      if (liveVal !== pendingVal) {
+        fields.push({ 
+          label, 
+          live: liveVal || "[Empty]", 
+          pending: pendingVal || "[Empty]" 
+        })
+      }
+    }
+
+    checkField("name", "Business Name")
+    checkField("description", "Description")
+    checkField("phone", "Phone Number")
+    checkField("email", "Email Address")
+    checkField("website", "Website URL")
+    checkField("address", "Street Address")
+    checkField("city", "City")
+    checkField("state", "State")
+    checkField("zipCode", "ZIP Code")
+    checkField("logoUrl", "Logo Image URL")
+    checkField("coverImageUrl", "Cover Image URL")
+    checkField("serviceArea", "Service Area")
+    checkField("hours", "Hours")
+    checkField("preferredCta", "Preferred CTA")
+    checkField("establishedYear", "Established Year")
+    checkField("licenseNumber", "License Number")
+
+    const liveServices = Array.isArray(business.services) ? (business.services as string[]).join(", ") : ""
+    const pendingServices = Array.isArray(pendingRequest.services) ? (pendingRequest.services as string[]).join(", ") : ""
+    if (liveServices !== pendingServices) {
+      fields.push({ label: "Offered Services", live: liveServices || "[Empty]", pending: pendingServices || "[Empty]" })
+    }
+
+    const liveSocials = business.socialLinks && typeof business.socialLinks === "object" ? (business.socialLinks as any) : null
+    const pendingSocials = pendingRequest.socialLinks && typeof pendingRequest.socialLinks === "object" ? (pendingRequest.socialLinks as any) : null
+    
+    if ((liveSocials?.facebook || "") !== (pendingSocials?.facebook || "")) {
+      fields.push({ label: "Facebook Page", live: liveSocials?.facebook || "[Empty]", pending: pendingSocials?.facebook || "[Empty]" })
+    }
+    if ((liveSocials?.instagram || "") !== (pendingSocials?.instagram || "")) {
+      fields.push({ label: "Instagram Profile", live: liveSocials?.instagram || "[Empty]", pending: pendingSocials?.instagram || "[Empty]" })
+    }
+    if ((liveSocials?.twitter || "") !== (pendingSocials?.twitter || "")) {
+      fields.push({ label: "Twitter / X Profile", live: liveSocials?.twitter || "[Empty]", pending: pendingSocials?.twitter || "[Empty]" })
+    }
+    
+    return fields
+  }
+
+  const isLoading = isBusinessLoading || isLoadingOrders || isLoadingPending
+
+  if (isLoading) {
     return (
       <div className="space-y-6 animate-pulse text-left">
         <div className="h-10 bg-slate-200 rounded w-1/4" />
@@ -288,6 +385,135 @@ export default function BusinessProfilePage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                  Service Area
+                </label>
+                <Input
+                  type="text"
+                  placeholder="e.g. Bexar County, Converse, San Antonio"
+                  value={serviceArea}
+                  onChange={(e) => setServiceArea(e.target.value)}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                    Hours
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. Mon-Fri: 8AM-5PM"
+                    value={hours}
+                    onChange={(e) => setHours(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                    Preferred CTA Label
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. Call Now, Book Online"
+                    value={preferredCta}
+                    onChange={(e) => setPreferredCta(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Services Offered Section */}
+              <div className="border-t border-border pt-4 mt-4 space-y-3 text-left">
+                <h4 className="text-[10px] font-mono font-bold text-warm uppercase tracking-wider">
+                  Services Offered
+                </h4>
+                <p className="text-[10px] text-warm -mt-1">
+                  Select the services you offer or add custom ones using the text field below.
+                </p>
+
+                {/* Prepopulated Checklist */}
+                {(() => {
+                  const categorySlug = orders?.[0]?.campaignSpot?.category?.slug || "general"
+                  const categoryServices = PREPOPULATED_SERVICES[categorySlug] || GENERAL_SERVICES
+                  return (
+                    <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded border border-border">
+                      {categoryServices.map((serviceName) => {
+                        const isChecked = services.includes(serviceName)
+                        return (
+                          <label key={serviceName} className="flex items-center gap-2 text-xs text-press select-none cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              className="rounded border-border text-primary focus:ring-primary h-4 w-4"
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setServices([...services, serviceName])
+                                } else {
+                                  setServices(services.filter((s) => s !== serviceName))
+                                }
+                              }}
+                            />
+                            <span>{serviceName}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  )
+                })()}
+
+                {/* Custom plain text input */}
+                <div className="flex gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Add a custom service..."
+                    value={customService}
+                    onChange={(e) => setCustomService(e.target.value)}
+                    className="flex-1 text-xs"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        const trimmed = customService.trim()
+                        if (trimmed && !services.includes(trimmed)) {
+                          setServices([...services, trimmed])
+                          setCustomService("")
+                        }
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      const trimmed = customService.trim()
+                      if (trimmed && !services.includes(trimmed)) {
+                        setServices([...services, trimmed])
+                        setCustomService("")
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+
+                {/* Display selected services as badges */}
+                {services.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mt-2">
+                    {services.map((s) => (
+                      <span key={s} className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 text-[11px] font-mono px-2 py-0.5 rounded border border-slate-200">
+                        {s}
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700 font-bold ml-1 text-sm font-sans"
+                          onClick={() => setServices(services.filter((item) => item !== s))}
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
             </div>
 
             {/* Right Column: Branding & Location */}
@@ -365,6 +591,71 @@ export default function BusinessProfilePage() {
                     onChange={(e) => setZipCode(e.target.value)}
                   />
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 mt-2 text-left">
+                <div>
+                  <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                    Established Year
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. 2016"
+                    value={establishedYear}
+                    onChange={(e) => setEstablishedYear(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                    License Number
+                  </label>
+                  <Input
+                    type="text"
+                    placeholder="e.g. M-42678"
+                    value={licenseNumber}
+                    onChange={(e) => setLicenseNumber(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-border pb-1 pt-2">
+                Social Media Links
+              </h3>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                  Facebook Page URL
+                </label>
+                <Input
+                  type="url"
+                  placeholder="https://facebook.com/..."
+                  value={facebook}
+                  onChange={(e) => setFacebook(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                  Instagram Profile URL
+                </label>
+                <Input
+                  type="url"
+                  placeholder="https://instagram.com/..."
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
+                  Twitter / X Profile URL
+                </label>
+                <Input
+                  type="url"
+                  placeholder="https://x.com/..."
+                  value={twitter}
+                  onChange={(e) => setTwitter(e.target.value)}
+                />
               </div>
 
             </div>

@@ -5,12 +5,23 @@ export async function middleware(request: NextRequest) {
   let { response, user } = await updateSession(request)
   const { pathname } = request.nextUrl
 
-  // Dev admin bypass
-  if (process.env.NODE_ENV !== 'production' && request.cookies.get('mock_admin')?.value === 'true') {
-    user = {
-      id: '6a43af92-16fe-4873-9f64-1dd278d794c2',
-      email: 'admin@localspotmailers.com',
-    } as any
+  // Dev admin and merchant mock bypass
+  if (process.env.NODE_ENV !== 'production') {
+    if (request.cookies.get('mock_admin')?.value === 'true') {
+      user = {
+        id: '6a43af92-16fe-4873-9f64-1dd278d794c2',
+        email: 'admin@localspotmailers.com',
+      } as any
+    } else {
+      const mockEmail = request.cookies.get('mock_user_email')?.value
+      const mockId = request.cookies.get('mock_user_id')?.value
+      if (mockEmail && mockId) {
+        user = {
+          id: mockId,
+          email: mockEmail,
+        } as any
+      }
+    }
   }
 
   // Protect /admin/* routes — redirect unauthenticated users to login

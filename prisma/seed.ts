@@ -331,10 +331,12 @@ async function main() {
 
   const adminUser = await prisma.adminUser.upsert({
     where: { email: adminEmail },
-    update: {},
+    update: {
+      supabaseUserId: "6a43af92-16fe-4873-9f64-1dd278d794c2",
+    },
     create: {
       email: adminEmail,
-      supabaseUserId: "seed-placeholder-supabase-id",
+      supabaseUserId: "6a43af92-16fe-4873-9f64-1dd278d794c2",
       role: "SUPER_ADMIN",
     },
   });

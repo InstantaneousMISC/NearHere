@@ -22,7 +22,7 @@ interface CampaignDetailPageProps {
 
 export default function CampaignDetailPage({ params }: CampaignDetailPageProps) {
   const { id } = use(params)
-  const [activeTab, setActiveTab] = useState<"overview" | "spots" | "orders" | "creative" | "offers">("overview")
+  const [activeTab, setActiveTab] = useState<"overview" | "spots" | "orders" | "creative" | "offers" | "qr">("overview")
   const [editingSpot, setEditingSpot] = useState<any | null>(null)
   const [isAddingSpot, setIsAddingSpot] = useState(false)
   const [bookingSpot, setBookingSpot] = useState<any | null>(null)
@@ -214,7 +214,7 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
 
       {/* Tabs Menu */}
       <div className="flex border-b border-border select-none">
-        {(["overview", "spots", "orders", "creative", "offers"] as const).map((tab) => (
+        {(["overview", "spots", "orders", "creative", "offers", "qr"] as const).map((tab) => (
           <button
             key={tab}
             type="button"
@@ -230,7 +230,7 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                 : "border-transparent text-warm hover:text-press"
             }`}
           >
-            {tab}
+            {tab === "qr" ? "QR & Tracking" : tab}
           </button>
         ))}
       </div>
@@ -269,7 +269,11 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                 <div>
                   <span className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider">Card Size Format</span>
                   <span className="font-headline font-bold text-lg text-press mt-1 block uppercase">
-                    {campaign.cardSize === "6x11" ? "6x11 Community Card" : "9x12 Shared Card"}
+                    {campaign.cardSize === "6x11"
+                      ? "6x11 Community Card"
+                      : campaign.cardSize === "9x12-16-regular"
+                        ? "9×12 – 16 Regular Placements"
+                        : "9x12 Shared Card"}
                   </span>
                 </div>
                 <div>
@@ -333,6 +337,23 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
                             <td className="py-2 px-4 font-mono">$250</td>
                             <td className="py-2 px-4 text-right font-mono font-bold">
                               {((250 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                        </>
+                      ) : campaign.cardSize === "9x12-16-regular" ? (
+                        <>
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Regular Placement (Front/Back)</td>
+                            <td className="py-2 px-4 font-mono">$590</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
+                              {((590 * 100) / campaign.mailingQuantity).toFixed(1)}¢
+                            </td>
+                          </tr>
+                          <tr className="hover:bg-press/5">
+                            <td className="py-2 px-4 font-bold">Double Placement (Front/Back)</td>
+                            <td className="py-2 px-4 font-mono">$1,090</td>
+                            <td className="py-2 px-4 text-right font-mono font-bold">
+                              {((1090 * 100) / campaign.mailingQuantity).toFixed(1)}¢
                             </td>
                           </tr>
                         </>
@@ -790,6 +811,102 @@ export default function CampaignDetailPage({ params }: CampaignDetailPageProps) 
         {/* Offers Tab */}
         {activeTab === "offers" && (
           <CampaignOffersPanel campaignId={campaign.id} />
+        )}
+
+        {/* QR & Tracking Tab */}
+        {activeTab === "qr" && (
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead className="px-6 py-4">Placement / Category</TableHead>
+                  <TableHead className="px-6 py-4">QR Slug</TableHead>
+                  <TableHead className="px-6 py-4">Creative Status</TableHead>
+                  <TableHead className="px-6 py-4 text-center">Scans</TableHead>
+                  <TableHead className="px-6 py-4 text-center">Views</TableHead>
+                  <TableHead className="px-6 py-4 text-center">Clicks</TableHead>
+                  <TableHead className="px-6 py-4 text-center">Call Clicks</TableHead>
+                  <TableHead className="px-6 py-4 text-right">Last Scan Date</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {campaign.spots.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={8} className="py-10 text-center text-warm italic">
+                      No placements configured yet.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  campaign.spots.map((spot) => {
+                    const qrCode = (spot as any).qrCodes?.[0]
+                    const spotOrder = campaign.orders.find(
+                      (o) => o.campaignSpotId === spot.id && o.status === "PAID"
+                    )
+                    const creativeStatus = spotOrder?.creativeSubmission?.approvalStatus || "NOT_STARTED"
+
+                    return (
+                      <TableRow key={spot.id}>
+                        <TableCell className="px-6 py-4 font-bold text-press text-left">
+                          <div className="space-y-0.5">
+                            <div className="font-headline font-black text-sm uppercase tracking-tight">
+                              {spot.label}
+                            </div>
+                            <span className="text-[10px] text-warm font-mono font-bold uppercase tracking-wider block">
+                              {spot.category.name}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-left">
+                          {qrCode ? (
+                            <Link
+                              href={`/q/${qrCode.slug}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-mono text-xs font-bold text-primary hover:underline"
+                            >
+                              {qrCode.slug}
+                            </Link>
+                          ) : (
+                            <span className="text-xs text-warm italic">N/A</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-left">
+                          <Badge
+                            variant={
+                              creativeStatus === "APPROVED"
+                                ? "success"
+                                : creativeStatus === "NEEDS_REVIEW"
+                                ? "warning"
+                                : creativeStatus === "PENDING"
+                                ? "secondary"
+                                : "outline"
+                            }
+                          >
+                            {creativeStatus}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-center font-mono font-bold text-xs">
+                          {qrCode?.scansCount || 0}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-center font-mono font-bold text-xs">
+                          {qrCode?.viewsCount || 0}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-center font-mono font-bold text-xs">
+                          {qrCode?.clicksCount || 0}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-center font-mono font-bold text-xs">
+                          {qrCode?.callClicksCount || 0}
+                        </TableCell>
+                        <TableCell className="px-6 py-4 text-right font-mono text-xs text-warm">
+                          {qrCode?.lastScanDate ? formatDate(new Date(qrCode.lastScanDate)) : "—"}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </Card>
         )}
       </div>
     </div>

@@ -47,7 +47,7 @@ export function getCreativeSubmissionReceivedTemplate(params: {
             <div class="details-row"><span>Category:</span><span>${categoryName}</span></div>
           </div>
 
-          <p>Our design team is reviewing your details to assemble the card layout. If we need any modifications or higher-resolution files, we will reach out directly. Otherwise, you can check the status or edit your details using the button below:</p>
+          <p>Our design team is reviewing your details to assemble the card layout, and we are also working on your NearHere business profile and backlinks. If we need any modifications or higher-resolution files, we will reach out directly. Otherwise, you can check the status or edit your details using the button below:</p>
           
           <div style="text-align: center;">
             <a href="${creativeSubmissionUrl}" class="cta-button">View/Edit Submission</a>

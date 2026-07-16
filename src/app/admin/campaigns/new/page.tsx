@@ -22,7 +22,7 @@ export default function NewCampaignPage() {
   const [estimatedMailDate, setEstimatedMailDate] = useState("")
   const [frontBackgroundUrl, setFrontBackgroundUrl] = useState("")
   const [backBackgroundUrl, setBackBackgroundUrl] = useState("")
-  const [cardSize, setCardSize] = useState<"9x12" | "6x11">("9x12")
+  const [cardSize, setCardSize] = useState<"9x12" | "6x11" | "9x12-16-regular">("9x12")
   const [cardSkin, setCardSkin] = useState("cream")
 
   const [error, setError] = useState<string | null>(null)
@@ -148,11 +148,12 @@ export default function NewCampaignPage() {
                 id="cardSize"
                 disabled={loading}
                 value={cardSize}
-                onChange={e => setCardSize(e.target.value as "9x12" | "6x11")}
+                onChange={e => setCardSize(e.target.value as any)}
                 className="w-full rounded-none border border-input bg-card text-press h-10 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-ring transition-colors cursor-pointer"
               >
                 <option value="9x12">9x12 NearHere Shared Card (Premium Grid, 21 paid placements)</option>
                 <option value="6x11">6x11 Community Card (Style B: Spotlight Rail, 12 slots)</option>
+                <option value="9x12-16-regular">9×12 – 16 Regular Placements (Eight equal placements on each side)</option>
               </select>
               <span className="text-[10px] text-warm font-medium block">
                 Determines the layout structure, dimensions, and default spots initialized for the campaign.
@@ -300,6 +301,9 @@ export default function NewCampaignPage() {
                 onChange={e => setFrontBackgroundUrl(e.target.value)}
                 placeholder="https://example.com/front-bg.jpg"
               />
+              <span className="text-[10px] text-warm font-medium block">
+                Optional. If left blank, defaults to standard background patterns matching the selected skin theme.
+              </span>
             </div>
 
             {/* Back Background URL */}
@@ -315,6 +319,9 @@ export default function NewCampaignPage() {
                 onChange={e => setBackBackgroundUrl(e.target.value)}
                 placeholder="https://example.com/back-bg.jpg"
               />
+              <span className="text-[10px] text-warm font-medium block">
+                Optional. If left blank, defaults to standard background patterns matching the selected skin theme.
+              </span>
             </div>
           </div>
 

@@ -39,9 +39,9 @@ export default async function CheckoutPage({
   const campaign = await db.campaign.findUnique({
     where: {
       state_city_slug: {
-        state: state.toLowerCase(),
-        city: city.toLowerCase(),
-        slug: slug.toLowerCase(),
+        state: decodeURIComponent(state).toLowerCase(),
+        city: decodeURIComponent(city).toLowerCase(),
+        slug: decodeURIComponent(slug).toLowerCase(),
       },
     },
   })

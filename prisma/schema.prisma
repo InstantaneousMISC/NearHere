@@ -328,12 +328,12 @@ enum QrCodeType {
 }
 
 model Business {
-  id              String         @id @default(cuid())
+  id              String            @id @default(cuid())
   advertiserId    String?
   ownerUserId      String?
   name            String
-  slug            String         @unique
-  description     String?        @db.Text
+  slug            String            @unique
+  description     String?           @db.Text
   phone           String?
   email           String?
   website         String?
@@ -347,38 +347,88 @@ model Business {
   hours            String?
   preferredCta     String?
   socialLinks      Json?
-  status          BusinessStatus @default(DRAFT)
-  createdAt       DateTime       @default(now())
-  updatedAt       DateTime       @updatedAt
+  status          BusinessStatus    @default(DRAFT)
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
   claimToken          String?        @unique
   claimTokenExpiresAt DateTime?
   claimedAt           DateTime?
+  isDirectoryVisible  Boolean           @default(false)
+  deletedAt           DateTime?
+  goodStanding        Boolean           @default(true)
+  services            Json?
+  establishedYear     String?
+  licenseNumber       String?
 
 
-  advertiser      Advertiser?    @relation(fields: [advertiserId], references: [id])
+  advertiser      Advertiser?       @relation(fields: [advertiserId], references: [id])
   links           BusinessLink[]
   qrCodes         QrCode[]
   pageViews       BusinessPageView[]
   clickEvents     BusinessClickEvent[]
+  directoryProfile DirectoryProfile?
+  profileChangeRequests BusinessProfileChangeRequest[]
 
   @@index([advertiserId])
   @@index([ownerUserId])
 }
 
-model BusinessLink {
-  id          String           @id @default(cuid())
-  businessId  String
-  type        BusinessLinkType
-  label       String
-  url         String
-  sortOrder   Int              @default(0)
-  isActive    Boolean          @default(true)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+model BusinessProfileChangeRequest {
+  id              String         @id @default(cuid())
+  businessId      String
+  name            String
+  description     String?        @db.Text
+  phone           String?
+  email           String?
+  website         String?
+  logoUrl         String?
+  coverImageUrl   String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  serviceArea     String?
+  hours           String?
+  preferredCta    String?
+  socialLinks     Json?
+  services        Json?
+  establishedYear String?
+  licenseNumber   String?
+  
+  // Change tracking & audit metadata
+  submittedBy     String?        // email or user ID of the submitter
+  snapshotBefore  Json?          // full snapshot of the Business record before edits
+  requestedChanges Json?         // subset of changed fields
+  
+  status          ApprovalStatus @default(PENDING) // PENDING, APPROVED, REJECTED
+  rejectionReason String?        @db.Text
+  submittedAt     DateTime       @default(now())
+  reviewedAt      DateTime?
+  reviewedBy      String?        // admin user email
 
-  business    Business         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  business        Business       @relation(fields: [businessId], references: [id], onDelete: Cascade)
 
   @@index([businessId])
+  @@index([status])
+}
+
+model BusinessLink {
+  id                 String            @id @default(cuid())
+  businessId         String?
+  directoryProfileId String?
+  type               BusinessLinkType
+  label              String
+  url                String
+  sortOrder          Int               @default(0)
+  isActive           Boolean           @default(true)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  business           Business?         @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  directoryProfile   DirectoryProfile? @relation(fields: [directoryProfileId], references: [id], onDelete: Cascade)
+
+  @@index([businessId])
+  @@index([directoryProfileId])
 }
 
 model QrCode {
@@ -568,4 +618,140 @@ model CampaignInquiry {
   @@index([campaignId])
   @@index([assignedToAdminId])
   @@index([status])
+}
+
+// ─── Directory & SEO Models ──────────────────────────────────────────────────
+
+enum DirectoryStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum IndexControl {
+  INDEX
+  NOINDEX
+}
+
+model State {
+  id              String          @id @default(cuid())
+  name            String
+  slug            String          @unique // e.g. "tx", "ca"
+  status          DirectoryStatus @default(DRAFT)
+  isIndexed       IndexControl    @default(INDEX)
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  cities          City[]
+}
+
+model City {
+  id              String          @id @default(cuid())
+  name            String
+  slug            String          // e.g. "converse", "san-antonio"
+  stateId         String
+  status          DirectoryStatus @default(DRAFT)
+  isIndexed       IndexControl    @default(INDEX)
+  metaTitle       String?
+  metaDescription String?
+  introCopy       String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  state           State           @relation(fields: [stateId], references: [id], onDelete: Cascade)
+  locations       BusinessLocation[]
+
+  @@unique([stateId, slug])
+}
+
+model DirectoryCategory {
+  id              String          @id @default(cuid())
+  name            String
+  slug            String          @unique // e.g. "plumbing", "dentists"
+  description     String?         @db.Text
+  status          DirectoryStatus @default(DRAFT)
+  isIndexed       IndexControl    @default(INDEX)
+  metaTitle       String?
+  metaDescription String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  businesses      BusinessDirectoryCategory[]
+}
+
+model DirectoryProfile {
+  id              String          @id @default(cuid())
+  businessId      String?         @unique // 1:1 link to Business (optional)
+  name            String
+  slug            String          @unique
+  description     String?         @db.Text
+  phone           String?
+  email           String?
+  website         String?
+  logoUrl         String?
+  coverImageUrl   String?
+  address         String?
+  serviceArea     String?
+  hours           String?
+  preferredCta    String?
+  socialLinks     Json?
+  services        Json?
+  establishedYear String?
+  licenseNumber   String?
+  status          DirectoryStatus @default(DRAFT)
+  isIndexed       IndexControl    @default(INDEX)
+  metaTitle       String?
+  metaDescription String?
+  introCopy       String?         @db.Text
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  business        Business?       @relation(fields: [businessId], references: [id], onDelete: SetNull)
+  locations       BusinessLocation[]
+  categories      BusinessDirectoryCategory[]
+  links           BusinessLink[]
+}
+
+model BusinessLocation {
+  id                 String          @id @default(cuid())
+  directoryProfileId String
+  cityId             String
+  address            String?
+  phone              String?
+  hours              String?
+  status             DirectoryStatus @default(DRAFT)
+  isIndexed          IndexControl    @default(INDEX)
+  createdAt          DateTime        @default(now())
+  updatedAt          DateTime        @updatedAt
+
+  directoryProfile   DirectoryProfile @relation(fields: [directoryProfileId], references: [id], onDelete: Cascade)
+  city               City             @relation(fields: [cityId], references: [id], onDelete: Cascade)
+
+  @@index([directoryProfileId])
+  @@index([cityId])
+}
+
+model BusinessDirectoryCategory {
+  directoryProfileId  String
+  directoryCategoryId String
+  createdAt           DateTime @default(now())
+
+  directoryProfile    DirectoryProfile  @relation(fields: [directoryProfileId], references: [id], onDelete: Cascade)
+  directoryCategory   DirectoryCategory @relation(fields: [directoryCategoryId], references: [id], onDelete: Cascade)
+
+  @@id([directoryProfileId, directoryCategoryId])
+  @@index([directoryProfileId])
+  @@index([directoryCategoryId])
+}
+
+model AdminNotification {
+  id        String   @id @default(cuid())
+  type      String   // e.g. "NEW_BUSINESS", "INVOICE_PAID", "PENDING_ORDER", "NEW_INQUIRY", "CREATIVE_SUBMISSION", "PROFILE_CHANGE_REQUEST"
+  title     String
+  message   String
+  link      String?  // Admin dashboard URL path, e.g., "/admin/orders/[id]"
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

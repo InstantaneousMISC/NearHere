@@ -19,7 +19,7 @@ export async function sendEmail(options: EmailOptions): Promise<SendEmailResult>
     subject,
     html,
     idempotencyKey,
-    from = "LocalSpot Mailers <noreply@localspotmailers.com>",
+    from = process.env.RESEND_FROM_EMAIL || "LocalSpot Mailers <noreply@localspotmailers.com>",
   } = options
   
   if (!process.env.RESEND_API_KEY || process.env.RESEND_API_KEY === "re_...") {

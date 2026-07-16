@@ -20,6 +20,23 @@ interface SpotSummaryProps {
   promotedBy?: string
 }
 
+const formatSpotLabel = (label: string): string => {
+  if (label.includes("_DOUBLE_")) {
+    const match = label.match(/^(FRONT|BACK)_DOUBLE_(\d+)_(\d+)$/)
+    if (match) {
+      const side = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase()
+      return `${side} Double Space (Placements ${match[2]} & ${match[3]})`
+    }
+  } else {
+    const match = label.match(/^(FRONT|BACK)_(\d+)$/)
+    if (match) {
+      const side = match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase()
+      return `${side} Regular Space (Placement ${match[2]})`
+    }
+  }
+  return label
+}
+
 export default function SpotSummary({
   campaignName,
   mailingQuantity,
@@ -40,7 +57,7 @@ export default function SpotSummary({
           Selected Campaign Placement
         </h3>
         <p className="mt-1 text-2xl font-extrabold uppercase tracking-tight text-foreground">
-          {spot.label}
+          {formatSpotLabel(spot.label)}
         </p>
       </div>
 

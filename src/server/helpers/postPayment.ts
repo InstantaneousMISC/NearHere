@@ -20,7 +20,8 @@ export async function ensureBusinessForOrder(orderId: string) {
     include: { advertiser: true },
   })
 
-  return db.$transaction(async (tx) => {
+  let isNew = false
+  const business = await db.$transaction(async (tx) => {
     await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${order.advertiserId}))`
 
     const existing = await tx.business.findFirst({
@@ -58,6 +59,7 @@ export async function ensureBusinessForOrder(orderId: string) {
     const claimTokenExpiresAt = new Date()
     claimTokenExpiresAt.setDate(claimTokenExpiresAt.getDate() + 14)
 
+    isNew = true
     return tx.business.create({
       data: {
         advertiserId: order.advertiserId,
@@ -73,6 +75,22 @@ export async function ensureBusinessForOrder(orderId: string) {
       },
     })
   })
+
+  if (isNew) {
+    try {
+      const { createAdminNotification } = await import("@/server/helpers/notifications")
+      await createAdminNotification({
+        type: "NEW_BUSINESS",
+        title: "New Business Created",
+        message: `Business profile created for ${business.name} (Slug: ${business.slug})`,
+        link: `/admin/businesses/${business.id}`,
+      })
+    } catch (err) {
+      console.error("[NOTIFICATION ERROR] Failed to trigger business notification:", err)
+    }
+  }
+
+  return business
 }
 
 export async function ensureQrForOrder(orderId: string) {

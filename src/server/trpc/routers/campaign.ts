@@ -38,7 +38,46 @@ export const campaignRouter = createTRPCRouter({
           },
         },
       })
-      return campaign
+
+      if (!campaign) return null
+
+      // Sanitize campaign spots and orders to prevent token leakage in the public API response DTO
+      const sanitizedSpots = campaign.spots.map(spot => ({
+        ...spot,
+        orders: spot.orders.map(order => ({
+          id: order.id,
+          campaignId: order.campaignId,
+          campaignSpotId: order.campaignSpotId,
+          advertiserId: order.advertiserId,
+          status: order.status,
+          amount: order.amount,
+          paidAt: order.paidAt,
+          createdAt: order.createdAt,
+          creativeSubmission: order.creativeSubmission ? {
+            id: order.creativeSubmission.id,
+            orderId: order.creativeSubmission.orderId,
+            businessName: order.creativeSubmission.businessName,
+            logoUrl: order.creativeSubmission.logoUrl,
+            headline: order.creativeSubmission.headline,
+            offerDeal: order.creativeSubmission.offerDeal,
+            description: order.creativeSubmission.description,
+            cta: order.creativeSubmission.cta,
+            approvalStatus: order.creativeSubmission.approvalStatus,
+          } : null,
+          qrCodes: order.qrCodes.map(qr => ({
+            id: qr.id,
+            slug: qr.slug,
+            type: qr.type,
+            status: qr.status,
+            destinationPath: qr.destinationPath,
+          })),
+        }))
+      }))
+
+      return {
+        ...campaign,
+        spots: sanitizedSpots,
+      }
     }),
 
   searchByZip: publicProcedure
@@ -76,6 +115,18 @@ export const campaignRouter = createTRPCRouter({
             orderBy: { sortOrder: "asc" },
             include: {
               category: true,
+              qrCodes: {
+                include: {
+                  _count: {
+                    select: { scans: true }
+                  },
+                  scans: {
+                    orderBy: { scannedAt: "desc" },
+                    take: 1,
+                    select: { scannedAt: true }
+                  }
+                }
+              }
             },
           },
           orders: {
@@ -88,7 +139,70 @@ export const campaignRouter = createTRPCRouter({
           },
         },
       })
-      return campaign
+
+      if (!campaign) return null
+
+      // Get list of QR code IDs in this campaign
+      const qrCodeIds = campaign.spots.flatMap(s => s.qrCodes.map(q => q.id))
+
+      // Group views and clicks by qrCodeId
+      const viewsGroup = await ctx.db.businessPageView.groupBy({
+        by: ["qrCodeId"],
+        where: { qrCodeId: { in: qrCodeIds } },
+        _count: { id: true },
+      })
+
+      const clicksGroup = await ctx.db.businessClickEvent.groupBy({
+        by: ["qrCodeId", "linkType"],
+        where: { qrCodeId: { in: qrCodeIds } },
+        _count: { id: true },
+      })
+
+      // Create maps for quick lookup
+      const viewsMap = new Map(viewsGroup.filter(g => g.qrCodeId !== null).map(g => [g.qrCodeId as string, g._count.id]))
+      
+      const clicksMap = new Map<string, number>()
+      const callClicksMap = new Map<string, number>()
+
+      for (const cg of clicksGroup) {
+        if (!cg.qrCodeId) continue
+        const count = cg._count.id
+        if (cg.linkType === "PHONE") {
+          callClicksMap.set(cg.qrCodeId, (callClicksMap.get(cg.qrCodeId) || 0) + count)
+        } else {
+          clicksMap.set(cg.qrCodeId, (clicksMap.get(cg.qrCodeId) || 0) + count)
+        }
+      }
+
+      // Enrich campaign.spots with calculated analytics
+      const spotsWithAnalytics = campaign.spots.map(spot => {
+        const enrichedQrCodes = spot.qrCodes.map(qr => {
+          const scansCount = qr._count.scans
+          const viewsCount = viewsMap.get(qr.id) || 0
+          const clicksCount = clicksMap.get(qr.id) || 0
+          const callClicksCount = callClicksMap.get(qr.id) || 0
+          const lastScanDate = qr.scans[0]?.scannedAt || null
+
+          return {
+            ...qr,
+            scansCount,
+            viewsCount,
+            clicksCount,
+            callClicksCount,
+            lastScanDate,
+          }
+        })
+
+        return {
+          ...spot,
+          qrCodes: enrichedQrCodes,
+        }
+      })
+
+      return {
+        ...campaign,
+        spots: spotsWithAnalytics,
+      }
     }),
 
   create: adminProcedure
@@ -105,7 +219,7 @@ export const campaignRouter = createTRPCRouter({
         estimatedMailDate: z.date().optional(),
         frontBackgroundUrl: z.string().url().optional().or(z.literal("")),
         backBackgroundUrl: z.string().url().optional().or(z.literal("")),
-        cardSize: z.enum(["9x12", "6x11"]).default("9x12"),
+        cardSize: z.enum(["9x12", "6x11", "9x12-16-regular"]).default("9x12"),
         cardSkin: z.string().default("cream"),
       })
     )
@@ -154,7 +268,7 @@ export const campaignRouter = createTRPCRouter({
         estimatedMailDate: z.date().optional(),
         frontBackgroundUrl: z.string().url().optional().or(z.literal("")),
         backBackgroundUrl: z.string().url().optional().or(z.literal("")),
-        cardSize: z.enum(["9x12", "6x11"]).optional(),
+        cardSize: z.enum(["9x12", "6x11", "9x12-16-regular"]).optional(),
         cardSkin: z.string().optional(),
       })
     )

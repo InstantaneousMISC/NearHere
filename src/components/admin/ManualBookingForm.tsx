@@ -45,6 +45,11 @@ export default function ManualBookingForm({
   const [exclusivityConflict, setExclusivityConflict] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
+  // Booking Type & Invoice Generation
+  const [bookingType, setBookingType] = useState<"manual" | "invoice">("manual")
+  const [generatedInvoiceLink, setGeneratedInvoiceLink] = useState<string | null>(null)
+  const [copiedInvoice, setCopiedInvoice] = useState(false)
+
   // TRPC Queries & Mutations
   const { data: categories } = trpc.category.list.useQuery()
   
@@ -55,6 +60,15 @@ export default function ManualBookingForm({
   )
 
   const bookMutation = trpc.order.bookManually.useMutation()
+  const invoiceMutation = trpc.order.createInvoice.useMutation()
+
+  const handleCopyInvoiceLink = () => {
+    if (generatedInvoiceLink && typeof window !== "undefined") {
+      navigator.clipboard.writeText(generatedInvoiceLink)
+      setCopiedInvoice(true)
+      setTimeout(() => setCopiedInvoice(false), 2000)
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const handleSelectAdvertiser = (adv: any) => {
@@ -93,22 +107,39 @@ export default function ManualBookingForm({
     }
 
     try {
-      await bookMutation.mutateAsync({
-        spotId: spot.id,
-        categoryId,
-        advertiserId: selectedAdvertiser?.id,
-        businessName,
-        contactName,
-        email,
-        phone,
-        website: website || undefined,
-        businessAddress: businessAddress || undefined,
-        amount: parsedPrice,
-        overrideExclusivity,
-        notes: notes || undefined,
-      })
-
-      onSaveSuccess?.()
+      if (bookingType === "invoice") {
+        const result = await invoiceMutation.mutateAsync({
+          spotId: spot.id,
+          categoryId,
+          advertiserId: selectedAdvertiser?.id,
+          businessName,
+          contactName,
+          email,
+          phone,
+          website: website || undefined,
+          businessAddress: businessAddress || undefined,
+          amount: parsedPrice,
+          overrideExclusivity,
+          notes: notes || undefined,
+        })
+        setGeneratedInvoiceLink(result.paymentLink)
+      } else {
+        await bookMutation.mutateAsync({
+          spotId: spot.id,
+          categoryId,
+          advertiserId: selectedAdvertiser?.id,
+          businessName,
+          contactName,
+          email,
+          phone,
+          website: website || undefined,
+          businessAddress: businessAddress || undefined,
+          amount: parsedPrice,
+          overrideExclusivity,
+          notes: notes || undefined,
+        })
+        onSaveSuccess?.()
+      }
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
     } catch (err: any) {
       console.error("[MANUAL BOOKING FORM ERROR]:", err)
@@ -122,6 +153,50 @@ export default function ManualBookingForm({
     }
   }
 
+  if (generatedInvoiceLink) {
+    return (
+      <div className="space-y-6 text-center py-6">
+        <div className="inline-flex items-center justify-center w-14 h-14 bg-emerald-50 border border-emerald-200 text-emerald-600 rounded-none text-2xl font-bold">
+          ✓
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-xl font-extrabold text-slate-900 tracking-tight">
+            Invoice Generated Successfully
+          </h3>
+          <p className="text-sm text-slate-500 max-w-md mx-auto leading-relaxed">
+            The spot is now on hold for 24 hours. Copy the payment link below to send to the merchant, or they can check their email.
+          </p>
+        </div>
+
+        <div className="bg-[#FAF8F4] border border-[#E7E0D8] p-5 max-w-md mx-auto space-y-3 rounded-none">
+          <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-widest text-left">
+            Invoice Payment Link
+          </label>
+          <div className="flex items-center gap-2 bg-white border border-[#E7E0D8] p-1.5 rounded-none">
+            <span className="font-mono text-press text-xs truncate flex-1 pl-2 select-all font-semibold text-left">
+              {generatedInvoiceLink}
+            </span>
+            <button
+              onClick={handleCopyInvoiceLink}
+              className="bg-[#211D1C] hover:bg-[#3D3533] text-[#FAF8F4] px-3 py-1.5 rounded-none text-xs font-bold transition-colors shrink-0 cursor-pointer"
+            >
+              {copiedInvoice ? "Copied!" : "Copy"}
+            </button>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t border-border max-w-md mx-auto">
+          <button
+            onClick={() => onSaveSuccess?.()}
+            className="w-full inline-flex items-center justify-center rounded-none bg-[#211D1C] hover:bg-[#3D3533] text-[#FAF8F4] font-bold text-sm px-6 py-3 shadow transition-colors cursor-pointer"
+          >
+            Close & Refresh
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="border-b border-slate-100 pb-4">
@@ -129,8 +204,42 @@ export default function ManualBookingForm({
           Reserve Placement: {spot.label}
         </h3>
         <p className="text-sm text-slate-500 mt-1">
-          Manually secure this spot for a business. A paid order and business profile will be generated.
+          {bookingType === "invoice"
+            ? "Generate a 24-hour hold invoice. The advertiser will receive an email payment link."
+            : "Manually secure this spot for a business. A paid order and business profile will be generated."}
         </p>
+      </div>
+
+      {/* Reservation Type Toggle */}
+      <div className="flex bg-slate-100 p-1 rounded-xl border border-slate-200">
+        <button
+          type="button"
+          onClick={() => {
+            setBookingType("manual")
+            setExclusivityConflict(null)
+          }}
+          className={`flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            bookingType === "manual"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-900"
+          }`}
+        >
+          Book Immediately (Paid)
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setBookingType("invoice")
+            setExclusivityConflict(null)
+          }}
+          className={`flex-1 text-center py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            bookingType === "invoice"
+              ? "bg-white text-slate-900 shadow-sm"
+              : "text-slate-500 hover:text-slate-900"
+          }`}
+        >
+          Generate Invoice (24h Hold)
+        </button>
       </div>
 
       {error && (
@@ -406,15 +515,19 @@ export default function ManualBookingForm({
           <button
             type="submit"
             disabled={loading}
-            className="flex-1 inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-3 shadow transition-colors"
+            className="flex-1 inline-flex items-center justify-center rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-6 py-3 shadow transition-colors cursor-pointer"
           >
-            {loading ? "Processing Reservation..." : "Confirm & Secure Spot"}
+            {loading
+              ? "Processing..."
+              : bookingType === "invoice"
+              ? "Generate & Send Invoice"
+              : "Confirm & Secure Spot"}
           </button>
           <button
             type="button"
             disabled={loading}
             onClick={onCancel}
-            className="flex-1 inline-flex items-center justify-center rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm px-6 py-3 transition-colors"
+            className="flex-1 inline-flex items-center justify-center rounded-xl bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-sm px-6 py-3 transition-colors cursor-pointer"
           >
             Cancel
           </button>

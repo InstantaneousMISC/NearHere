@@ -1,4 +1,5 @@
 import React from "react"
+import { SpineDivider } from "./SpineDivider"
 import QRCodeImage from "./QRCodeImage"
 import {
   SharedCard9x12Ad,
@@ -245,7 +246,7 @@ function CenterSpine({
         {homesCount}
       </div>
 
-      <div className="mt-[23px] border-y border-[#FAF8F4]/25 py-[16px]">
+      <SpineDivider className="mt-[23px] py-[16px]">
         <h2
           className="whitespace-pre-line text-[25px] font-black uppercase leading-[0.88] tracking-[-0.035em]"
           style={{
@@ -258,7 +259,7 @@ function CenterSpine({
         <p className="mt-[12px] text-[10px] font-bold uppercase leading-[1.15] tracking-[0.06em] text-[#D13F1F]">
           {brandMessage}
         </p>
-      </div>
+      </SpineDivider>
 
       <div className="mt-[20px] w-full border border-[#C9993E] bg-[#FAF8F4] px-[10px] py-[13px] text-[#211D1C]">
         <div

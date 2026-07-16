@@ -29,6 +29,7 @@ export async function GET(
     (qrCode.expiresAt !== null && qrCode.expiresAt < now)
 
   const isDisabled = qrCode.status === "DISABLED"
+  const isBusinessInactive = !qrCode.business || qrCode.business.deletedAt !== null || !qrCode.business.goodStanding
 
   // Extract Request Metadata
   const userAgent = request.headers.get("user-agent") || null
@@ -70,7 +71,7 @@ export async function GET(
           country,
           region,
           city,
-          isExpiredScan: isExpired || isDisabled,
+          isExpiredScan: isExpired || isDisabled || isBusinessInactive,
         },
       })
     } catch (err) {
@@ -78,8 +79,8 @@ export async function GET(
     }
   }
 
-  // If QR code is explicitly disabled, return a clean styled fallback page
-  if (isDisabled) {
+  // If QR code is explicitly disabled or the business is suspended/deleted, return a clean styled fallback page
+  if (isDisabled || isBusinessInactive) {
     return new NextResponse(
       `<!DOCTYPE html>
       <html>

@@ -114,14 +114,46 @@ async function transitionOrderToRefunded(
     })
 
     // Release the Campaign Spot
-    await tx.campaignSpot.update({
-      where: { id: order.campaignSpotId },
-      data: {
-        status: SpotStatus.OPEN,
-        heldUntil: null,
-        heldBySessionId: null,
-      },
-    })
+    if (order.campaignSpot.label.includes("_DOUBLE_")) {
+      await tx.campaignSpot.update({
+        where: { id: order.campaignSpotId },
+        data: {
+          status: SpotStatus.UNAVAILABLE,
+          heldUntil: null,
+          heldBySessionId: null,
+        },
+      })
+
+      const match = order.campaignSpot.label.match(/^(FRONT|BACK)_DOUBLE_(\d+)_(\d+)$/)
+      if (match) {
+        const side = match[1]
+        const u1 = match[2]
+        const u2 = match[3]
+        const label1 = `${side}_${u1}`
+        const label2 = `${side}_${u2}`
+
+        await tx.campaignSpot.updateMany({
+          where: {
+            campaignId: order.campaignId,
+            label: { in: [label1, label2] },
+          },
+          data: {
+            status: SpotStatus.OPEN,
+            heldUntil: null,
+            heldBySessionId: null,
+          },
+        })
+      }
+    } else {
+      await tx.campaignSpot.update({
+        where: { id: order.campaignSpotId },
+        data: {
+          status: SpotStatus.OPEN,
+          heldUntil: null,
+          heldBySessionId: null,
+        },
+      })
+    }
 
     // Disable QR Code if it exists
     await tx.qrCode.updateMany({
@@ -236,6 +268,29 @@ export async function POST(req: Request) {
       await ensureCreativeSubmissionForOrder(orderId)
       await ensureCampaignSoldOut(orderId)
       await ensurePostPaymentEmailsForOrder(orderId)
+
+      // Trigger Admin Notification
+      try {
+        const order = await db.order.findUnique({
+          where: { id: orderId },
+          include: { advertiser: true, campaign: true },
+        })
+        if (order) {
+          const amountFormatted = (order.amount / 100).toLocaleString("en-US", {
+            style: "currency",
+            currency: "USD",
+          })
+          const { createAdminNotification } = await import("@/server/helpers/notifications")
+          await createAdminNotification({
+            type: "INVOICE_PAID",
+            title: "Payment Received",
+            message: `Invoice of ${amountFormatted} paid by ${order.advertiser.businessName} (Campaign: ${order.campaign.name})`,
+            link: `/admin/orders/${order.id}`,
+          })
+        }
+      } catch (err) {
+        console.error("[NOTIFICATION ERROR] Failed to trigger payment notification:", err)
+      }
     } catch (error) {
       console.error(`[STRIPE WEBHOOK ERROR] Post-payment repair failed for ${orderId}:`, error)
       return new NextResponse("Post-payment processing failed", { status: 500 })

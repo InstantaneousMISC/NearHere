@@ -40,6 +40,7 @@ export default function InteractivePostcardArea({
     useState<ReservationPlan | null>(null)
   const [reservationSpot, setReservationSpot] =
     useState<ReservationSpot | null>(null)
+  const [hoveredDoubleKeys, setHoveredDoubleKeys] = useState<string[]>([])
 
   const handleOpenWaitlist = (category: { id: string; name: string }) => {
     setSelectedCategory(category)
@@ -99,6 +100,7 @@ export default function InteractivePostcardArea({
             onReserveSpot={handleSpotReservation}
             cardSize={cardSize}
             cardSkin={cardSkin}
+            hoveredDoubleKeys={hoveredDoubleKeys}
           />
         </div>
       </section>
@@ -124,6 +126,8 @@ export default function InteractivePostcardArea({
         zipCode={zipCode || ""}
         checkoutBaseUrl={`/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}/checkout`}
         offer={offer}
+        setHoveredDoubleKeys={setHoveredDoubleKeys}
+        cardSize={cardSize}
       />
     </>
   )
