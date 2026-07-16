@@ -271,7 +271,7 @@ export default async function CityDirectoryPage({ params }: CityPageProps) {
                               <span className="text-[10px] font-mono text-slate-300 uppercase">No website</span>
                             )}
                             <Link
-                              href={`/directory/${city.state.slug}/${city.slug}/businesses/${profile.slug}`}
+                              href={`/directory/${city.state.slug}/${city.slug}/businesses/${primaryCat}/${profile.slug}`}
                               className="bg-[#FF4A1C] hover:bg-[#e03e1a] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2 transition-all shadow-[0_2px_10px_rgba(255,74,28,0.2)] hover:shadow-[0_4px_15px_rgba(255,74,28,0.3)] rounded-md text-center border-0"
                             >
                               View Profile
@@ -301,7 +301,7 @@ export default async function CityDirectoryPage({ params }: CityPageProps) {
                     return (
                       <Link
                         key={profile.id}
-                        href={`/directory/${city.state.slug}/${city.slug}/businesses/${profile.slug}`}
+                        href={`/directory/${city.state.slug}/${city.slug}/businesses/${primaryCat}/${profile.slug}`}
                         className="bg-white border border-rule hover:border-[#FF4A1C] hover:shadow-[0_0_15px_rgba(255,74,28,0.08)] p-4 flex items-center justify-between transition-all group rounded-lg"
                       >
                         <div className="text-left space-y-1.5 truncate pr-4">

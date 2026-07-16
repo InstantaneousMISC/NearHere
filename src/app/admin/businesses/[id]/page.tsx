@@ -45,8 +45,10 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
   const [editTwitter, setEditTwitter] = useState("")
   const [editEstablishedYear, setEditEstablishedYear] = useState("")
   const [editLicenseNumber, setEditLicenseNumber] = useState("")
-  const [editServices, setEditServices] = useState<string[]>([])
+  const [editServices, setEditServices] = useState<any[]>([])
   const [editCustomService, setEditCustomService] = useState("")
+  const [editCustomServiceDesc, setEditCustomServiceDesc] = useState("")
+  const [editPhotos, setEditPhotos] = useState<string[]>([])
 
   // Queries
   const { data: businessData, isLoading, error, refetch } = trpc.business.getById.useQuery({ id })
@@ -76,9 +78,13 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
     setEditEstablishedYear(businessData.establishedYear || "")
     setEditLicenseNumber(businessData.licenseNumber || "")
 
-    const loadedServices = businessData.services && Array.isArray(businessData.services) ? (businessData.services as string[]) : []
+    const loadedServices = businessData.services && Array.isArray(businessData.services) ? (businessData.services as any[]) : []
     setEditServices(loadedServices)
     setEditCustomService("")
+    setEditCustomServiceDesc("")
+
+    const loadedPhotos = businessData.photos && Array.isArray(businessData.photos) ? (businessData.photos as string[]) : []
+    setEditPhotos(loadedPhotos)
     
     const socials = businessData.socialLinks && typeof businessData.socialLinks === "object" ? (businessData.socialLinks as any) : null
     setEditFacebook(socials?.facebook || "")
@@ -116,6 +122,7 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
         services: editServices,
         establishedYear: editEstablishedYear.trim() || null,
         licenseNumber: editLicenseNumber.trim() || null,
+        photos: editPhotos,
       })
       setIsEditDialogOpen(false)
       refetch()
@@ -193,17 +200,20 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
 
   // Resolve directory profile path if it exists
   const directoryProfile = (businessData as any).directoryProfile
+  const catSlug = directoryProfile?.categories?.[0]?.directoryCategory?.slug
+    || (businessData as any).advertiser?.orders?.[0]?.campaignSpot?.category?.slug
+    || "general"
   
   const bState = businessData.state?.trim().toLowerCase() || "tx"
   const bCity = businessData.city?.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "") || "converse"
-  let publicProfileUrl = `/directory/${bState}/${bCity}/businesses/${businessData.slug}`
+  let publicProfileUrl = `/directory/${bState}/${bCity}/businesses/${catSlug}/${businessData.slug}`
 
   if (directoryProfile && directoryProfile.locations?.length > 0) {
     const primaryLoc = directoryProfile.locations[0]
     const stateSlug = primaryLoc.city?.state?.slug
     const citySlug = primaryLoc.city?.slug
     if (stateSlug && citySlug) {
-      publicProfileUrl = `/directory/${stateSlug}/${citySlug}/businesses/${directoryProfile.slug || businessData.slug}`
+      publicProfileUrl = `/directory/${stateSlug}/${citySlug}/businesses/${catSlug}/${directoryProfile.slug || businessData.slug}`
     }
   }
 
@@ -379,16 +389,21 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
               </div>
               <div className="border-t border-[#E7E0D8] pt-2">
                 <span className="text-[#77706A] block font-mono text-[9px] uppercase">Services Offered</span>
-                {Array.isArray(businessData.services) && (businessData.services as string[]).length > 0 ? (
+                {Array.isArray(businessData.services) && (businessData.services as any[]).length > 0 ? (
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {(businessData.services as string[]).map((service) => (
-                      <span
-                        key={service}
-                        className="inline-block bg-[#E7E0D8]/40 text-[#4A4542] text-[9px] px-1.5 py-0.5 rounded font-mono"
-                      >
-                        {service}
-                      </span>
-                    ))}
+                    {(businessData.services as any[]).map((service) => {
+                      const name = typeof service === "string" ? service : service?.name || ""
+                      const desc = typeof service === "string" ? "" : service?.description || ""
+                      return (
+                        <span
+                          key={name}
+                          className="inline-block bg-[#E7E0D8]/40 text-[#4A4542] text-[9px] px-1.5 py-0.5 rounded font-mono"
+                          title={desc || undefined}
+                        >
+                          {name} {desc && "*"}
+                        </span>
+                      )
+                    })}
                   </div>
                 ) : (
                   <span className="text-warm italic">None specified</span>
@@ -932,7 +947,10 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
                 return (
                   <div className="grid grid-cols-2 gap-2 bg-[#FAF8F4] p-3 border border-[#E7E0D8]">
                     {categoryServices.map((serviceName) => {
-                      const isChecked = editServices.includes(serviceName)
+                      const isChecked = editServices.some((s) => {
+                        const sName = typeof s === "string" ? s : s.name
+                        return sName.toLowerCase() === serviceName.toLowerCase()
+                      })
                       return (
                         <label key={serviceName} className="flex items-center gap-2 text-xs text-press select-none cursor-pointer">
                           <input
@@ -941,9 +959,12 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
                             className="rounded border-[#E7E0D8] text-primary focus:ring-primary h-4 w-4"
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setEditServices([...editServices, serviceName])
+                                setEditServices([...editServices, { name: serviceName }])
                               } else {
-                                setEditServices(editServices.filter((s) => s !== serviceName))
+                                setEditServices(editServices.filter((s) => {
+                                  const sName = typeof s === "string" ? s : s.name
+                                  return sName.toLowerCase() !== serviceName.toLowerCase()
+                                }))
                               }
                             }}
                           />
@@ -956,56 +977,109 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
               })()}
 
               {/* Add Custom Service Input */}
-              <div className="flex gap-2">
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Custom service name..."
+                    value={editCustomService}
+                    onChange={(e) => setEditCustomService(e.target.value)}
+                    className="flex-1 text-xs p-2 border border-[#E7E0D8] bg-[#FAF8F4] focus:outline-none focus:border-[#211D1C] rounded-none"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      const trimmedName = editCustomService.trim()
+                      const trimmedDesc = editCustomServiceDesc.trim()
+                      if (trimmedName) {
+                        const exists = editServices.some(s => (typeof s === "string" ? s : s.name).toLowerCase() === trimmedName.toLowerCase())
+                        if (!exists) {
+                          setEditServices([...editServices, { name: trimmedName, description: trimmedDesc || undefined }])
+                          setEditCustomService("")
+                          setEditCustomServiceDesc("")
+                        }
+                      }
+                    }}
+                    className="bg-[#211D1C] hover:bg-[#FAF8F4] text-[#FAF8F4] hover:text-[#211D1C] border border-[#211D1C] font-bold"
+                  >
+                    Add
+                  </Button>
+                </div>
                 <input
                   type="text"
-                  placeholder="Add a custom service..."
-                  value={editCustomService}
-                  onChange={(e) => setEditCustomService(e.target.value)}
-                  className="flex-1 text-xs p-2 border border-[#E7E0D8] bg-[#FAF8F4] focus:outline-none focus:border-[#211D1C] rounded-none"
+                  placeholder="Service description / additional text (optional)..."
+                  value={editCustomServiceDesc}
+                  onChange={(e) => setEditCustomServiceDesc(e.target.value)}
+                  className="w-full text-xs p-2 border border-[#E7E0D8] bg-[#FAF8F4] focus:outline-none focus:border-[#211D1C] rounded-none"
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault()
-                      const trimmed = editCustomService.trim()
-                      if (trimmed && !editServices.includes(trimmed)) {
-                        setEditServices([...editServices, trimmed])
-                        setEditCustomService("")
+                      const trimmedName = editCustomService.trim()
+                      const trimmedDesc = editCustomServiceDesc.trim()
+                      if (trimmedName) {
+                        const exists = editServices.some(s => (typeof s === "string" ? s : s.name).toLowerCase() === trimmedName.toLowerCase())
+                        if (!exists) {
+                          setEditServices([...editServices, { name: trimmedName, description: trimmedDesc || undefined }])
+                          setEditCustomService("")
+                          setEditCustomServiceDesc("")
+                        }
                       }
                     }
                   }}
                 />
-                <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => {
-                    const trimmed = editCustomService.trim()
-                    if (trimmed && !editServices.includes(trimmed)) {
-                      setEditServices([...editServices, trimmed])
-                      setEditCustomService("")
-                    }
-                  }}
-                  className="bg-[#211D1C] hover:bg-[#FAF8F4] text-[#FAF8F4] hover:text-[#211D1C] border border-[#211D1C] font-bold"
-                >
-                  Add
-                </Button>
               </div>
 
               {/* Display dynamic tags */}
               {editServices.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mt-2">
-                  {editServices.map((s) => (
-                    <span key={s} className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 text-[11px] font-mono px-2 py-0.5 rounded border border-slate-200">
-                      {s}
+                  {editServices.map((s) => {
+                    const sName = typeof s === "string" ? s : s.name
+                    const sDesc = typeof s === "string" ? "" : s.description
+                    return (
+                      <span key={sName} className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 text-[11px] font-mono px-2 py-0.5 rounded border border-slate-200" title={sDesc}>
+                        {sName} {sDesc && `(${sDesc})`}
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700 font-bold ml-1 text-sm font-sans"
+                          onClick={() => setEditServices(editServices.filter((item) => {
+                            const itemName = typeof item === "string" ? item : item.name
+                            return itemName.toLowerCase() !== sName.toLowerCase()
+                          }))}
+                        >
+                          &times;
+                        </button>
+                      </span>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Showcase Gallery Photos (Admin removal only) */}
+            <div className="space-y-2 border-t border-[#E7E0D8] pt-4 mt-2 text-left animate-fade-up">
+              <label className="text-[10px] font-mono font-bold text-[#77706A] uppercase tracking-wider block">Showcase Gallery Photos</label>
+              <p className="text-[10px] text-warm -mt-1 leading-normal">
+                Admins can review and remove photos, but cannot add new ones.
+              </p>
+              {editPhotos.length > 0 ? (
+                <div className="grid grid-cols-4 gap-2 mt-2">
+                  {editPhotos.map((photoUrl) => (
+                    <div key={photoUrl} className="relative aspect-[4/3] bg-slate-100 border border-[#E7E0D8] overflow-hidden group">
+                      <img src={photoUrl} alt="Showcase" className="w-full h-full object-cover" />
                       <button
                         type="button"
-                        className="text-red-500 hover:text-red-700 font-bold ml-1 text-sm font-sans"
-                        onClick={() => setEditServices(editServices.filter((item) => item !== s))}
+                        onClick={() => setEditPhotos(editPhotos.filter(p => p !== photoUrl))}
+                        className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 leading-none text-xs font-bold w-5 h-5 flex items-center justify-center cursor-pointer shadow border-0"
+                        title="Remove photo"
                       >
                         &times;
                       </button>
-                    </span>
+                    </div>
                   ))}
                 </div>
+              ) : (
+                <span className="text-warm italic text-xs">No showcase photos uploaded.</span>
               )}
             </div>
 

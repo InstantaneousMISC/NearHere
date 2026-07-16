@@ -70,8 +70,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
       // Add profile pages
       for (const profile of profiles) {
+        const catSlug = profile.categories?.[0]?.directoryCategory?.slug || "general"
         routes.push({
-          url: `${appUrl}/directory/${state.slug}/${city.slug}/businesses/${profile.slug}`,
+          url: `${appUrl}/directory/${state.slug}/${city.slug}/businesses/${catSlug}/${profile.slug}`,
           lastModified: new Date(),
           changeFrequency: "weekly",
           priority: 0.6,

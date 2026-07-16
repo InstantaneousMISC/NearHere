@@ -20,6 +20,9 @@ export default async function BusinessProfileRedirectPage({ params, searchParams
             include: { city: { include: { state: true } } },
             orderBy: { createdAt: "asc" },
           },
+          categories: {
+            include: { directoryCategory: true },
+          },
         },
       },
     },
@@ -37,11 +40,12 @@ export default async function BusinessProfileRedirectPage({ params, searchParams
   const primaryLoc = profile.locations[0]
   const stateSlug = primaryLoc.city.state.slug
   const citySlug = primaryLoc.city.slug
+  const catSlug = profile.categories?.[0]?.directoryCategory?.slug || "general"
 
   const urlParams = new URLSearchParams()
   if (qr) urlParams.set("qr", qr)
   if (expired) urlParams.set("expired", expired)
   const queryString = urlParams.toString()
 
-  redirect(`/directory/${stateSlug}/${citySlug}/businesses/${profile.slug}${queryString ? `?${queryString}` : ""}`)
+  redirect(`/directory/${stateSlug}/${citySlug}/businesses/${catSlug}/${profile.slug}${queryString ? `?${queryString}` : ""}`)
 }

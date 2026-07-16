@@ -95,9 +95,10 @@ export const businessRouter = createTRPCRouter({
         facebook: z.string().optional().nullable(),
         instagram: z.string().optional().nullable(),
         twitter: z.string().optional().nullable(),
-        services: z.array(z.string()).optional().nullable(),
+        services: z.array(z.union([z.string(), z.object({ name: z.string().min(1), description: z.string().optional().nullable() })])).optional().nullable(),
         establishedYear: z.string().optional().nullable(),
         licenseNumber: z.string().optional().nullable(),
+        photos: z.array(z.string()).optional().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -265,6 +266,7 @@ export const businessRouter = createTRPCRouter({
         services: business.services,
         establishedYear: business.establishedYear,
         licenseNumber: business.licenseNumber,
+        photos: business.photos,
       }
 
       const requestedChanges = {
@@ -286,6 +288,7 @@ export const businessRouter = createTRPCRouter({
         services: input.services || null,
         establishedYear: input.establishedYear || null,
         licenseNumber: input.licenseNumber || null,
+        photos: input.photos || null,
       }
 
       const submittedBy = ctx.user.email || ctx.user.id
@@ -312,6 +315,7 @@ export const businessRouter = createTRPCRouter({
             services: input.services ? (input.services as any) : undefined,
             establishedYear: input.establishedYear,
             licenseNumber: input.licenseNumber,
+            photos: input.photos ? (input.photos as any) : undefined,
             submittedBy,
             snapshotBefore,
             requestedChanges,
@@ -341,6 +345,7 @@ export const businessRouter = createTRPCRouter({
             services: input.services ? (input.services as any) : undefined,
             establishedYear: input.establishedYear,
             licenseNumber: input.licenseNumber,
+            photos: input.photos ? (input.photos as any) : undefined,
             submittedBy,
             snapshotBefore,
             requestedChanges,
@@ -960,6 +965,11 @@ export const businessRouter = createTRPCRouter({
                     }
                   }
                 }
+              },
+              categories: {
+                include: {
+                  directoryCategory: true
+                }
               }
             }
           },
@@ -1081,6 +1091,7 @@ export const businessRouter = createTRPCRouter({
       const updatedBusiness = await ctx.db.business.update({
         where: { id: request.businessId },
         data: {
+          isDirectoryVisible: true,
           name: request.name,
           description: request.description,
           phone: request.phone,
@@ -1099,6 +1110,7 @@ export const businessRouter = createTRPCRouter({
           services: request.services || undefined,
           establishedYear: request.establishedYear,
           licenseNumber: request.licenseNumber,
+          photos: request.photos || undefined,
         },
         include: {
           advertiser: true
@@ -1267,9 +1279,10 @@ export const businessRouter = createTRPCRouter({
         facebook: z.string().nullable().optional(),
         instagram: z.string().nullable().optional(),
         twitter: z.string().nullable().optional(),
-        services: z.array(z.string()).nullable().optional(),
+        services: z.array(z.union([z.string(), z.object({ name: z.string().min(1), description: z.string().optional().nullable() })])).nullable().optional(),
         establishedYear: z.string().nullable().optional(),
         licenseNumber: z.string().nullable().optional(),
+        photos: z.array(z.string()).nullable().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -1295,6 +1308,7 @@ export const businessRouter = createTRPCRouter({
       const updated = await ctx.db.business.update({
         where: { id: input.id },
         data: {
+          isDirectoryVisible: true,
           name: input.name,
           slug: input.slug,
           description: input.description || null,
@@ -1314,6 +1328,7 @@ export const businessRouter = createTRPCRouter({
           services: input.services ? (input.services as any) : undefined,
           establishedYear: input.establishedYear || null,
           licenseNumber: input.licenseNumber || null,
+          photos: input.photos ? (input.photos as any) : undefined,
         },
       })
 

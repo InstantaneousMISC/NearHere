@@ -213,7 +213,7 @@ export default async function CityCategoryDirectoryPage({ params }: CategoryPage
     "itemListElement": profiles.map((p, idx) => ({
       "@type": "ListItem",
       "position": idx + 1,
-      "url": `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/directory/${city.state.slug}/${city.slug}/businesses/${p.slug}`,
+      "url": `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/directory/${city.state.slug}/${city.slug}/businesses/${category.slug}/${p.slug}`,
       "name": p.name,
     })),
   } : null
@@ -357,7 +357,7 @@ export default async function CityCategoryDirectoryPage({ params }: CategoryPage
                           <span className="text-[10px] font-mono text-slate-300 uppercase">No website</span>
                         )}
                         <Link
-                          href={`/directory/${city.state.slug}/${city.slug}/businesses/${profile.slug}`}
+                          href={`/directory/${city.state.slug}/${city.slug}/businesses/${category.slug}/${profile.slug}`}
                           className="bg-[#FF4A1C] hover:bg-[#e03e1a] text-white text-[10px] font-bold uppercase tracking-wider px-4 py-2 transition-all shadow-[0_2px_10px_rgba(255,74,28,0.2)] hover:shadow-[0_4px_15px_rgba(255,74,28,0.3)] rounded-md text-center border-0"
                         >
                           View Profile

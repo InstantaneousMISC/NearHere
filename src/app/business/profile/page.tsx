@@ -91,8 +91,11 @@ export default function BusinessProfilePage() {
   const [twitter, setTwitter] = useState("")
   const [establishedYear, setEstablishedYear] = useState("")
   const [licenseNumber, setLicenseNumber] = useState("")
-  const [services, setServices] = useState<string[]>([])
+  const [services, setServices] = useState<any[]>([])
   const [customService, setCustomService] = useState("")
+  const [customServiceDesc, setCustomServiceDesc] = useState("")
+  const [photos, setPhotos] = useState<string[]>([])
+  const [newPhotoUrl, setNewPhotoUrl] = useState("")
 
   // Link Form States
   const [linkId, setLinkId] = useState<string | undefined>(undefined)
@@ -127,8 +130,11 @@ export default function BusinessProfilePage() {
       setEstablishedYear(source.establishedYear || "")
       setLicenseNumber(source.licenseNumber || "")
 
-      const loadedServices = source.services && Array.isArray(source.services) ? (source.services as string[]) : []
+      const loadedServices = source.services && Array.isArray(source.services) ? (source.services as any[]) : []
       setServices(loadedServices)
+
+      const loadedPhotos = source.photos && Array.isArray(source.photos) ? (source.photos as string[]) : []
+      setPhotos(loadedPhotos)
 
       const socials = source.socialLinks && typeof source.socialLinks === "object" ? (source.socialLinks as any) : null
       setFacebook(socials?.facebook || "")
@@ -160,6 +166,7 @@ export default function BusinessProfilePage() {
       services,
       establishedYear,
       licenseNumber,
+      photos,
     })
   }
 
@@ -252,6 +259,12 @@ export default function BusinessProfilePage() {
     if ((liveSocials?.twitter || "") !== (pendingSocials?.twitter || "")) {
       fields.push({ label: "Twitter / X Profile", live: liveSocials?.twitter || "[Empty]", pending: pendingSocials?.twitter || "[Empty]" })
     }
+
+    const livePhotos = Array.isArray(business.photos) ? (business.photos as string[]).join(", ") : ""
+    const pendingPhotos = Array.isArray(pendingRequest.photos) ? (pendingRequest.photos as string[]).join(", ") : ""
+    if (livePhotos !== pendingPhotos) {
+      fields.push({ label: "Portfolio Photos", live: livePhotos || "[Empty]", pending: pendingPhotos || "[Empty]" })
+    }
     
     return fields
   }
@@ -285,6 +298,83 @@ export default function BusinessProfilePage() {
           ⚠️ One or more of your postcard campaigns has already been printed or mailed. Changes here may update your digital landing page, but they will not change the physical postcard.
         </div>
       )}
+
+      {/* Approval & Notice Banners */}
+      <div className="space-y-4">
+        {pendingRequest && pendingRequest.status === "PENDING" && (
+          <div className="rounded-none bg-amber-500/10 border border-amber-500/20 p-4 text-xs text-amber-800 font-sans space-y-2 animate-fade-up">
+            <div className="flex items-center gap-2 font-bold uppercase">
+              <span>⚠️ Profile Changes Under Review</span>
+            </div>
+            <p>
+              You submitted profile updates on <strong>{new Date(pendingRequest.submittedAt).toLocaleDateString()}</strong>.
+              These changes are currently pending review and approval by the campaign administrator before they go live on the public directory.
+            </p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setShowComparison(!showComparison)}
+                className="text-xs underline font-bold hover:text-amber-900 cursor-pointer"
+              >
+                {showComparison ? "Hide submitted changes" : "View submitted changes"}
+              </button>
+            </div>
+            {showComparison && (
+              <div className="mt-3 border border-amber-500/20 bg-white/80 rounded-none overflow-hidden max-w-2xl">
+                <table className="w-full text-left text-[11px] font-sans border-collapse">
+                  <thead>
+                    <tr className="border-b border-amber-500/20 bg-amber-500/5 text-amber-900 font-mono text-[9px] uppercase font-bold">
+                      <th className="px-3 py-2">Field</th>
+                      <th className="px-3 py-2">Live Directory Value</th>
+                      <th className="px-3 py-2">Pending Requested Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {getChangedFields().map((f) => (
+                      <tr key={f.label} className="border-b border-amber-500/10 last:border-0 hover:bg-amber-500/5">
+                        <td className="px-3 py-2 font-semibold text-[#77706A]">{f.label}</td>
+                        <td className="px-3 py-2 text-stone-500 break-all">{f.live}</td>
+                        <td className="px-3 py-2 text-amber-950 font-bold break-all">{f.pending}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {pendingRequest && pendingRequest.status === "REJECTED" && (
+          <div className="rounded-none bg-red-500/10 border border-red-500/20 p-4 text-xs text-red-800 font-sans space-y-1.5 animate-fade-up">
+            <div className="font-bold uppercase flex items-center gap-2">
+              <span>❌ Profile Changes Rejected</span>
+            </div>
+            <p>
+              Your recent profile updates were rejected on <strong>{pendingRequest.reviewedAt ? new Date(pendingRequest.reviewedAt).toLocaleDateString() : ""}</strong> by the campaign administrator.
+            </p>
+            {pendingRequest.rejectionReason && (
+              <div className="bg-red-50 border border-red-100 p-3 font-mono text-[11px] text-red-700 mt-2 whitespace-pre-wrap">
+                <strong>Admin Feedback / Instructions:</strong>
+                <p className="mt-1">{pendingRequest.rejectionReason}</p>
+              </div>
+            )}
+            <p className="text-[10px] text-red-600 mt-2 font-medium">
+              Please review the feedback above, correct the issues in the form below, and re-submit your profile for approval.
+            </p>
+          </div>
+        )}
+
+        {(!pendingRequest || pendingRequest.status === "APPROVED") && (
+          <div className="rounded-none bg-blue-500/10 border border-blue-500/20 p-4 text-xs text-blue-800 font-sans space-y-1 animate-fade-up">
+            <div className="font-bold uppercase flex items-center gap-2">
+              <span>ℹ️ Profile Approval Requirement</span>
+            </div>
+            <p>
+              Before your business profile is made public, or whenever you submit updates, the campaign administrator must review and approve them. Edits will save as a pending request and will not show on the live directory until approved.
+            </p>
+          </div>
+        )}
+      </div>
 
       {/* Tabs Selector */}
       <div className="flex border-b border-border select-none">
@@ -438,7 +528,10 @@ export default function BusinessProfilePage() {
                   return (
                     <div className="grid grid-cols-2 gap-2 bg-slate-50 p-3 rounded border border-border">
                       {categoryServices.map((serviceName) => {
-                        const isChecked = services.includes(serviceName)
+                        const isChecked = services.some((s) => {
+                          const sName = typeof s === "string" ? s : s.name
+                          return sName.toLowerCase() === serviceName.toLowerCase()
+                        })
                         return (
                           <label key={serviceName} className="flex items-center gap-2 text-xs text-press select-none cursor-pointer">
                             <input
@@ -447,9 +540,12 @@ export default function BusinessProfilePage() {
                               className="rounded border-border text-primary focus:ring-primary h-4 w-4"
                               onChange={(e) => {
                                 if (e.target.checked) {
-                                  setServices([...services, serviceName])
+                                  setServices([...services, { name: serviceName }])
                                 } else {
-                                  setServices(services.filter((s) => s !== serviceName))
+                                  setServices(services.filter((s) => {
+                                    const sName = typeof s === "string" ? s : s.name
+                                    return sName.toLowerCase() !== serviceName.toLowerCase()
+                                  }))
                                 }
                               }}
                             />
@@ -462,54 +558,80 @@ export default function BusinessProfilePage() {
                 })()}
 
                 {/* Custom plain text input */}
-                <div className="flex gap-2">
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      type="text"
+                      placeholder="Custom service name..."
+                      value={customService}
+                      onChange={(e) => setCustomService(e.target.value)}
+                      className="flex-1 text-xs"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        const trimmedName = customService.trim()
+                        const trimmedDesc = customServiceDesc.trim()
+                        if (trimmedName) {
+                          const exists = services.some(s => (typeof s === "string" ? s : s.name).toLowerCase() === trimmedName.toLowerCase())
+                          if (!exists) {
+                            setServices([...services, { name: trimmedName, description: trimmedDesc || undefined }])
+                            setCustomService("")
+                            setCustomServiceDesc("")
+                          }
+                        }
+                      }}
+                    >
+                      Add
+                    </Button>
+                  </div>
                   <Input
                     type="text"
-                    placeholder="Add a custom service..."
-                    value={customService}
-                    onChange={(e) => setCustomService(e.target.value)}
-                    className="flex-1 text-xs"
+                    placeholder="Service description / additional text (optional)..."
+                    value={customServiceDesc}
+                    onChange={(e) => setCustomServiceDesc(e.target.value)}
+                    className="text-xs w-full"
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         e.preventDefault()
-                        const trimmed = customService.trim()
-                        if (trimmed && !services.includes(trimmed)) {
-                          setServices([...services, trimmed])
-                          setCustomService("")
+                        const trimmedName = customService.trim()
+                        const trimmedDesc = customServiceDesc.trim()
+                        if (trimmedName) {
+                          const exists = services.some(s => (typeof s === "string" ? s : s.name).toLowerCase() === trimmedName.toLowerCase())
+                          if (!exists) {
+                            setServices([...services, { name: trimmedName, description: trimmedDesc || undefined }])
+                            setCustomService("")
+                            setCustomServiceDesc("")
+                          }
                         }
                       }
                     }}
                   />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      const trimmed = customService.trim()
-                      if (trimmed && !services.includes(trimmed)) {
-                        setServices([...services, trimmed])
-                        setCustomService("")
-                      }
-                    }}
-                  >
-                    Add
-                  </Button>
                 </div>
 
                 {/* Display selected services as badges */}
                 {services.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mt-2">
-                    {services.map((s) => (
-                      <span key={s} className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 text-[11px] font-mono px-2 py-0.5 rounded border border-slate-200">
-                        {s}
-                        <button
-                          type="button"
-                          className="text-red-500 hover:text-red-700 font-bold ml-1 text-sm font-sans"
-                          onClick={() => setServices(services.filter((item) => item !== s))}
-                        >
-                          &times;
-                        </button>
-                      </span>
-                    ))}
+                    {services.map((s) => {
+                      const sName = typeof s === "string" ? s : s.name
+                      const sDesc = typeof s === "string" ? "" : s.description
+                      return (
+                        <span key={sName} className="inline-flex items-center gap-1 bg-slate-100 text-slate-800 text-[11px] font-mono px-2 py-0.5 rounded border border-slate-200" title={sDesc}>
+                          {sName} {sDesc && `(${sDesc})`}
+                          <button
+                            type="button"
+                            className="text-red-500 hover:text-red-700 font-bold ml-1 text-sm font-sans"
+                            onClick={() => setServices(services.filter((item) => {
+                              const itemName = typeof item === "string" ? item : item.name
+                              return itemName.toLowerCase() !== sName.toLowerCase()
+                            }))}
+                          >
+                            &times;
+                          </button>
+                        </span>
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -656,6 +778,57 @@ export default function BusinessProfilePage() {
                   value={twitter}
                   onChange={(e) => setTwitter(e.target.value)}
                 />
+              </div>
+
+              {/* Showcase Gallery Section */}
+              <div className="space-y-3 pt-2">
+                <h3 className="font-headline font-extrabold text-sm uppercase tracking-wide text-press border-b border-border pb-1">
+                  Showcase Gallery (Our Work)
+                </h3>
+                <p className="text-[10px] text-warm -mt-2.5 leading-normal">
+                  Add URLs of photos showcasing your work. These will display in a gallery on your public profile once approved.
+                </p>
+                <div className="flex gap-2">
+                  <Input
+                    type="url"
+                    placeholder="Paste photo URL here..."
+                    value={newPhotoUrl}
+                    onChange={(e) => setNewPhotoUrl(e.target.value)}
+                    className="flex-1 text-xs"
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => {
+                      const trimmed = newPhotoUrl.trim()
+                      if (trimmed) {
+                        if (!photos.includes(trimmed)) {
+                          setPhotos([...photos, trimmed])
+                        }
+                        setNewPhotoUrl("")
+                      }
+                    }}
+                  >
+                    Add
+                  </Button>
+                </div>
+                {photos.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    {photos.map((photoUrl) => (
+                      <div key={photoUrl} className="relative aspect-[4/3] bg-slate-100 border border-slate-200 overflow-hidden group">
+                        <img src={photoUrl} alt="Showcase" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setPhotos(photos.filter(p => p !== photoUrl))}
+                          className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1 leading-none text-xs font-bold w-5 h-5 flex items-center justify-center cursor-pointer shadow border-0"
+                          title="Remove photo"
+                        >
+                          &times;
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
             </div>

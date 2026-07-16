@@ -359,6 +359,7 @@ model Business {
   services            Json?
   establishedYear     String?
   licenseNumber       String?
+  photos              Json?
 
 
   advertiser      Advertiser?       @relation(fields: [advertiserId], references: [id])
@@ -394,6 +395,7 @@ model BusinessProfileChangeRequest {
   services        Json?
   establishedYear String?
   licenseNumber   String?
+  photos          Json?
   
   // Change tracking & audit metadata
   submittedBy     String?        // email or user ID of the submitter
@@ -700,6 +702,7 @@ model DirectoryProfile {
   services        Json?
   establishedYear String?
   licenseNumber   String?
+  photos          Json?
   status          DirectoryStatus @default(DRAFT)
   isIndexed       IndexControl    @default(INDEX)
   metaTitle       String?

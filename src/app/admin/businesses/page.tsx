@@ -261,6 +261,11 @@ export default function AdminBusinessesPage() {
                       {renderComparisonRow("Preferred CTA", selectedRequest.business.preferredCta, selectedRequest.preferredCta)}
                       {renderComparisonRow("Logo URL", selectedRequest.business.logoUrl, selectedRequest.logoUrl)}
                       {renderComparisonRow("Cover Image", selectedRequest.business.coverImageUrl, selectedRequest.coverImageUrl)}
+                      {renderComparisonRow(
+                        "Portfolio Photos", 
+                        Array.isArray(selectedRequest.business.photos) ? (selectedRequest.business.photos as string[]).join(", ") : "",
+                        Array.isArray(selectedRequest.photos) ? (selectedRequest.photos as string[]).join(", ") : ""
+                      )}
                     </tbody>
                   </table>
                 </div>

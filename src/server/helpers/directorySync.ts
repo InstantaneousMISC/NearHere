@@ -194,6 +194,7 @@ export async function syncBusinessToDirectory(businessId: string): Promise<void>
   const services = business.services || null
   const establishedYear = business.establishedYear || null
   const licenseNumber = business.licenseNumber || null
+  const photos = business.photos || null
   
   // Format social links JSON
   let socialLinks = business.socialLinks || creative?.socialLinks || null
@@ -221,6 +222,7 @@ export async function syncBusinessToDirectory(businessId: string): Promise<void>
         services: services || undefined,
         establishedYear,
         licenseNumber,
+        photos: photos || undefined,
         status: DirectoryStatus.DRAFT,
         isIndexed: IndexControl.NOINDEX,
       },
@@ -249,6 +251,7 @@ export async function syncBusinessToDirectory(businessId: string): Promise<void>
         services: services || undefined,
         establishedYear,
         licenseNumber,
+        photos: photos || undefined,
       },
       include: {
         locations: true,
