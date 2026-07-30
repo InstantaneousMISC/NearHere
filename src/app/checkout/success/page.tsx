@@ -1,6 +1,6 @@
 "use client"
 
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 import { useSearchParams } from "next/navigation"
 import { trpc } from "@/components/providers"
 import { formatPrice } from "@/lib/utils"
@@ -10,6 +10,26 @@ import Link from "next/link"
 function SuccessContent() {
   const searchParams = useSearchParams()
   const sessionId = searchParams.get("session_id")
+
+  // Fetch the order using the Stripe session ID (polling until paid & business generated)
+  const { data: order, error, isLoading } = trpc.order.getByStripeSessionId.useQuery(
+    { sessionId: sessionId ?? "" },
+    {
+      enabled: Boolean(sessionId),
+      refetchInterval: (data) => {
+        const resolvedData = (data as any)?.state?.data || data
+        return resolvedData?.status === "PAID" && resolvedData?.business ? false : 2000
+      },
+    }
+  )
+
+  // Hooks must run on every render. Keep these above all loading and error
+  // returns because the query can transition from loading to resolved.
+  const [resendStatus, setResendStatus] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const resendClaimEmailMutation = trpc.business.resendClaimEmail.useMutation()
+  const business = order?.business as any
+  const hasClaimedAccount = !!business?.ownerUserId
 
   if (!sessionId) {
     return (
@@ -30,17 +50,6 @@ function SuccessContent() {
       </>
     )
   }
-
-  // Fetch the order using the Stripe session ID (polling until paid & business generated)
-  const { data: order, error, isLoading } = trpc.order.getByStripeSessionId.useQuery(
-    { sessionId },
-    {
-      refetchInterval: (data) => {
-        const resolvedData = (data as any)?.state?.data || data
-        return resolvedData?.status === "PAID" && resolvedData?.business ? false : 2000
-      },
-    }
-  )
 
   if (isLoading) {
     return (
@@ -80,11 +89,19 @@ function SuccessContent() {
     )
   }
 
-  const submitCreativeUrl = `/submit-creative/${order.creativeSubmissionToken}`
-  const business = order.business as any
-  const claimUrl = business?.ownerUserId 
-    ? "/business/dashboard" 
-    : `/business/claim/${business?.claimToken}`
+  const handleResendEmail = async () => {
+    if (!business?.id) return
+    setResending(true)
+    setResendStatus(null)
+    try {
+      const res = await resendClaimEmailMutation.mutateAsync({ businessId: business.id })
+      setResendStatus(res.message || "Verification email sent!")
+    } catch (err: any) {
+      setResendStatus(`Error: ${err.message || "Failed to resend email."}`)
+    } finally {
+      setResending(false)
+    }
+  }
 
   return (
     <>
@@ -106,7 +123,7 @@ function SuccessContent() {
               Campaign Placement Reserved
             </h1>
             <p className="text-xs text-[#77706A]">
-              Your spot is reserved. Next, submit your business details so we can create your postcard ad, generate your QR code, build your NearHere Business Profile, add your website backlink, and prepare your placement for the campaign.
+              Your spot is reserved. We&apos;ll email the purchaser a secure link to verify and claim the business account before any business information is added or changed.
             </p>
           </div>
 
@@ -122,11 +139,11 @@ function SuccessContent() {
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-orange-500 font-bold">⏳</span> 
-                <span>Business page and QR destination are being prepared</span>
+                <span>{hasClaimedAccount ? "Business account is already verified" : "Account verification email is on its way"}</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-[#77706A]">○</span> 
-                <span>Creative details are ready for your submission</span>
+                <span>Complete onboarding and creative setup from the business dashboard</span>
               </li>
             </ul>
           </div>
@@ -154,20 +171,47 @@ function SuccessContent() {
 
           {/* Action Row */}
           <div className="space-y-4 pt-2">
-            <Link
-              href={claimUrl}
-              className="w-full inline-flex items-center justify-center bg-[#D13F1F] hover:bg-[#B53A1A] text-paper border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-4 transition-colors cursor-pointer rounded-none font-headline text-sm"
-            >
-              Set Up Profile
-            </Link>
-            <div className="text-center">
+            {hasClaimedAccount ? (
               <Link
-                href={submitCreativeUrl}
-                className="inline-block text-[10px] font-mono font-bold uppercase tracking-widest text-[#77706A] underline hover:text-[#D13F1F] transition-colors"
+                href="/auth/business/login"
+                className="w-full inline-flex items-center justify-center bg-[#D13F1F] hover:bg-[#B53A1A] text-paper border border-[#211D1C] font-bold tracking-wider uppercase text-xs px-5 py-4 transition-colors cursor-pointer rounded-none font-headline text-sm"
               >
-                Or submit creative details without an account
+                Log in to business dashboard
               </Link>
-            </div>
+            ) : (
+              <div className="border border-[#E7E0D8] bg-[#FAF8F4] p-5 text-left space-y-3">
+                <h3 className="text-[10px] font-mono font-bold uppercase tracking-widest text-[#211D1C]">Next step: verify your account</h3>
+                <p className="text-xs leading-relaxed text-[#77706A]">
+                  Check the purchaser&apos;s inbox for the secure verification email. After verification, you&apos;ll be taken to the business dashboard to complete onboarding, update business information, and prepare campaign creative.
+                </p>
+
+                {resendStatus && (
+                  <div className={`p-3 text-xs font-mono border ${resendStatus.startsWith("Error") ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"}`}>
+                    {resendStatus}
+                  </div>
+                )}
+
+                <div className="pt-2 flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={handleResendEmail}
+                    disabled={resending}
+                    className="w-full py-2.5 bg-white hover:bg-[#FAF8F4] text-[#211D1C] border border-[#211D1C] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {resending ? "Resending Email..." : "📩 Resend Verification Email"}
+                  </button>
+
+                  {process.env.NODE_ENV !== "production" && business?.claimToken && (
+                    <Link
+                      href={`/business/claim/${business.claimToken}`}
+                      className="w-full py-2.5 text-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer block"
+                    >
+                      🛠️ Claim & Verify Account Now (Dev Mode)
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

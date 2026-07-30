@@ -1,10 +1,14 @@
 "use client"
 
-import React, { useState, useEffect, use } from "react"
+import React, { useState, useEffect, use, useActionState } from "react"
 import { useRouter } from "next/navigation"
 import { trpc } from "@/lib/trpc/client"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
+import { authenticateClaimAccount, type ClaimAuthState } from "../actions"
+
+const initialClaimAuthState: ClaimAuthState = {}
+const googleAuthEnabled = process.env.NEXT_PUBLIC_ENABLE_GOOGLE_AUTH === "true"
 
 interface ClaimPageProps {
   params: Promise<{ token: string }>
@@ -19,11 +23,14 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
   const [user, setUser] = useState<any>(null)
   const [authLoading, setAuthLoading] = useState(true)
   const [authMode, setAuthMode] = useState<"signup" | "login">("signup")
-  const [authEmail, setAuthEmail] = useState("")
   const [authPassword, setAuthPassword] = useState("")
-  const [authError, setAuthError] = useState<string | null>(null)
-  const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null)
-  const [processingAuth, setProcessingAuth] = useState(false)
+  const [confirmPassword, setConfirmPassword] = useState("")
+  const [googleAuthError, setGoogleAuthError] = useState<string | null>(null)
+  const [startingGoogleAuth, setStartingGoogleAuth] = useState(false)
+  const [claimAuthState, claimAuthAction, claimAuthPending] = useActionState(
+    authenticateClaimAccount,
+    initialClaimAuthState
+  )
 
   // Claim State
   const [claimError, setClaimError] = useState<string | null>(null)
@@ -34,6 +41,7 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
   const { data: business, isLoading: businessLoading, error: businessError } = 
     trpc.business.getBusinessDetailsByClaimToken.useQuery({ token }, {
       retry: false,
+      enabled: !claimAuthPending,
     })
 
   // Mutation to Claim Business
@@ -53,40 +61,21 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
     return () => subscription.unsubscribe()
   }, [supabase])
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setAuthError(null)
-    setAuthSuccessMsg(null)
-    setProcessingAuth(true)
+  const handleGoogleAuth = async () => {
+    setGoogleAuthError(null)
+    setStartingGoogleAuth(true)
 
-    try {
-      if (authMode === "signup") {
-        const { data, error } = await supabase.auth.signUp({
-          email: authEmail,
-          password: authPassword,
-        })
+    const callbackUrl = new URL("/auth/callback", window.location.origin)
+    callbackUrl.searchParams.set("next", `/business/claim/${token}`)
 
-        if (error) {
-          setAuthError(error.message)
-        } else if (data.user && !data.session) {
-          setAuthSuccessMsg("Account created! Please check your email for a confirmation link.")
-        } else {
-          setAuthSuccessMsg("Account created and signed in successfully!")
-        }
-      } else {
-        const { error } = await supabase.auth.signInWithPassword({
-          email: authEmail,
-          password: authPassword,
-        })
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: { redirectTo: callbackUrl.toString() },
+    })
 
-        if (error) {
-          setAuthError(error.message)
-        }
-      }
-    } catch (err: any) {
-      setAuthError(err.message || "Authentication failed. Please try again.")
-    } finally {
-      setProcessingAuth(false)
+    if (error) {
+      setGoogleAuthError("Google sign-in is unavailable. Please use a password or contact support.")
+      setStartingGoogleAuth(false)
     }
   }
 
@@ -100,7 +89,7 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
         onSuccess: (data) => {
           setClaimSuccess(true)
           setTimeout(() => {
-            router.push("/business/setup")
+            router.push("/business/dashboard")
           }, 2000)
         },
         onError: (err) => {
@@ -118,6 +107,15 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
       <div className="min-h-screen bg-[#FAF8F4] flex flex-col justify-center items-center font-sans">
         <div className="w-12 h-12 border-4 border-[#D13F1F] border-t-transparent rounded-full animate-spin mb-4" />
         <p className="text-xs font-mono uppercase tracking-widest text-[#77706A]">Loading reservation details...</p>
+      </div>
+    )
+  }
+
+  if (claimAuthPending) {
+    return (
+      <div className="min-h-screen bg-[#FAF8F4] flex flex-col justify-center items-center font-sans">
+        <div className="w-12 h-12 border-4 border-[#D13F1F] border-t-transparent rounded-full animate-spin mb-4" />
+        <p className="text-xs font-mono uppercase tracking-widest text-[#77706A]">Securing your business account...</p>
       </div>
     )
   }
@@ -182,7 +180,7 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
               Ownership Confirmed!
             </h3>
             <p className="text-xs text-[#77706A] leading-relaxed">
-              Account claimed successfully. Redirecting you to the Guided setup wizard...
+              Account claimed successfully. Redirecting you to your business dashboard, where you can complete guided onboarding and update business information...
             </p>
           </div>
         ) : (
@@ -195,14 +193,14 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
                     Step 1: Create Your Advertiser Account
                   </h3>
                   <p className="text-xs text-[#77706A] leading-relaxed">
-                    To claim your listing, you must log in or sign up below. Please register using the same email address that received the claim link.
+                    To claim your listing, create a password or use an existing account. The secure claim link already identifies the purchaser email.
                   </p>
                 </div>
 
                 {/* Auth Tabs */}
                 <div className="flex border-b border-[#E7E0D8] text-xs">
                   <button
-                    onClick={() => { setAuthMode("signup"); setAuthError(null); }}
+                    onClick={() => { setAuthMode("signup"); setGoogleAuthError(null); }}
                     className={`flex-1 py-2 font-mono font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
                       authMode === "signup" ? "border-[#D13F1F] text-[#D13F1F]" : "border-transparent text-[#77706A]"
                     }`}
@@ -210,7 +208,7 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
                     Create Account
                   </button>
                   <button
-                    onClick={() => { setAuthMode("login"); setAuthError(null); }}
+                    onClick={() => { setAuthMode("login"); setGoogleAuthError(null); }}
                     className={`flex-1 py-2 font-mono font-bold uppercase tracking-wider transition-all border-b-2 cursor-pointer ${
                       authMode === "login" ? "border-[#D13F1F] text-[#D13F1F]" : "border-transparent text-[#77706A]"
                     }`}
@@ -220,31 +218,23 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
                 </div>
 
                 {/* Auth Form */}
-                <form onSubmit={handleAuthSubmit} className="space-y-4">
-                  {authError && (
+                <form action={claimAuthAction} className="space-y-4">
+                  <input type="hidden" name="token" value={token} />
+                  <input type="hidden" name="mode" value={authMode} />
+                  {(claimAuthState.error || googleAuthError) && (
                     <div className="bg-[#FBEBE8] border border-[#E85D44] text-[#801B0B] text-xs p-3 rounded-none font-medium text-left">
-                      ⚠️ {authError}
+                      ⚠️ {claimAuthState.error || googleAuthError}
                     </div>
                   )}
-                  {authSuccessMsg && (
+                  {claimAuthState.message && (
                     <div className="bg-[#F3FAF6] border border-[#A7E2C4] text-[#1D5E3A] text-xs p-3 rounded-none font-medium text-left">
-                      ✓ {authSuccessMsg}
+                      ✓ {claimAuthState.message}
                     </div>
                   )}
 
-                  <div className="text-left">
-                    <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      required
-                      value={authEmail}
-                      onChange={(e) => setAuthEmail(e.target.value)}
-                      placeholder="advertiser@mybusiness.com"
-                      className="w-full rounded-none border border-[#E7E0D8] px-3 py-2 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
-                    />
-                  </div>
+                  <p className="text-left text-xs text-[#77706A] leading-relaxed">
+                    This account will use the purchaser email shown above. You only need to choose a password.
+                  </p>
 
                   <div className="text-left">
                     <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1">
@@ -252,22 +242,62 @@ export default function ClaimBusinessPage({ params }: ClaimPageProps) {
                     </label>
                     <input
                       type="password"
+                      name="password"
                       required
                       value={authPassword}
                       onChange={(e) => setAuthPassword(e.target.value)}
+                      minLength={authMode === "signup" ? 10 : 1}
+                      autoComplete={authMode === "signup" ? "new-password" : "current-password"}
                       placeholder="••••••••"
                       className="w-full rounded-none border border-[#E7E0D8] px-3 py-2 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
                     />
                   </div>
 
+                  {authMode === "signup" && (
+                    <div className="text-left">
+                      <label className="block text-[9px] font-mono font-bold text-[#77706A] uppercase tracking-wider mb-1">
+                        Confirm Password
+                      </label>
+                      <input
+                        type="password"
+                        name="confirmPassword"
+                        required
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        minLength={10}
+                        autoComplete="new-password"
+                        placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢"
+                        className="w-full rounded-none border border-[#E7E0D8] px-3 py-2 text-sm text-[#211D1C] focus:outline-none focus:border-[#211D1C]"
+                      />
+                    </div>
+                  )}
+
                   <button
                     type="submit"
-                    disabled={processingAuth}
+                    disabled={claimAuthPending || startingGoogleAuth}
                     className="w-full py-2.5 bg-[#211D1C] hover:bg-[#FAF8F4] text-[#FAF8F4] hover:text-[#211D1C] border border-[#211D1C] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50"
                   >
-                    {processingAuth ? "Processing..." : authMode === "signup" ? "Sign Up & Continue" : "Log In & Continue"}
+                    {claimAuthPending ? "Processing..." : authMode === "signup" ? "Create password & continue" : "Log in & continue"}
                   </button>
                 </form>
+
+                {googleAuthEnabled && (
+                  <>
+                    <div className="flex items-center gap-3 text-[9px] font-mono uppercase tracking-wider text-[#77706A]">
+                      <span className="h-px flex-1 bg-[#E7E0D8]" />
+                      Or
+                      <span className="h-px flex-1 bg-[#E7E0D8]" />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGoogleAuth}
+                      disabled={claimAuthPending || startingGoogleAuth}
+                      className="w-full py-2.5 bg-white hover:bg-[#FAF8F4] text-[#211D1C] border border-[#211D1C] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {startingGoogleAuth ? "Opening Google..." : "Continue with Google"}
+                    </button>
+                  </>
+                )}
               </div>
             ) : (
               /* Case B: User IS authenticated, ready to Claim */

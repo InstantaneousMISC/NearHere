@@ -30,20 +30,21 @@ export interface StatsTimeSeriesParams {
 
 // 1. Get stats for a specific QR Code ID
 export async function getQrCodeStats(qrCodeId: string): Promise<QrStats> {
-  const scansCount = await db.qrScan.count({
-    where: { qrCodeId },
-  })
-
-  const pageViewsCount = await db.businessPageView.count({
-    where: { qrCodeId },
-  })
-
-  // Group click counts by type
-  const clicks = await db.businessClickEvent.groupBy({
-    by: ["linkType", "targetUrl"],
-    where: { qrCodeId },
-    _count: { id: true },
-  })
+  const [scansCount, pageViewsCount, clicks, lastScan] = await Promise.all([
+    db.qrScan.count({ where: { qrCodeId } }),
+    db.businessPageView.count({ where: { qrCodeId } }),
+    // Group click counts by type
+    db.businessClickEvent.groupBy({
+      by: ["linkType", "targetUrl"],
+      where: { qrCodeId },
+      _count: { id: true },
+    }),
+    db.qrScan.findFirst({
+      where: { qrCodeId },
+      orderBy: { scannedAt: "desc" },
+      select: { scannedAt: true },
+    }),
+  ])
 
   let outboundClicksCount = 0
   let callClicksCount = 0
@@ -62,12 +63,6 @@ export async function getQrCodeStats(qrCodeId: string): Promise<QrStats> {
       outboundClicksCount += count
     }
   }
-
-  const lastScan = await db.qrScan.findFirst({
-    where: { qrCodeId },
-    orderBy: { scannedAt: "desc" },
-    select: { scannedAt: true },
-  })
 
   return {
     scansCount,
@@ -150,9 +145,7 @@ export async function getBusinessDashboardCampaigns(userId: string) {
     orderBy: { createdAt: "desc" },
   })
 
-  const placements = []
-
-  for (const order of orders) {
+  return await Promise.all(orders.map(async (order) => {
     const qrCode = order.qrCodes[0] || null
     let stats: QrStats = {
       scansCount: 0,
@@ -167,7 +160,7 @@ export async function getBusinessDashboardCampaigns(userId: string) {
       stats = await getQrCodeStats(qrCode.id)
     }
 
-    placements.push({
+    return {
       orderId: order.id,
       campaign: order.campaign,
       campaignSpot: order.campaignSpot,
@@ -177,10 +170,8 @@ export async function getBusinessDashboardCampaigns(userId: string) {
       creativeSubmissionToken: order.creativeSubmissionToken,
       orderStatus: order.status,
       stats,
-    })
-  }
-
-  return placements
+    }
+  }))
 }
 
 // 4. Get a detailed placement table for admin campaign-wide view
@@ -291,41 +282,25 @@ export async function getStatsTimeSeries(params: StatsTimeSeriesParams): Promise
   }
 
   // 2. Fetch all scans, views, clicks in range
-  const qrScans = await db.qrScan.findMany({
-    where: {
-      scannedAt: { gte: startDate, lte: endDate },
-      ...(targetQrCodeIds.length > 0
-        ? { qrCodeId: { in: targetQrCodeIds } }
-        : businessId
-        ? { businessId }
-        : {}),
-    },
-    select: { scannedAt: true },
-  })
-
-  const pageViews = await db.businessPageView.findMany({
-    where: {
-      viewedAt: { gte: startDate, lte: endDate },
-      ...(targetQrCodeIds.length > 0
-        ? { qrCodeId: { in: targetQrCodeIds } }
-        : businessId
-        ? { businessId }
-        : {}),
-    },
-    select: { viewedAt: true },
-  })
-
-  const clicks = await db.businessClickEvent.findMany({
-    where: {
-      clickedAt: { gte: startDate, lte: endDate },
-      ...(targetQrCodeIds.length > 0
-        ? { qrCodeId: { in: targetQrCodeIds } }
-        : businessId
-        ? { businessId }
-        : {}),
-    },
-    select: { clickedAt: true, linkType: true, targetUrl: true },
-  })
+  const qrScope = targetQrCodeIds.length > 0
+    ? { qrCodeId: { in: targetQrCodeIds } }
+    : businessId
+    ? { businessId }
+    : {}
+  const [qrScans, pageViews, clicks] = await Promise.all([
+    db.qrScan.findMany({
+      where: { scannedAt: { gte: startDate, lte: endDate }, ...qrScope },
+      select: { scannedAt: true },
+    }),
+    db.businessPageView.findMany({
+      where: { viewedAt: { gte: startDate, lte: endDate }, ...qrScope },
+      select: { viewedAt: true },
+    }),
+    db.businessClickEvent.findMany({
+      where: { clickedAt: { gte: startDate, lte: endDate }, ...qrScope },
+      select: { clickedAt: true, linkType: true, targetUrl: true },
+    }),
+  ])
 
   // Helper: Date to YYYY-MM-DD
   const formatDate = (d: Date) => {

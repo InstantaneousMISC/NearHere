@@ -11,6 +11,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { PREPOPULATED_SERVICES, GENERAL_SERVICES } from "@/lib/constants"
 
+function dateInputValue(value: Date | string | null | undefined) {
+  if (!value) return ""
+  return new Date(value).toISOString().slice(0, 10)
+}
+
 interface BusinessDetailPageProps {
   params: Promise<{
     id: string
@@ -49,6 +54,11 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
   const [editCustomService, setEditCustomService] = useState("")
   const [editCustomServiceDesc, setEditCustomServiceDesc] = useState("")
   const [editPhotos, setEditPhotos] = useState<string[]>([])
+  const [offerId, setOfferId] = useState<string | null>(null)
+  const [offerTitle, setOfferTitle] = useState("")
+  const [offerDetails, setOfferDetails] = useState("")
+  const [offerExpiresOn, setOfferExpiresOn] = useState("")
+  const [offerIsActive, setOfferIsActive] = useState(true)
 
   // Queries
   const { data: businessData, isLoading, error, refetch } = trpc.business.getById.useQuery({ id })
@@ -57,6 +67,45 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
   const updateStandingMutation = trpc.business.updateGoodStanding.useMutation()
   const regenerateTokenMutation = trpc.business.regenerateClaimToken.useMutation()
   const updateBusinessMutation = trpc.business.update.useMutation()
+  const saveOfferMutation = trpc.business.saveOfferForBusiness.useMutation()
+
+  const resetOfferForm = () => {
+    setOfferId(null)
+    setOfferTitle("")
+    setOfferDetails("")
+    setOfferExpiresOn("")
+    setOfferIsActive(true)
+  }
+
+  const handleSaveOffer = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!businessData) return
+    setIsSubmitting(true)
+    try {
+      await saveOfferMutation.mutateAsync({
+        businessId: businessData.id,
+        ...(offerId ? { id: offerId } : {}),
+        title: offerTitle,
+        details: offerDetails,
+        expiresOn: offerExpiresOn || null,
+        isActive: offerIsActive,
+      })
+      resetOfferForm()
+      refetch()
+    } catch (err: any) {
+      alert(err.message || "Failed to save offer.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const editOffer = (offer: any) => {
+    setOfferId(offer.id)
+    setOfferTitle(offer.title)
+    setOfferDetails(offer.details)
+    setOfferExpiresOn(dateInputValue(offer.expiresAt))
+    setOfferIsActive(offer.isActive)
+  }
 
   const openEditDialog = () => {
     if (!businessData) return
@@ -197,6 +246,7 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
   const orders = advertiser?.orders || []
   const qrCodes = businessData.qrCodes || []
   const auditLogs = businessData.auditLogs || []
+  const offers = businessData.offers || []
 
   // Resolve directory profile path if it exists
   const directoryProfile = (businessData as any).directoryProfile
@@ -456,6 +506,62 @@ export default function BusinessDetailPage({ params }: BusinessDetailPageProps) 
 
         {/* Right Column: Campaigns & Placements + Orders */}
         <div className="lg:col-span-2 space-y-6">
+          {/* Business offers */}
+          <Card className="p-5 space-y-4">
+            <div className="flex flex-col gap-1 border-b border-[#E7E0D8] pb-2">
+              <h3 className="text-xs font-mono font-bold text-[#77706A] uppercase tracking-wider">Public Profile Offers</h3>
+              <p className="text-xs text-warm">These offers use the same records shown to customers on this business&apos;s directory profile.</p>
+            </div>
+
+            <form onSubmit={handleSaveOffer} className="grid grid-cols-1 gap-3 border border-[#E7E0D8] bg-[#FAF8F4] p-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_180px]">
+                <div className="space-y-1">
+                  <label htmlFor="admin-offer-title" className="text-[10px] font-mono font-bold text-[#77706A] uppercase tracking-wider">Offer title</label>
+                  <input id="admin-offer-title" value={offerTitle} onChange={(event) => setOfferTitle(event.target.value)} maxLength={120} required className="w-full border border-[#E7E0D8] bg-white p-2 text-sm focus:outline-none focus:border-[#211D1C]" placeholder="e.g. $25 off your first service" />
+                </div>
+                <div className="space-y-1">
+                  <label htmlFor="admin-offer-expiry" className="text-[10px] font-mono font-bold text-[#77706A] uppercase tracking-wider">Expiration (optional)</label>
+                  <input id="admin-offer-expiry" type="date" value={offerExpiresOn} onChange={(event) => setOfferExpiresOn(event.target.value)} className="w-full border border-[#E7E0D8] bg-white p-2 text-sm focus:outline-none focus:border-[#211D1C]" />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="admin-offer-details" className="text-[10px] font-mono font-bold text-[#77706A] uppercase tracking-wider">Details and restrictions</label>
+                <textarea id="admin-offer-details" value={offerDetails} onChange={(event) => setOfferDetails(event.target.value)} maxLength={500} required className="min-h-[72px] w-full border border-[#E7E0D8] bg-white p-2 text-sm focus:outline-none focus:border-[#211D1C]" placeholder="Describe the offer and any restrictions." />
+              </div>
+              <label className="flex items-center gap-2 text-xs font-semibold text-[#4A4542]">
+                <input type="checkbox" checked={offerIsActive} onChange={(event) => setOfferIsActive(event.target.checked)} className="h-4 w-4" />
+                Show this offer publicly
+              </label>
+              <div className="flex flex-wrap gap-2">
+                <Button type="submit" disabled={isSubmitting} className="text-xs font-bold uppercase tracking-wider">{offerId ? "Save offer" : "Add offer"}</Button>
+                {offerId && <Button type="button" variant="outline" disabled={isSubmitting} onClick={resetOfferForm} className="text-xs font-bold uppercase tracking-wider">Cancel</Button>}
+              </div>
+            </form>
+
+            {offers.length > 0 ? (
+              <div className="space-y-2">
+                {offers.map((offer: any) => {
+                  const expired = offer.expiresAt && new Date(offer.expiresAt) < new Date()
+                  return (
+                    <div key={offer.id} className="flex flex-col gap-3 border border-[#E7E0D8] p-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-bold text-press">{offer.title}</span>
+                          <Badge variant={offer.isActive && !expired ? "success" : "secondary"}>{offer.isActive && !expired ? "Live" : expired ? "Expired" : "Paused"}</Badge>
+                        </div>
+                        <p className="mt-1 whitespace-pre-wrap text-xs leading-relaxed text-[#4A4542]">{offer.details}</p>
+                        {offer.expiresAt && <p className="mt-1 text-[10px] font-mono uppercase text-warm">Expires {formatDate(new Date(offer.expiresAt))}</p>}
+                      </div>
+                      <Button type="button" size="sm" variant="outline" onClick={() => editOffer(offer)} className="shrink-0 text-[10px] font-bold uppercase tracking-wider">Edit</Button>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-xs italic text-warm">No custom offers have been added yet.</p>
+            )}
+          </Card>
+
           {/* Placements & Campaigns Card */}
           <Card className="p-5 space-y-4">
             <h3 className="text-xs font-mono font-bold text-[#77706A] uppercase tracking-wider border-b border-[#E7E0D8] pb-1.5">

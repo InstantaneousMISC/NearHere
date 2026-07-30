@@ -5,6 +5,7 @@ export function getProfileUpdateStatusTemplate(params: {
   businessName: string
   status: "APPROVED" | "REJECTED"
   rejectionReason?: string | null
+  profileUrl?: string | null
 }) {
   const businessName = escapeHtml(params.businessName)
   const isApproved = params.status === "APPROVED"
@@ -40,7 +41,15 @@ export function getProfileUpdateStatusTemplate(params: {
 
     ${
       isApproved
-        ? `<p>Your live business profile directory page and dynamic QR redirections have been updated successfully with the new content.</p>`
+        ? `
+          <p>Your live business profile directory page and dynamic QR redirections have been updated successfully with the new content.</p>
+          ${
+            params.profileUrl
+              ? `<div class="cta-container"><a class="btn" href="${escapeHtml(params.profileUrl)}">View Your Live Profile</a></div>
+                 <p class="link-alt">If the button does not work, copy this link:<br /><a href="${escapeHtml(params.profileUrl)}">${escapeHtml(params.profileUrl)}</a></p>`
+              : ""
+          }
+        `
         : `<p>Please log in to your dashboard to review the feedback, adjust your profile, and resubmit the change request for approval.</p>`
     }
 

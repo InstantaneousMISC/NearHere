@@ -282,8 +282,7 @@ async function runLifecycleE2E() {
     // STEP 8: Submit postcard creative
     // -------------------------------------------------------------
     console.log("\n🚀 Step 8: Submitting postcard creative details...")
-    const authedCreativeCaller = createCaller({ db, user: null, supabase: {} as any })
-    const creativeResult = await authedCreativeCaller.creative.upsert({
+    const creativeResult = await authedMerchantCaller.creative.upsert({
       token: order.creativeSubmissionToken!,
       businessName: "QA Updated Business Name",
       logoUrl: "https://images.unsplash.com/logo-qa.png",

@@ -4,6 +4,7 @@ import { db } from "@/server/db"
 import CreativeForm from "@/components/creative/CreativeForm"
 import { CampaignNav } from "@/components/campaign/CampaignNav"
 import DraftProofReviewPanel from "@/components/creative/DraftProofReviewPanel"
+import { requireBusinessDashboardAccess } from "@/server/auth/access"
 
 interface CreativeSubmissionPageProps {
   params: Promise<{
@@ -13,6 +14,7 @@ interface CreativeSubmissionPageProps {
 
 export default async function CreativeSubmissionPage({ params }: CreativeSubmissionPageProps) {
   const { token } = await params
+  const { business } = await requireBusinessDashboardAccess(`/submit-creative/${token}`)
 
   // Fetch the order and creative submission details
   const order = await db.order.findUnique({
@@ -28,6 +30,10 @@ export default async function CreativeSubmissionPage({ params }: CreativeSubmiss
   })
 
   if (!order) {
+    return notFound()
+  }
+
+  if (order.status !== "PAID" || order.advertiserId !== business.advertiserId) {
     return notFound()
   }
 

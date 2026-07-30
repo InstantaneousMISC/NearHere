@@ -460,10 +460,18 @@ export default async function DirectoryBusinessProfilePage({ params }: BusinessP
       },
       business: {
         include: {
+          offers: {
+            where: {
+              isActive: true,
+              OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }],
+            },
+            orderBy: [{ expiresAt: "asc" }, { createdAt: "desc" }],
+          },
           advertiser: {
             include: {
               orders: {
                 where: { status: "PAID" },
+                orderBy: { paidAt: "desc" },
                 include: { 
                   creativeSubmission: true, 
                   campaign: true,
@@ -541,6 +549,22 @@ export default async function DirectoryBusinessProfilePage({ params }: BusinessP
   const campaignOffer = creative?.offerDeal || null
   const campaignHeadline = creative?.headline || null
   const campaignName = latestOrder?.campaign?.name || null
+  const customOffers = profile.business?.offers || []
+  const campaignHistory = Array.from(
+    new Map(
+      (profile.business?.advertiser?.orders || []).map((order) => [
+        order.campaignId,
+        {
+          id: order.campaignId,
+          name: order.campaign.name,
+          city: order.campaign.city,
+          state: order.campaign.state,
+          date: order.campaign.estimatedMailDate || order.paidAt || order.createdAt,
+          category: order.campaignSpot.category.name,
+        },
+      ])
+    ).values()
+  )
 
   // Parse photos/additional images from creative submission
   let photos: string[] = []
@@ -683,7 +707,12 @@ export default async function DirectoryBusinessProfilePage({ params }: BusinessP
 
       {/* Navigation */}
       <div className="directory-dark bg-[#12100F]">
-        <CampaignNav isCheckoutPage={false} />
+        <CampaignNav
+          state={profile.business?.advertiser?.orders?.[0]?.campaign?.state}
+          city={profile.business?.advertiser?.orders?.[0]?.campaign?.city}
+          slug={profile.business?.advertiser?.orders?.[0]?.campaign?.slug}
+          isSubPage={true}
+        />
       </div>
 
       {/* Hero Section */}
@@ -959,6 +988,50 @@ export default async function DirectoryBusinessProfilePage({ params }: BusinessP
                   <span className="font-mono text-[8px] font-bold uppercase text-stone-400">Mention this offer when you call</span>
                 </div>
               </section>
+            )}
+
+            {/* Business-managed offers */}
+            {customOffers.length > 0 && (
+              <ProfileSection>
+                <SectionHeading icon={<Tag className="h-5 w-5" />} title="Current Offers" subtitle="Deals provided directly by this business." />
+                <div className="space-y-3">
+                  {customOffers.map((offer) => (
+                    <div key={offer.id} className="border border-orange-200 bg-[#fff8f5] p-5 sm:p-6 rounded-xl">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                        <div>
+                          <h3 className="font-headline text-lg font-black uppercase tracking-tight text-stone-900">{offer.title}</h3>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-stone-600">{offer.details}</p>
+                        </div>
+                        {offer.expiresAt && (
+                          <span className="shrink-0 font-mono text-[9px] font-bold uppercase tracking-wider text-stone-500">
+                            Ends {new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric" }).format(offer.expiresAt)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ProfileSection>
+            )}
+
+            {/* Campaign participation history */}
+            {campaignHistory.length > 0 && (
+              <ProfileSection>
+                <SectionHeading icon={<Calendar className="h-5 w-5" />} title="NearHere Campaigns" subtitle="Campaigns this business has participated in with NearHere." />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {campaignHistory.map((campaign) => (
+                    <div key={campaign.id} className="border border-neutral-200 bg-stone-50 p-4 rounded-xl">
+                      <p className="font-headline text-base font-black uppercase tracking-tight text-neutral-900">{campaign.name}</p>
+                      <p className="mt-1 text-sm font-semibold text-neutral-600">{campaign.city}, {campaign.state}</p>
+                      <div className="mt-3 flex flex-wrap items-center gap-2 font-mono text-[9px] font-bold uppercase tracking-wider text-neutral-500">
+                        <span>{campaign.category}</span>
+                        <span aria-hidden="true">•</span>
+                        <span>Participated {new Intl.DateTimeFormat("en-US", { month: "short", year: "numeric" }).format(campaign.date)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </ProfileSection>
             )}
 
             {/* Gallery Section */}

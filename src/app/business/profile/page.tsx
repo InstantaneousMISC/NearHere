@@ -10,10 +10,18 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { PREPOPULATED_SERVICES, GENERAL_SERVICES } from "@/lib/constants"
 
+function addHttps(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed) return ""
+  return /^https:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed.replace(/^http:\/\//i, "")}`
+}
+
 export default function BusinessProfilePage() {
   const utils = trpc.useUtils()
   
-  // Tab states: "profile" or "links"
+  // Links are now shown inline below the primary profile editor.
   const [activeTab, setActiveTab] = useState<"profile" | "links">("profile")
   const [showComparison, setShowComparison] = useState(false)
 
@@ -95,7 +103,66 @@ export default function BusinessProfilePage() {
   const [customService, setCustomService] = useState("")
   const [customServiceDesc, setCustomServiceDesc] = useState("")
   const [photos, setPhotos] = useState<string[]>([])
-  const [newPhotoUrl, setNewPhotoUrl] = useState("")
+  const [logoUploadError, setLogoUploadError] = useState<string | null>(null)
+  const [coverUploadError, setCoverUploadError] = useState<string | null>(null)
+  const [galleryUploadError, setGalleryUploadError] = useState<string | null>(null)
+
+  const { startUpload: startLogoUpload, isUploading: isLogoUploading } = useUploadThing(
+    "logoUploader",
+    {
+      onClientUploadComplete: (files) => {
+        const uploadedFile = files?.[0]
+        if (!uploadedFile) {
+          setLogoUploadError("The logo upload did not return a file. Please try again.")
+          return
+        }
+
+        setLogoUrl(uploadedFile.ufsUrl)
+        setLogoUploadError(null)
+      },
+      onUploadError: (error) => {
+        setLogoUploadError(`Logo upload failed: ${error.message}`)
+      },
+    }
+  )
+
+  const { startUpload: startCoverUpload, isUploading: isCoverUploading } = useUploadThing(
+    "logoUploader",
+    {
+      onClientUploadComplete: (files) => {
+        const uploadedFile = files?.[0]
+        if (!uploadedFile) {
+          setCoverUploadError("The cover upload did not return a file. Please try again.")
+          return
+        }
+
+        setCoverImageUrl(uploadedFile.ufsUrl)
+        setCoverUploadError(null)
+      },
+      onUploadError: (error) => {
+        setCoverUploadError(`Cover upload failed: ${error.message}`)
+      },
+    }
+  )
+
+  const { startUpload: startGalleryUpload, isUploading: isGalleryUploading } = useUploadThing(
+    "galleryUploader",
+    {
+      onClientUploadComplete: (files) => {
+        const uploadedUrls = (files || []).map((file) => file.ufsUrl).filter(Boolean)
+        if (uploadedUrls.length === 0) {
+          setGalleryUploadError("The gallery upload did not return any images. Please try again.")
+          return
+        }
+
+        setPhotos((current) => Array.from(new Set([...current, ...uploadedUrls])).slice(0, 10))
+        setGalleryUploadError(null)
+      },
+      onUploadError: (error) => {
+        setGalleryUploadError(`Gallery upload failed: ${error.message}`)
+      },
+    }
+  )
 
   // Link Form States
   const [linkId, setLinkId] = useState<string | undefined>(undefined)
@@ -133,7 +200,7 @@ export default function BusinessProfilePage() {
       const loadedServices = source.services && Array.isArray(source.services) ? (source.services as any[]) : []
       setServices(loadedServices)
 
-      const loadedPhotos = source.photos && Array.isArray(source.photos) ? (source.photos as string[]) : []
+      const loadedPhotos = source.photos && Array.isArray(source.photos) ? (source.photos as string[]).slice(0, 10) : []
       setPhotos(loadedPhotos)
 
       const socials = source.socialLinks && typeof source.socialLinks === "object" ? (source.socialLinks as any) : null
@@ -145,12 +212,22 @@ export default function BusinessProfilePage() {
 
   const handleProfileSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const normalizedWebsite = addHttps(website)
+    const normalizedFacebook = addHttps(facebook)
+    const normalizedInstagram = addHttps(instagram)
+    const normalizedTwitter = addHttps(twitter)
+
+    setWebsite(normalizedWebsite)
+    setFacebook(normalizedFacebook)
+    setInstagram(normalizedInstagram)
+    setTwitter(normalizedTwitter)
+
     updateProfileMutation.mutate({
       name,
       description,
       phone,
       email,
-      website,
+      website: normalizedWebsite,
       logoUrl,
       coverImageUrl,
       address,
@@ -160,9 +237,9 @@ export default function BusinessProfilePage() {
       serviceArea,
       hours,
       preferredCta,
-      facebook,
-      instagram,
-      twitter,
+      facebook: normalizedFacebook,
+      instagram: normalizedInstagram,
+      twitter: normalizedTwitter,
       services,
       establishedYear,
       licenseNumber,
@@ -170,13 +247,52 @@ export default function BusinessProfilePage() {
     })
   }
 
+  const handleLogoFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    setLogoUploadError(null)
+    await startLogoUpload([file])
+  }
+
+  const handleCoverFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    setCoverUploadError(null)
+    await startCoverUpload([file])
+  }
+
+  const handleGalleryFilesChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(event.target.files || [])
+    event.target.value = ""
+    if (selectedFiles.length === 0) return
+
+    const remaining = 10 - photos.length
+    if (remaining <= 0) {
+      setGalleryUploadError("You can upload up to 10 gallery images.")
+      return
+    }
+
+    setGalleryUploadError(null)
+    if (selectedFiles.length > remaining) {
+      setGalleryUploadError(`Only ${remaining} more gallery image${remaining === 1 ? "" : "s"} can be added. The first ${remaining} selected image${remaining === 1 ? "" : "s"} will upload.`)
+    }
+    await startGalleryUpload(selectedFiles.slice(0, remaining))
+  }
+
   const handleLinkSubmit = (e: React.FormEvent) => {
     e.preventDefault()
+    const isWebLink = linkType !== BusinessLinkType.PHONE && linkType !== BusinessLinkType.EMAIL
+    const normalizedLinkUrl = isWebLink ? addHttps(linkUrl) : linkUrl.trim()
+    setLinkUrl(normalizedLinkUrl)
     upsertLinkMutation.mutate({
       id: linkId,
       type: linkType,
       label: linkLabel,
-      url: linkUrl,
+      url: normalizedLinkUrl,
       sortOrder: linkSortOrder,
       isActive: linkIsActive,
     })
@@ -233,8 +349,8 @@ export default function BusinessProfilePage() {
     checkField("city", "City")
     checkField("state", "State")
     checkField("zipCode", "ZIP Code")
-    checkField("logoUrl", "Logo Image URL")
-    checkField("coverImageUrl", "Cover Image URL")
+    checkField("logoUrl", "Business Logo")
+    checkField("coverImageUrl", "Cover Header Image")
     checkField("serviceArea", "Service Area")
     checkField("hours", "Hours")
     checkField("preferredCta", "Preferred CTA")
@@ -377,7 +493,7 @@ export default function BusinessProfilePage() {
       </div>
 
       {/* Tabs Selector */}
-      <div className="flex border-b border-border select-none">
+      <div className="hidden flex border-b border-border select-none">
         <button
           onClick={() => setActiveTab("profile")}
           className={`px-6 py-3 font-mono text-xs font-bold uppercase tracking-wider cursor-pointer border-b-2 transition-all ${
@@ -467,11 +583,13 @@ export default function BusinessProfilePage() {
                   Website URL
                 </label>
                 <Input
-                  type="url"
-                  placeholder="https://mybusiness.com"
+                  type="text"
+                  inputMode="url"
+                  placeholder="mybusiness.com"
                   disabled={isPrintedOrMailed}
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
+                  onBlur={() => setWebsite((value) => addHttps(value))}
                 />
               </div>
 
@@ -646,27 +764,76 @@ export default function BusinessProfilePage() {
 
               <div>
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
-                  Logo Image URL
+                  Business Logo
                 </label>
-                <Input
-                  type="url"
-                  placeholder="https://uploadthing.com/..."
-                  disabled={isPrintedOrMailed}
-                  value={logoUrl}
-                  onChange={(e) => setLogoUrl(e.target.value)}
-                />
+                <div className="flex items-center gap-3">
+                  <label
+                    className={`inline-flex cursor-pointer items-center justify-center border border-press bg-press px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-white transition-colors hover:bg-press/90 ${isPrintedOrMailed || isLogoUploading ? "cursor-not-allowed opacity-50" : ""}`}
+                  >
+                    {isLogoUploading ? "Uploading..." : logoUrl ? "Replace Logo" : "Upload Logo"}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      disabled={isPrintedOrMailed || isLogoUploading}
+                      onChange={handleLogoFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {logoUrl && (
+                    <>
+                      <div className="h-12 w-12 overflow-hidden border border-border bg-card p-1">
+                        <img src={logoUrl} alt="Current business logo" className="h-full w-full object-contain" />
+                      </div>
+                      {!isPrintedOrMailed && (
+                        <button
+                          type="button"
+                          onClick={() => setLogoUrl("")}
+                          className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700 underline hover:text-red-900"
+                        >
+                          Remove
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[10px] text-warm">PNG, JPG, or WebP up to 4 MB.</p>
+                {logoUploadError && <p className="mt-1 text-[10px] font-semibold text-red-700">{logoUploadError}</p>}
               </div>
 
               <div>
                 <label className="block text-[10px] font-mono font-bold text-warm uppercase tracking-wider mb-1.5">
-                  Cover Image URL
+                  Cover Header Image
                 </label>
-                <Input
-                  type="url"
-                  placeholder="https://uploadthing.com/..."
-                  value={coverImageUrl}
-                  onChange={(e) => setCoverImageUrl(e.target.value)}
-                />
+                <div className="flex items-center gap-3">
+                  <label
+                    className={`inline-flex cursor-pointer items-center justify-center border border-press bg-press px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-white transition-colors hover:bg-press/90 ${isCoverUploading ? "cursor-not-allowed opacity-50" : ""}`}
+                  >
+                    {isCoverUploading ? "Uploading..." : coverImageUrl ? "Replace Cover" : "Upload Cover"}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      disabled={isCoverUploading}
+                      onChange={handleCoverFileChange}
+                      className="hidden"
+                    />
+                  </label>
+                  {coverImageUrl && (
+                    <>
+                      <div className="h-12 w-28 overflow-hidden border border-border bg-card">
+                        <img src={coverImageUrl} alt="Current cover image" className="h-full w-full object-cover" />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCoverImageUrl("")}
+                        className="text-[10px] font-mono font-bold uppercase tracking-wider text-red-700 underline hover:text-red-900"
+                      >
+                        Remove
+                      </button>
+                    </>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[10px] text-warm">PNG, JPG, or WebP up to 4 MB.</p>
+                {coverUploadError && <p className="mt-1 text-[10px] font-semibold text-red-700">{coverUploadError}</p>}
               </div>
 
               <div>
@@ -749,10 +916,12 @@ export default function BusinessProfilePage() {
                   Facebook Page URL
                 </label>
                 <Input
-                  type="url"
-                  placeholder="https://facebook.com/..."
+                  type="text"
+                  inputMode="url"
+                  placeholder="facebook.com/..."
                   value={facebook}
                   onChange={(e) => setFacebook(e.target.value)}
+                  onBlur={() => setFacebook((value) => addHttps(value))}
                 />
               </div>
 
@@ -761,10 +930,12 @@ export default function BusinessProfilePage() {
                   Instagram Profile URL
                 </label>
                 <Input
-                  type="url"
-                  placeholder="https://instagram.com/..."
+                  type="text"
+                  inputMode="url"
+                  placeholder="instagram.com/..."
                   value={instagram}
                   onChange={(e) => setInstagram(e.target.value)}
+                  onBlur={() => setInstagram((value) => addHttps(value))}
                 />
               </div>
 
@@ -773,10 +944,12 @@ export default function BusinessProfilePage() {
                   Twitter / X Profile URL
                 </label>
                 <Input
-                  type="url"
-                  placeholder="https://x.com/..."
+                  type="text"
+                  inputMode="url"
+                  placeholder="x.com/..."
                   value={twitter}
                   onChange={(e) => setTwitter(e.target.value)}
+                  onBlur={() => setTwitter((value) => addHttps(value))}
                 />
               </div>
 
@@ -786,32 +959,26 @@ export default function BusinessProfilePage() {
                   Showcase Gallery (Our Work)
                 </h3>
                 <p className="text-[10px] text-warm -mt-2.5 leading-normal">
-                  Add URLs of photos showcasing your work. These will display in a gallery on your public profile once approved.
+                  Upload up to 10 photos showcasing your work. These will display in a gallery on your public profile once approved.
                 </p>
-                <div className="flex gap-2">
-                  <Input
-                    type="url"
-                    placeholder="Paste photo URL here..."
-                    value={newPhotoUrl}
-                    onChange={(e) => setNewPhotoUrl(e.target.value)}
-                    className="flex-1 text-xs"
-                  />
-                  <Button
-                    type="button"
-                    size="sm"
-                    onClick={() => {
-                      const trimmed = newPhotoUrl.trim()
-                      if (trimmed) {
-                        if (!photos.includes(trimmed)) {
-                          setPhotos([...photos, trimmed])
-                        }
-                        setNewPhotoUrl("")
-                      }
-                    }}
+                <div className="flex items-center justify-between gap-3">
+                  <label
+                    className={`inline-flex cursor-pointer items-center justify-center border border-press bg-press px-3 py-2 text-[10px] font-mono font-bold uppercase tracking-wider text-white transition-colors hover:bg-press/90 ${isGalleryUploading || photos.length >= 10 ? "cursor-not-allowed opacity-50" : ""}`}
                   >
-                    Add
-                  </Button>
+                    {isGalleryUploading ? "Uploading..." : "Upload gallery images"}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      multiple
+                      disabled={isGalleryUploading || photos.length >= 10}
+                      onChange={handleGalleryFilesChange}
+                      className="hidden"
+                    />
+                  </label>
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-warm">{photos.length}/10 images</span>
                 </div>
+                <p className="text-[10px] text-warm">PNG, JPG, or WebP up to 8 MB each. Image URLs cannot be added manually.</p>
+                {galleryUploadError && <p className="text-[10px] font-semibold text-red-700">{galleryUploadError}</p>}
                 {photos.length > 0 && (
                   <div className="grid grid-cols-3 gap-2 mt-2">
                     {photos.map((photoUrl) => (
@@ -836,12 +1003,16 @@ export default function BusinessProfilePage() {
           </div>
 
           <div className="pt-4 border-t border-border text-right">
-            <Button
-              type="submit"
-              disabled={updateProfileMutation.isPending}
-              size="lg"
-            >
-              {updateProfileMutation.isPending ? "Saving..." : "💾 Save Changes"}
+              <Button
+                type="submit"
+              disabled={updateProfileMutation.isPending || isLogoUploading || isCoverUploading || isGalleryUploading}
+                size="lg"
+              >
+              {isLogoUploading || isCoverUploading || isGalleryUploading
+                ? "Uploading image..."
+                : updateProfileMutation.isPending
+                ? "Saving..."
+                : "💾 Save Changes"}
             </Button>
           </div>
 
@@ -849,7 +1020,7 @@ export default function BusinessProfilePage() {
       )}
 
       {/* Links Form Tab */}
-      {activeTab === "links" && (
+      {activeTab === "profile" && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           {/* Left / Middle: Add / Edit Link Form */}
@@ -903,6 +1074,11 @@ export default function BusinessProfilePage() {
                   placeholder={linkType === "PHONE" ? "tel:+1234567890" : linkType === "EMAIL" ? "mailto:name@email.com" : "https://instagram.com/mybusiness"}
                   value={linkUrl}
                   onChange={(e) => setLinkUrl(e.target.value)}
+                  onBlur={() => {
+                    if (linkType !== BusinessLinkType.PHONE && linkType !== BusinessLinkType.EMAIL) {
+                      setLinkUrl((value) => addHttps(value))
+                    }
+                  }}
                 />
               </div>
 

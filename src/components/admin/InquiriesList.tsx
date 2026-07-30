@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table"
 import { formatDate } from "@/lib/utils"
+import InquiryInvoiceDialog from "@/components/admin/InquiryInvoiceDialog"
 
 interface InquiriesListProps {
   inquiries: any[]
@@ -46,6 +47,7 @@ export default function InquiriesList({
   const updateInternalNotesMutation = trpc.campaignInquiry.updateInternalNotes.useMutation()
 
   const [savingNotes, setSavingNotes] = useState<Record<string, boolean>>({})
+  const [invoiceInquiry, setInvoiceInquiry] = useState<any | null>(null)
 
   const toggleExpand = (id: string) => {
     setExpandedIds(prev => ({ ...prev, [id]: !prev[id] }))
@@ -303,14 +305,34 @@ export default function InquiriesList({
                         {formatDate(inquiry.createdAt)}
                       </TableCell>
                       <TableCell className="py-4 px-6 text-right">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => toggleExpand(inquiry.id)}
-                        >
-                          {isExpanded ? "Close" : "View"}
-                        </Button>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={!inquiry.email || !inquiry.phone || inquiry.campaign.spots.length === 0}
+                            title={
+                              !inquiry.email
+                                ? "This inquiry has no email address."
+                                : !inquiry.phone
+                                  ? "This inquiry has no phone number."
+                                  : inquiry.campaign.spots.length === 0
+                                    ? "This campaign has no open placements."
+                                    : undefined
+                            }
+                            onClick={() => setInvoiceInquiry(inquiry)}
+                          >
+                            Send invoice
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => toggleExpand(inquiry.id)}
+                          >
+                            {isExpanded ? "Close" : "View"}
+                          </Button>
+                        </div>
                       </TableCell>
                     </TableRow>
 
@@ -412,6 +434,18 @@ export default function InquiriesList({
           </TableBody>
         </Table>
       </Card>
+
+      {invoiceInquiry && (
+        <InquiryInvoiceDialog
+          key={invoiceInquiry.id}
+          inquiry={invoiceInquiry}
+          open
+          onOpenChange={(open) => {
+            if (!open) setInvoiceInquiry(null)
+          }}
+          onInvoiceSent={() => router.refresh()}
+        />
+      )}
     </div>
   )
 }

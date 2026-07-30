@@ -14,7 +14,7 @@ npm install
 ### 2. Configure Environment Variables
 Create a `.env` file in the root directory (based on `.env.example`) and fill in:
 *   `DATABASE_URL` / `DIRECT_URL` (Supabase PostgreSQL credentials)
-*   `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+*   `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_ANON_KEY` / `SUPABASE_SECRET_KEY` (server-only)
 *   `STRIPE_SECRET_KEY` / `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`
 *   `UPLOADTHING_TOKEN`
 

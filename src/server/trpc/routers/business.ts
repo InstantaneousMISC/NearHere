@@ -2,7 +2,9 @@ import { z } from "zod"
 import { createTRPCRouter, publicProcedure, adminProcedure } from "../init"
 import { TRPCError } from "@trpc/server"
 import { BusinessLinkType, BusinessStatus } from "@prisma/client"
-import { validatePhone, formatPhone, validateAndNormalizeUrl } from "@/lib/validation"
+import { validatePhone, formatPhone, validateAndNormalizeHttpsUrl, validateAndNormalizeUrl } from "@/lib/validation"
+import { findPaidBusinessForUserId } from "@/server/auth/access"
+import { ClaimBusinessError, claimBusinessForUser } from "@/server/auth/claim"
 
 // Helper to resolve and authenticate the business profile for the current user session
 async function getAuthedBusiness(ctx: any) {
@@ -13,52 +15,57 @@ async function getAuthedBusiness(ctx: any) {
     })
   }
 
-  const userEmail = ctx.user.email?.trim().toLowerCase()
+  // tRPC batches dashboard reads into a single request. Cache this entitlement
+  // lookup on that request context so every procedure still enforces the same
+  // check without repeating the database query.
+  ctx.authedBusinessPromise ??= findPaidBusinessForUserId(ctx.user.id)
+  const business = await ctx.authedBusinessPromise
 
-  let business = await ctx.db.business.findFirst({
-    where: {
-      OR: [
-        { ownerUserId: ctx.user.id },
-        ...(userEmail ? [{ advertiser: { email: { equals: userEmail, mode: "insensitive" as const } } }] : []),
-      ],
-    },
-  })
-
-  // Self-heal: If an advertiser logs in but has no business record, create a default one
   if (!business) {
-    const advertiser = userEmail ? await ctx.db.advertiser.findFirst({
-      where: { email: { equals: userEmail, mode: "insensitive" as const } },
-    }) : null
-
-    const { generateSlug } = await import("@/server/helpers/generateSlug")
-    const businessName = advertiser?.businessName || ctx.user.email.split("@")[0] || "My Business"
-    const slug = await generateSlug(businessName, ctx.db)
-
-    business = await ctx.db.business.create({
-      data: {
-        ownerUserId: ctx.user.id,
-        advertiserId: advertiser?.id || null,
-        name: businessName,
-        slug,
-        email: ctx.user.email ? ctx.user.email.trim().toLowerCase() : null,
-        phone: advertiser?.phone || "",
-        website: advertiser?.website || null,
-        address: advertiser?.businessAddress || null,
-        status: "ACTIVE",
-      },
-    })
-  } else if (!business.ownerUserId) {
-    // Associate current Supabase user ID if not already locked
-    business = await ctx.db.business.update({
-      where: { id: business.id },
-      data: { ownerUserId: ctx.user.id },
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "No active paid business placement is linked to this account.",
     })
   }
 
   return business
 }
 
+const businessOfferInput = z.object({
+  id: z.string().optional(),
+  title: z.string().trim().min(3, "Offer title must be at least 3 characters.").max(120),
+  details: z.string().trim().min(3, "Offer details must be at least 3 characters.").max(500),
+  expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Please enter a valid expiration date.").nullable().optional(),
+  isActive: z.boolean().optional(),
+})
+
+function offerExpiryFromInput(expiresOn: string | null | undefined) {
+  return expiresOn ? new Date(`${expiresOn}T23:59:59.999Z`) : null
+}
+
 export const businessRouter = createTRPCRouter({
+  checkUserRole: publicProcedure.query(async ({ ctx }) => {
+    if (!ctx.user) {
+      return { role: "unauthenticated" as const }
+    }
+
+    const adminUser = await ctx.db.adminUser.findUnique({
+      where: { supabaseUserId: ctx.user.id },
+    })
+
+    if (adminUser) {
+      return { role: "admin" as const }
+    }
+
+    const paidBusiness = await findPaidBusinessForUserId(ctx.user.id)
+
+    if (paidBusiness) {
+      return { role: "merchant" as const, businessSlug: paidBusiness.slug }
+    }
+
+    return { role: "unauthorized" as const }
+  }),
+
   getMyBusiness: publicProcedure.query(async ({ ctx }) => {
     const business = await getAuthedBusiness(ctx)
     const result = await ctx.db.business.findUnique({
@@ -67,6 +74,20 @@ export const businessRouter = createTRPCRouter({
         links: {
           orderBy: { sortOrder: "asc" },
         },
+        directoryProfile: {
+          include: {
+            locations: {
+              where: { status: "PUBLISHED" },
+              include: { city: { include: { state: true } } },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+            },
+            categories: {
+              include: { directoryCategory: true },
+              take: 1,
+            },
+          },
+        },
       },
     })
     if (result) {
@@ -74,6 +95,109 @@ export const businessRouter = createTRPCRouter({
     }
     return result
   }),
+
+  listMyOffers: publicProcedure.query(async ({ ctx }) => {
+    const business = await getAuthedBusiness(ctx)
+    return await ctx.db.businessOffer.findMany({
+      where: { businessId: business.id },
+      orderBy: [{ isActive: "desc" }, { expiresAt: "asc" }, { createdAt: "desc" }],
+    })
+  }),
+
+  listMyNotifications: publicProcedure.query(async ({ ctx }) => {
+    const business = await getAuthedBusiness(ctx)
+    return await ctx.db.businessNotification.findMany({
+      where: { businessId: business.id },
+      orderBy: { createdAt: "desc" },
+      take: 25,
+    })
+  }),
+
+  getMyUnreadNotificationCount: publicProcedure.query(async ({ ctx }) => {
+    const business = await getAuthedBusiness(ctx)
+    return await ctx.db.businessNotification.count({
+      where: { businessId: business.id, read: false },
+    })
+  }),
+
+  markMyNotificationRead: publicProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const business = await getAuthedBusiness(ctx)
+      const notification = await ctx.db.businessNotification.findFirst({
+        where: { id: input.id, businessId: business.id },
+        select: { id: true },
+      })
+      if (!notification) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Notification not found." })
+      }
+      return await ctx.db.businessNotification.update({
+        where: { id: notification.id },
+        data: { read: true },
+      })
+    }),
+
+  markAllMyNotificationsRead: publicProcedure.mutation(async ({ ctx }) => {
+    const business = await getAuthedBusiness(ctx)
+    return await ctx.db.businessNotification.updateMany({
+      where: { businessId: business.id, read: false },
+      data: { read: true },
+    })
+  }),
+
+  saveMyOffer: publicProcedure
+    .input(businessOfferInput)
+    .mutation(async ({ ctx, input }) => {
+      const business = await getAuthedBusiness(ctx)
+      const expiresAt = offerExpiryFromInput(input.expiresOn)
+
+      if (input.id) {
+        const existing = await ctx.db.businessOffer.findFirst({
+          where: { id: input.id, businessId: business.id },
+          select: { id: true },
+        })
+        if (!existing) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Offer not found." })
+        }
+        return await ctx.db.businessOffer.update({
+          where: { id: existing.id },
+          data: {
+            title: input.title,
+            details: input.details,
+            expiresAt,
+            ...(input.isActive !== undefined ? { isActive: input.isActive } : {}),
+          },
+        })
+      }
+
+      return await ctx.db.businessOffer.create({
+        data: {
+          businessId: business.id,
+          title: input.title,
+          details: input.details,
+          expiresAt,
+          isActive: input.isActive ?? true,
+          createdById: ctx.user.id,
+        },
+      })
+    }),
+
+  setMyOfferActive: publicProcedure
+    .input(z.object({ id: z.string(), isActive: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const business = await getAuthedBusiness(ctx)
+      const existing = await ctx.db.businessOffer.findFirst({
+        where: { id: input.id, businessId: business.id },
+        select: { id: true },
+      })
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Offer not found." })
+      }
+      return await ctx.db.businessOffer.update({
+        where: { id: existing.id },
+        data: { isActive: input.isActive },
+      })
+    }),
 
   updateProfile: publicProcedure
     .input(
@@ -98,7 +222,7 @@ export const businessRouter = createTRPCRouter({
         services: z.array(z.union([z.string(), z.object({ name: z.string().min(1), description: z.string().optional().nullable() })])).optional().nullable(),
         establishedYear: z.string().optional().nullable(),
         licenseNumber: z.string().optional().nullable(),
-        photos: z.array(z.string()).optional().nullable(),
+        photos: z.array(z.string()).max(10, "You can upload up to 10 gallery images.").optional().nullable(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -156,7 +280,7 @@ export const businessRouter = createTRPCRouter({
 
       let sanitizedWebsite = input.website || null
       if (input.website && input.website.trim() !== "") {
-        const normalized = validateAndNormalizeUrl(input.website)
+        const normalized = validateAndNormalizeHttpsUrl(input.website)
         if (!normalized) {
           throw new TRPCError({
             code: "BAD_REQUEST",
@@ -195,10 +319,21 @@ export const businessRouter = createTRPCRouter({
       })
       const isAdmin = !!adminUser || process.env.NODE_ENV === "test"
 
-      const socialLinksJson = (input.facebook || input.instagram || input.twitter) ? {
-        facebook: input.facebook || null,
-        instagram: input.instagram || null,
-        twitter: input.twitter || null,
+      const normalizeSocialLink = (value: string | null | undefined, label: string) => {
+        if (!value?.trim()) return null
+        const normalized = validateAndNormalizeHttpsUrl(value)
+        if (!normalized) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: `Please enter a valid ${label} URL.` })
+        }
+        return normalized
+      }
+      const facebook = normalizeSocialLink(input.facebook, "Facebook")
+      const instagram = normalizeSocialLink(input.instagram, "Instagram")
+      const twitter = normalizeSocialLink(input.twitter, "Twitter / X")
+      const socialLinksJson = (facebook || instagram || twitter) ? {
+        facebook,
+        instagram,
+        twitter,
       } : null
 
       if (isAdmin) {
@@ -367,6 +502,15 @@ export const businessRouter = createTRPCRouter({
         console.error("[NOTIFICATION ERROR] Failed to trigger profile edit notification:", err)
       }
 
+      const { createBusinessNotification } = await import("@/server/helpers/businessNotifications")
+      await createBusinessNotification({
+        businessId: business.id,
+        type: "PROFILE_UPDATE_SUBMITTED",
+        title: "Profile update submitted",
+        message: "Your profile changes are waiting for administrator review.",
+        link: "/business/profile",
+      })
+
       return business
     }),
 
@@ -391,6 +535,15 @@ export const businessRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const business = await getAuthedBusiness(ctx)
+      const isWebLink = input.type !== BusinessLinkType.PHONE && input.type !== BusinessLinkType.EMAIL
+      const normalizedUrl = isWebLink ? validateAndNormalizeHttpsUrl(input.url) : input.url.trim()
+
+      if (!normalizedUrl) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: isWebLink ? "Please enter a valid website URL." : "Please enter a valid destination.",
+        })
+      }
 
       if (input.id) {
         // Edit existing link - verify ownership
@@ -410,7 +563,7 @@ export const businessRouter = createTRPCRouter({
           data: {
             type: input.type,
             label: input.label,
-            url: input.url,
+            url: normalizedUrl,
             sortOrder: input.sortOrder,
             isActive: input.isActive,
           },
@@ -422,7 +575,7 @@ export const businessRouter = createTRPCRouter({
             businessId: business.id,
             type: input.type,
             label: input.label,
-            url: input.url,
+            url: normalizedUrl,
             sortOrder: input.sortOrder,
             isActive: input.isActive,
           },
@@ -688,75 +841,94 @@ export const businessRouter = createTRPCRouter({
         })
       }
 
+      try {
+        return await claimBusinessForUser({
+          token: input.token,
+          userId: ctx.user.id,
+          userEmail: ctx.user.email,
+        })
+      } catch (error) {
+        if (error instanceof ClaimBusinessError) {
+          throw new TRPCError({ code: error.code, message: error.message })
+        }
+        throw error
+      }
+    }),
+
+  resendClaimEmail: publicProcedure
+    .input(z.object({ businessId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
       const business = await ctx.db.business.findUnique({
-        where: { claimToken: input.token },
+        where: { id: input.businessId },
         include: { advertiser: true },
       })
 
       if (!business) {
         throw new TRPCError({
           code: "NOT_FOUND",
-          message: "Invalid claim token.",
-        })
-      }
-
-      if (business.claimTokenExpiresAt && business.claimTokenExpiresAt < new Date()) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Claim token has expired.",
+          message: "Business record not found.",
         })
       }
 
       if (business.ownerUserId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "This business has already been claimed.",
+          message: "This business profile has already been verified and claimed.",
         })
       }
 
-      // Check if user is an admin
-      const adminUser = await ctx.db.adminUser.findUnique({
-        where: { supabaseUserId: ctx.user.id },
-      })
+      let claimToken = business.claimToken
+      if (!claimToken) {
+        const { generateClaimToken } = await import("@/server/helpers/generateToken")
+        claimToken = generateClaimToken()
+        await ctx.db.business.update({
+          where: { id: business.id },
+          data: {
+            claimToken,
+            claimTokenExpiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          },
+        })
+      }
 
-      const isAdmin = !!adminUser
-
-      // Normalise and compare emails
-      const userEmail = ctx.user.email?.trim().toLowerCase() || ""
-      const businessEmail = business.email?.trim().toLowerCase() || ""
-      const advertiserEmail = business.advertiser?.email?.trim().toLowerCase() || ""
-
-      const isEmailMatch = userEmail && (userEmail === businessEmail || userEmail === advertiserEmail)
-
-      if (!isAdmin && !isEmailMatch) {
+      const recipientEmail = business.email || business.advertiser?.email
+      if (!recipientEmail) {
         throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "You can only claim this business using the email address associated with the purchase.",
+          code: "BAD_REQUEST",
+          message: "No email address found for this business profile.",
         })
       }
 
-      // Claim the business
-      const claimedBusiness = await ctx.db.business.update({
-        where: { id: business.id },
-        data: {
-          ownerUserId: ctx.user.id,
-          claimedAt: new Date(),
-          claimToken: null,
-          claimTokenExpiresAt: null,
-        },
+      const { sendLifecycleEmailOnce } = await import("@/server/email/sendLifecycleEmailOnce")
+      const { getClaimBusinessProfileTemplate } = await import("@/server/email/templates/claimBusinessProfile")
+
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+      const claimLink = `${appUrl}/business/claim/${claimToken}`
+      const claim = getClaimBusinessProfileTemplate({
+        businessName: business.name,
+        claimLink,
       })
 
-      // Send claim success email
-      if (claimedBusiness.email) {
-        try {
-          const { sendClaimSuccessEmail } = await import("@/server/email/actions")
-          await sendClaimSuccessEmail(claimedBusiness.id)
-        } catch (err) {
-          console.error("[EMAIL ERROR] Failed to send claim success email:", err)
-        }
+      const res = await sendLifecycleEmailOnce({
+        toEmail: recipientEmail,
+        templateKey: "claim_business_profile",
+        entityType: "business",
+        entityId: business.id,
+        subject: claim.subject,
+        html: claim.html,
+      })
+
+      if (!res.success && res.error) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Resend error: ${res.error}`,
+        })
       }
 
-      return claimedBusiness
+      return {
+        success: true,
+        message: `Verification email sent to ${recipientEmail}`,
+        claimToken,
+      }
     }),
 
   getMyOrders: publicProcedure.query(async ({ ctx }) => {
@@ -880,12 +1052,7 @@ export const businessRouter = createTRPCRouter({
   }),
 
   getCampaignPlacements: publicProcedure.query(async ({ ctx }) => {
-    if (!ctx.user) {
-      throw new TRPCError({
-        code: "UNAUTHORIZED",
-        message: "Not authenticated.",
-      })
-    }
+    await getAuthedBusiness(ctx)
     const { getBusinessDashboardCampaigns } = await import("@/server/helpers/stats")
     return await getBusinessDashboardCampaigns(ctx.user.id)
   }),
@@ -895,6 +1062,7 @@ export const businessRouter = createTRPCRouter({
       campaignId: z.string().optional(),
       qrCodeId: z.string().optional(),
       days: z.number().default(14),
+      endDate: z.coerce.date().optional(),
     }))
     .query(async ({ ctx, input }) => {
       const business = await getAuthedBusiness(ctx)
@@ -925,8 +1093,10 @@ export const businessRouter = createTRPCRouter({
         }
       }
 
-      const endDate = new Date()
+      const endDate = input.endDate ? new Date(input.endDate) : new Date()
+      endDate.setHours(23, 59, 59, 999)
       const startDate = new Date()
+      startDate.setTime(endDate.getTime())
       startDate.setDate(endDate.getDate() - input.days + 1)
       startDate.setHours(0, 0, 0, 0)
 
@@ -945,6 +1115,9 @@ export const businessRouter = createTRPCRouter({
       orderBy: { name: "asc" },
       include: {
         advertiser: true,
+        directoryProfile: {
+          select: { status: true },
+        },
       },
     })
   }),
@@ -986,6 +1159,9 @@ export const businessRouter = createTRPCRouter({
             }
           },
           links: true,
+          offers: {
+            orderBy: [{ isActive: "desc" }, { expiresAt: "asc" }, { createdAt: "desc" }],
+          },
           qrCodes: {
             include: {
               _count: { select: { scans: true } }
@@ -1016,6 +1192,72 @@ export const businessRouter = createTRPCRouter({
       }
     }),
 
+  saveOfferForBusiness: adminProcedure
+    .input(businessOfferInput.extend({ businessId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const business = await ctx.db.business.findUnique({
+        where: { id: input.businessId },
+        select: { id: true, name: true },
+      })
+      if (!business) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Business not found." })
+      }
+
+      const expiresAt = offerExpiryFromInput(input.expiresOn)
+      let offer
+      if (input.id) {
+        const existing = await ctx.db.businessOffer.findFirst({
+          where: { id: input.id, businessId: business.id },
+          select: { id: true },
+        })
+        if (!existing) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Offer not found." })
+        }
+        offer = await ctx.db.businessOffer.update({
+          where: { id: existing.id },
+          data: {
+            title: input.title,
+            details: input.details,
+            expiresAt,
+            isActive: input.isActive ?? true,
+          },
+        })
+      } else {
+        offer = await ctx.db.businessOffer.create({
+          data: {
+            businessId: business.id,
+            title: input.title,
+            details: input.details,
+            expiresAt,
+            isActive: input.isActive ?? true,
+            createdById: ctx.user.id,
+            createdByAdminEmail: ctx.adminUser.email,
+          },
+        })
+      }
+
+      await ctx.db.adminAuditLog.create({
+        data: {
+          adminEmail: ctx.adminUser.email,
+          action: input.id ? "UPDATE_BUSINESS_OFFER" : "CREATE_BUSINESS_OFFER",
+          businessId: business.id,
+          notes: `${input.id ? "Updated" : "Created"} offer \"${offer.title}\" for ${business.name}.`,
+          metadata: { businessOfferId: offer.id, isActive: offer.isActive },
+        },
+      })
+
+      const { createBusinessNotification } = await import("@/server/helpers/businessNotifications")
+      await createBusinessNotification({
+        businessId: business.id,
+        type: "ADMIN_OFFER_UPDATED",
+        title: input.id ? "Your offer was updated" : "A new offer was added",
+        message: `${ctx.adminUser.name || "An administrator"} ${input.id ? "updated" : "added"} the offer \"${offer.title}\".`,
+        link: "/business/offers",
+      })
+
+      return offer
+    }),
+
   updateGoodStanding: adminProcedure
     .input(z.object({
       id: z.string(),
@@ -1041,6 +1283,59 @@ export const businessRouter = createTRPCRouter({
       })
 
       return business
+    }),
+
+  publishDirectoryProfile: adminProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const existing = await ctx.db.business.findUnique({
+        where: { id: input.id },
+        select: { id: true, name: true, goodStanding: true, deletedAt: true },
+      })
+
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Business not found." })
+      }
+      if (existing.deletedAt || !existing.goodStanding) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only active businesses in good standing can be published.",
+        })
+      }
+
+      await ctx.db.business.update({
+        where: { id: existing.id },
+        data: {
+          isDirectoryVisible: true,
+          directoryPublicationOverride: true,
+        },
+      })
+
+      const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
+      await syncBusinessToDirectory(existing.id)
+
+      const profile = await ctx.db.directoryProfile.findUnique({
+        where: { businessId: existing.id },
+        select: { id: true, status: true },
+      })
+      if (!profile || profile.status !== "PUBLISHED") {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "The directory profile could not be published. Please try again.",
+        })
+      }
+
+      await ctx.db.adminAuditLog.create({
+        data: {
+          adminEmail: ctx.adminUser.email,
+          action: "PUBLISH_DIRECTORY_PROFILE",
+          businessId: existing.id,
+          notes: `Manually published directory profile for ${existing.name}.`,
+          metadata: { directoryPublicationOverride: true },
+        },
+      })
+
+      return profile
     }),
 
   listPendingProfileChanges: adminProcedure.query(async ({ ctx }) => {
@@ -1117,6 +1412,38 @@ export const businessRouter = createTRPCRouter({
         }
       })
 
+      // Sync to the public directory before composing the approval email, so
+      // its action button can use the canonical public profile URL.
+      let profileUrl: string | null = null
+      try {
+        const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
+        await syncBusinessToDirectory(updatedBusiness.id)
+
+        const profile = await ctx.db.directoryProfile.findUnique({
+          where: { businessId: updatedBusiness.id },
+          include: {
+            locations: {
+              where: { status: "PUBLISHED" },
+              include: { city: { include: { state: true } } },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+            },
+            categories: {
+              include: { directoryCategory: true },
+              take: 1,
+            },
+          },
+        })
+        const location = profile?.locations[0]
+        const category = profile?.categories[0]?.directoryCategory
+        if (profile?.status === "PUBLISHED" && location && category) {
+          const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000").replace(/\/$/, "")
+          profileUrl = `${appUrl}/directory/${location.city.state.slug}/${location.city.slug}/businesses/${category.slug}/${profile.slug}`
+        }
+      } catch (err) {
+        console.error("[DIRECTORY SYNC ERROR] Failed to sync directory on admin approval:", err)
+      }
+
       // Send email notification to merchant
       const emailAddress = updatedBusiness.email || updatedBusiness.advertiser?.email
       if (emailAddress) {
@@ -1126,7 +1453,8 @@ export const businessRouter = createTRPCRouter({
 
           const mail = getProfileUpdateStatusTemplate({
             businessName: updatedBusiness.name,
-            status: "APPROVED"
+            status: "APPROVED",
+            profileUrl,
           })
 
           await sendLifecycleEmailOnce({
@@ -1142,6 +1470,15 @@ export const businessRouter = createTRPCRouter({
         }
       }
 
+      const { createBusinessNotification } = await import("@/server/helpers/businessNotifications")
+      await createBusinessNotification({
+        businessId: updatedBusiness.id,
+        type: "PROFILE_APPROVED",
+        title: "Your profile changes were approved",
+        message: "Your approved updates are now available on your public business profile.",
+        link: "/business/profile",
+      })
+
       // Create admin audit log
       await ctx.db.adminAuditLog.create({
         data: {
@@ -1154,14 +1491,6 @@ export const businessRouter = createTRPCRouter({
           }
         }
       })
-
-      // Sync to public directory profile
-      try {
-        const { syncBusinessToDirectory } = await import("@/server/helpers/directorySync")
-        await syncBusinessToDirectory(updatedBusiness.id)
-      } catch (err) {
-        console.error("[DIRECTORY SYNC ERROR] Failed to sync directory on admin approval:", err)
-      }
 
       return updatedBusiness
     }),
@@ -1240,6 +1569,15 @@ export const businessRouter = createTRPCRouter({
         }
       }
 
+      const { createBusinessNotification } = await import("@/server/helpers/businessNotifications")
+      await createBusinessNotification({
+        businessId: liveBusiness.id,
+        type: "PROFILE_REJECTED",
+        title: "Your profile changes need attention",
+        message: input.rejectionReason,
+        link: "/business/profile",
+      })
+
       // Create admin audit log
       await ctx.db.adminAuditLog.create({
         data: {
@@ -1282,7 +1620,7 @@ export const businessRouter = createTRPCRouter({
         services: z.array(z.union([z.string(), z.object({ name: z.string().min(1), description: z.string().optional().nullable() })])).nullable().optional(),
         establishedYear: z.string().nullable().optional(),
         licenseNumber: z.string().nullable().optional(),
-        photos: z.array(z.string()).nullable().optional(),
+        photos: z.array(z.string()).max(10, "You can upload up to 10 gallery images.").nullable().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {

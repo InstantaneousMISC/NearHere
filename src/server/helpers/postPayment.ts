@@ -5,7 +5,6 @@ import { sendLifecycleEmailOnce } from "@/server/email/sendLifecycleEmailOnce"
 import { getAdminPurchaseNotificationTemplate } from "@/server/email/templates/adminPurchaseNotification"
 import { getClaimBusinessProfileTemplate } from "@/server/email/templates/claimBusinessProfile"
 import { getPaymentConfirmationTemplate } from "@/server/email/templates/paymentConfirmation"
-import { getSubmitPostcardCreativeTemplate } from "@/server/email/templates/submitPostcardCreative"
 
 const getAppUrl = () =>
   (
@@ -28,7 +27,10 @@ export async function ensureBusinessForOrder(orderId: string) {
       where: { advertiserId: order.advertiserId },
     })
     if (existing) {
-      if (!existing.ownerUserId && !existing.claimToken) {
+      const claimTokenExpired =
+        !existing.claimTokenExpiresAt || existing.claimTokenExpiresAt < new Date()
+
+      if (!existing.ownerUserId && (!existing.claimToken || claimTokenExpired)) {
         const claimToken = crypto.randomBytes(16).toString("hex")
         const claimTokenExpiresAt = new Date()
         claimTokenExpiresAt.setDate(claimTokenExpiresAt.getDate() + 14)
@@ -152,7 +154,6 @@ export async function ensurePostPaymentEmailsForOrder(orderId: string) {
   })
   const business = await ensureBusinessForOrder(orderId)
   const appUrl = getAppUrl()
-  const creativeSubmissionUrl = `${appUrl}/submit-creative/${order.creativeSubmissionToken}`
   const claimLink = business.claimToken
     ? `${appUrl}/business/claim/${business.claimToken}`
     : null
@@ -207,18 +208,4 @@ export async function ensurePostPaymentEmailsForOrder(orderId: string) {
     })
   }
 
-  const creative = getSubmitPostcardCreativeTemplate({
-    businessName: order.advertiser.businessName,
-    campaignName: order.campaign.name,
-    categoryName: order.campaignSpot.label,
-    creativeSubmissionUrl,
-  })
-  await sendLifecycleEmailOnce({
-    toEmail: order.advertiser.email,
-    templateKey: "submit_postcard_creative",
-    entityType: "order",
-    entityId: order.id,
-    subject: creative.subject,
-    html: creative.html,
-  })
 }

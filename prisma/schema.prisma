@@ -354,6 +354,7 @@ model Business {
   claimTokenExpiresAt DateTime?
   claimedAt           DateTime?
   isDirectoryVisible  Boolean           @default(false)
+  directoryPublicationOverride Boolean   @default(false)
   deletedAt           DateTime?
   goodStanding        Boolean           @default(true)
   services            Json?
@@ -369,9 +370,44 @@ model Business {
   clickEvents     BusinessClickEvent[]
   directoryProfile DirectoryProfile?
   profileChangeRequests BusinessProfileChangeRequest[]
+  offers          BusinessOffer[]
+  notifications   BusinessNotification[]
 
   @@index([advertiserId])
   @@index([ownerUserId])
+}
+
+model BusinessOffer {
+  id          String    @id @default(cuid())
+  businessId  String
+  title       String    @db.VarChar(120)
+  details     String    @db.VarChar(500)
+  expiresAt   DateTime?
+  isActive    Boolean   @default(true)
+  createdById String?
+  createdByAdminEmail String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  business    Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, isActive])
+  @@index([expiresAt])
+}
+
+model BusinessNotification {
+  id          String   @id @default(cuid())
+  businessId  String
+  type        String
+  title       String
+  message     String   @db.Text
+  link        String?
+  read        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  business    Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+
+  @@index([businessId, read, createdAt])
 }
 
 model BusinessProfileChangeRequest {

@@ -159,6 +159,7 @@ export async function syncBusinessToDirectory(businessId: string): Promise<void>
               campaignSpot: {
                 include: { category: true },
               },
+              campaign: true,
               creativeSubmission: true,
             },
           },
@@ -273,8 +274,8 @@ export async function syncBusinessToDirectory(businessId: string): Promise<void>
   }
 
   // 5. Sync locations (State & City)
-  const rawCity = business.city || creative?.address?.split(",")?.[1] || null
-  const rawState = business.state || creative?.address?.split(",")?.[2]?.trim()?.split(" ")?.[0] || null
+  const rawCity = business.city || creative?.address?.split(",")?.[1] || latestPaidOrder?.campaign?.city || null
+  const rawState = business.state || creative?.address?.split(",")?.[2]?.trim()?.split(" ")?.[0] || latestPaidOrder?.campaign?.state || null
 
   if (rawCity && rawState) {
     const stateNorm = normalizeState(rawState)
@@ -376,7 +377,9 @@ export async function syncBusinessToDirectory(businessId: string): Promise<void>
                             business.goodStanding && 
                             !business.deletedAt
 
-  if (meetsQuality && isPubliclyVisible) {
+  // An administrator can explicitly publish an incomplete profile. This
+  // override never bypasses standing or deletion safeguards.
+  if (isPubliclyVisible && (meetsQuality || business.directoryPublicationOverride)) {
     await db.directoryProfile.update({
       where: { id: profile.id },
       data: {

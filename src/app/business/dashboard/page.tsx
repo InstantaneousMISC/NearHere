@@ -1,734 +1,166 @@
 "use client"
 
-import React, { useState, useEffect } from "react"
+import { useMemo, useState } from "react"
 import Link from "next/link"
-import { trpc } from "@/lib/trpc/client"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import { Area, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { BarChart3, Bell, CheckCircle2, ClipboardCopy, ExternalLink, Eye, FilePenLine, ImagePlus, Link2, Mail, MapPin, Megaphone, Phone, QrCode, Send, Share2, Sparkles, Upload, Users } from "lucide-react"
 import QRCodeImage from "@/components/postcard/QRCodeImage"
-import { Card } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { trpc } from "@/lib/trpc/client"
+import { formatDate } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  ResponsiveContainer,
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  Legend,
-} from "recharts"
+import { ActivityFeed, type ActivityItem } from "@/components/dashboard/activity-feed"
+import { AnalyticsChartCard } from "@/components/dashboard/analytics-chart-card"
+import { DateRangeSelector } from "@/components/dashboard/date-range-selector"
+import { EmptyState } from "@/components/dashboard/empty-state"
+import { MetricCard } from "@/components/dashboard/metric-card"
+import { MetricGrid } from "@/components/dashboard/metric-grid"
+import { PageHeader } from "@/components/dashboard/page-header"
+import { SectionCard } from "@/components/dashboard/section-card"
+import { campaignStatusMap, creativeStatusMap, StatusBadge, statusFor } from "@/components/dashboard/status-badge"
+import { WorkflowStepper, type WorkflowStep } from "@/components/dashboard/workflow-stepper"
+import { PageSkeleton } from "@/components/dashboard/page-skeleton"
+
+type MetricKey = "scans" | "views" | "clicks" | "calls"
 
 export default function BusinessDashboardPage() {
-  const [origin, setOrigin] = useState("")
-  const [mounted, setMounted] = useState(false)
-  const [selectedPlacementId, setSelectedPlacementId] = useState<string | null>(null)
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [rangeDays, setRangeDays] = useState(14)
+  const [copyLabel, setCopyLabel] = useState("Copy public link")
+  const origin = typeof window === "undefined" ? "" : window.location.origin
 
-  useEffect(() => {
-    setOrigin(window.location.origin)
-    setMounted(true)
-  }, [])
+  const { data: business, isLoading: isBusinessLoading } = trpc.business.getMyBusiness.useQuery(undefined, { staleTime: 30_000 })
+  const { data: placements, isLoading: isPlacementsLoading } = trpc.business.getCampaignPlacements.useQuery(undefined, { staleTime: 30_000 })
+  const { data: notifications } = trpc.business.listMyNotifications.useQuery(undefined, { staleTime: 30_000 })
 
-  const { data: business, isLoading: isBusinessLoading } = trpc.business.getMyBusiness.useQuery()
-  const { data: placements, isLoading: isPlacementsLoading } = trpc.business.getCampaignPlacements.useQuery()
+  const requestedPlacementId = searchParams.get("placement")
+  const selectedPlacement = placements?.find((placement) => placement.orderId === requestedPlacementId) || placements?.[0] || null
+  const priorPeriodEnd = useMemo(() => {
+    const end = new Date()
+    end.setDate(end.getDate() - rangeDays)
+    return end
+  }, [rangeDays])
+  const analyticsInput = { campaignId: selectedPlacement?.campaign?.id, qrCodeId: selectedPlacement?.qrCode?.id, days: rangeDays }
+  const { data: timeSeries, isLoading: isTimeSeriesLoading } = trpc.business.getCampaignPlacementTimeSeries.useQuery(analyticsInput, { enabled: Boolean(selectedPlacement), staleTime: 30_000 })
+  const { data: priorTimeSeries } = trpc.business.getCampaignPlacementTimeSeries.useQuery({ ...analyticsInput, endDate: priorPeriodEnd }, { enabled: Boolean(selectedPlacement), staleTime: 30_000 })
 
-  // Select first placement by default
-  useEffect(() => {
-    if (placements && placements.length > 0 && !selectedPlacementId) {
-      setSelectedPlacementId(placements[0].orderId)
-    }
-  }, [placements, selectedPlacementId])
+  const publicProfilePath = (() => {
+    const profile = business?.directoryProfile
+    const location = profile?.locations[0]
+    const category = profile?.categories[0]?.directoryCategory
+    if (!profile || !location || !category) return null
+    return `/directory/${location.city.state.slug}/${location.city.slug}/businesses/${category.slug}/${profile.slug}`
+  })()
 
-  const selectedPlacement = placements?.find((p) => p.orderId === selectedPlacementId) || placements?.[0] || null
-
-  const { data: timeSeries, isLoading: isTimeSeriesLoading } = trpc.business.getCampaignPlacementTimeSeries.useQuery(
-    {
-      campaignId: selectedPlacement?.campaign?.id,
-      qrCodeId: selectedPlacement?.qrCode?.id,
-    },
-    {
-      enabled: !!selectedPlacement,
-    }
-  )
-
-  const handleCopyLink = () => {
-    if (!business?.slug) return
-    const publicUrl = `${origin}/b/${business.slug}`
-    navigator.clipboard.writeText(publicUrl)
-    alert("Public link copied to clipboard!")
+  const selectPlacement = (orderId: string) => {
+    const params = new URLSearchParams(searchParams.toString())
+    params.set("placement", orderId)
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false })
   }
-
-  const handleDownloadQr = async (slug: string, campaignName: string) => {
+  const copyPublicLink = async () => {
+    if (!publicProfilePath || !origin) return
+    try {
+      await navigator.clipboard.writeText(`${origin}${publicProfilePath}`)
+      setCopyLabel("Copied!")
+      window.setTimeout(() => setCopyLabel("Copy public link"), 1800)
+    } catch { setCopyLabel("Copy failed") }
+  }
+  const downloadQr = async (slug: string, campaignName: string) => {
     try {
       const QRCode = (await import("qrcode")).default
-      const trackingUrl = `${origin}/q/${slug}`
-      const dataUrl = await QRCode.toDataURL(trackingUrl, {
-        errorCorrectionLevel: "H",
-        margin: 1,
-        width: 1024,
-        color: {
-          dark: "#211D1C",
-          light: "#FFFFFF",
-        },
-      })
-
+      const dataUrl = await QRCode.toDataURL(`${origin}/q/${slug}`, { errorCorrectionLevel: "H", margin: 1, width: 1024, color: { dark: "#1D2025", light: "#FFFFFF" } })
       const link = document.createElement("a")
       link.href = dataUrl
-      const cleanCampName = campaignName.toLowerCase().replace(/[^a-z0-9]+/g, "-")
-      link.download = `nearhere-qr-${cleanCampName}-${slug}.png`
+      link.download = `nearhere-qr-${campaignName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${slug}.png`
       link.click()
-    } catch (err) {
-      console.error("Failed to download QR code:", err)
-      alert("Failed to download QR code. Please try again.")
-    }
+    } catch (error) { console.error("Failed to download QR code:", error) }
   }
 
-  const isLoading = isBusinessLoading || isPlacementsLoading
+  if (isBusinessLoading || isPlacementsLoading) return <PageSkeleton />
+  if (!placements?.length || !selectedPlacement) return <EmptyState icon={Megaphone} title="No campaign placements yet" description="Once you purchase a campaign spot, its setup and performance will appear here." action={<Button asChild><Link href="/campaigns">Browse campaigns</Link></Button>} />
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6 animate-pulse text-left font-sans">
-        <div className="h-10 bg-press/10 w-1/3 rounded-none" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="h-28 bg-press/5 border border-border rounded-none" />
-          <div className="h-28 bg-press/5 border border-border rounded-none" />
-          <div className="h-28 bg-press/5 border border-border rounded-none" />
-        </div>
-        <div className="h-64 bg-press/5 border border-border rounded-none" />
-      </div>
-    )
-  }
-
-  if (!placements || placements.length === 0) {
-    return (
-      <div className="py-16 text-center max-w-md mx-auto font-sans">
-        <div className="text-4xl mb-4">📬</div>
-        <h3 className="font-headline font-black text-xl uppercase tracking-tight text-press">No Campaigns Yet</h3>
-        <p className="text-sm text-warm mt-2 leading-relaxed">
-          Once you purchase a campaign spot or have an active reservation, it will show up here.
-        </p>
-        <Button className="mt-6" asChild>
-          <Link href="/campaigns">Browse Open Campaigns</Link>
-        </Button>
-      </div>
-    )
-  }
-
-  // Selected campaign/creative stats mapping
-  const campaign = selectedPlacement?.campaign
-  const spot = selectedPlacement?.campaignSpot
-  const qrCode = selectedPlacement?.qrCode
-  const creative = selectedPlacement?.creativeSubmission
-  const creativeStatus = selectedPlacement?.creativeStatus
-  const stats = selectedPlacement?.stats || {
-    scansCount: 0,
-    pageViewsCount: 0,
-    outboundClicksCount: 0,
-    callClicksCount: 0,
-    ctaClicksCount: 0,
-  }
-
-  // Onboarding checklist calculations for selected placement
-  const hasProfileDescription = !!business?.description?.trim()
-  const hasProfileLogo = !!business?.logoUrl?.trim()
-  const hasProfileAddress = !!business?.address?.trim()
+  const campaign = selectedPlacement.campaign
+  const spot = selectedPlacement.campaignSpot
+  const creative = selectedPlacement.creativeSubmission
+  const creativeStatus = selectedPlacement.creativeStatus
+  const qrCode = selectedPlacement.qrCode
+  const hasProfileDescription = Boolean(business?.description?.trim())
+  const hasProfileLogo = Boolean(business?.logoUrl?.trim())
+  const hasProfileAddress = Boolean(business?.address?.trim())
   const isProfileComplete = hasProfileDescription && hasProfileLogo && hasProfileAddress
-
-  const hasCreativeSubmitted = !!creative
-  const isApprovedOrBeyond = creativeStatus && ["APPROVED", "PRINTED", "MAILED"].includes(creativeStatus)
+  const hasCreativeSubmitted = Boolean(creative)
   const isCreativeRejected = creativeStatus === "REJECTED"
   const isNeedsReview = creativeStatus === "NEEDS_REVIEW"
+  const isApprovedOrBeyond = Boolean(creativeStatus && ["APPROVED", "PRINTED", "MAILED"].includes(creativeStatus))
   const isPrinted = campaign?.status === "PRINTING" || creativeStatus === "PRINTED"
   const isMailed = campaign?.status === "MAILED" || creativeStatus === "MAILED"
-  const hasQrGenerated = !!qrCode
 
-  // Onboarding next action configs
-  let nextActionLabel = "View Landing Page"
-  let nextActionUrl = `/b/${business?.slug}`
-  let nextActionNotes = "Your profile and creative details are complete. Review campaign status and QR activity below."
+  const currentTotals = sumMetrics(timeSeries || [])
+  const previousTotals = sumMetrics(priorTimeSeries || [])
+  const metricTrend = (key: MetricKey) => previousTotals[key] > 0 ? Math.round(((currentTotals[key] - previousTotals[key]) / previousTotals[key]) * 100) : undefined
+  const totalEngagements = currentTotals.scans + currentTotals.views + currentTotals.clicks + currentTotals.calls
+  const priorTotalEngagements = previousTotals.scans + previousTotals.views + previousTotals.clicks + previousTotals.calls
+  const engagementTrend = priorTotalEngagements > 0 ? Math.round(((totalEngagements - priorTotalEngagements) / priorTotalEngagements) * 100) : undefined
+  const hasChartData = Boolean(timeSeries?.some((item) => item.scans || item.views || item.clicks || item.calls || item.ctas))
+  const displayStatus = isMailed ? statusFor(creativeStatusMap, "MAILED") : creativeStatus ? statusFor(creativeStatusMap, creativeStatus) : statusFor(campaignStatusMap, campaign?.status)
+  const workflow: WorkflowStep[] = [
+    { id: "reserved", label: "Spot reserved", description: selectedPlacement.orderStatus === "PAID" ? "Payment received" : "Payment pending", status: selectedPlacement.orderStatus === "PAID" ? "complete" : "current" },
+    { id: "profile", label: "Profile setup", description: isProfileComplete ? "Complete" : "Action needed", status: isProfileComplete ? "complete" : "current" },
+    { id: "creative", label: "Creative submitted", description: isCreativeRejected ? "Changes requested" : hasCreativeSubmitted ? "Submitted" : "Waiting for details", status: isCreativeRejected ? "blocked" : hasCreativeSubmitted ? "complete" : "upcoming" },
+    { id: "tracking", label: "Tracking ready", description: qrCode ? "QR code generated" : "Preparing", status: qrCode ? "complete" : hasCreativeSubmitted ? "current" : "upcoming" },
+    { id: "mailed", label: "Campaign mailed", description: isMailed ? "On its way" : isPrinted ? "Printing complete" : "Upcoming", status: isMailed ? "complete" : isPrinted || isApprovedOrBeyond ? "current" : "upcoming" },
+  ]
+  const todos = [
+    !isProfileComplete ? { title: "Complete your business profile", description: "Add your description, logo, and address so customers see a complete landing page.", href: "/business/setup", icon: FilePenLine, done: false } : { title: "Business profile complete", description: "Your key landing-page details are in place.", href: "/business/profile", icon: CheckCircle2, done: true },
+    !hasCreativeSubmitted ? { title: "Submit your creative", description: "Provide your postcard content for our design team.", href: `/submit-creative/${selectedPlacement.creativeSubmissionToken}`, icon: ImagePlus, done: false } : isCreativeRejected ? { title: "Update requested creative", description: creative?.approvalNotes || "Review the requested updates and submit again.", href: `/submit-creative/${selectedPlacement.creativeSubmissionToken}`, icon: Upload, done: false } : { title: "Creative submitted", description: isNeedsReview ? "Your proof is ready for review." : "We’ll keep you updated as review progresses.", href: `/submit-creative/${selectedPlacement.creativeSubmissionToken}`, icon: CheckCircle2, done: true },
+    !publicProfilePath ? { title: "Finish landing-page details", description: "A public link will be available once location and category details are ready.", href: "/business/profile", icon: Link2, done: false } : { title: "Share your campaign", description: "Copy the public link and invite your audience to visit.", href: publicProfilePath, icon: Share2, done: false },
+  ].sort((a, b) => Number(a.done) - Number(b.done))
+  const activityItems: ActivityItem[] = (notifications || []).slice(0, 4).map((notification) => ({ id: notification.id, title: notification.title, description: notification.message, timestamp: formatDate(notification.createdAt), icon: notification.type.includes("PAYMENT") ? CheckCircle2 : notification.type.includes("CREATIVE") ? ImagePlus : notification.type.includes("PROFILE") ? FilePenLine : Bell, tone: notification.type.includes("PAYMENT") ? "success" : notification.type.includes("CREATIVE") ? "warning" : "info", href: notification.link || undefined }))
 
-  if (!isProfileComplete) {
-    nextActionLabel = "Complete Setup Wizard"
-    nextActionUrl = "/business/setup"
-    nextActionNotes = "Complete your business description, address details, logo, and links to publish your profile page."
-  } else if (!hasCreativeSubmitted) {
-    nextActionLabel = "Submit Creative Details"
-    nextActionUrl = selectedPlacement ? `/submit-creative/${selectedPlacement.creativeSubmissionToken}` : "#"
-    nextActionNotes = "Your business profile is set up. Submit your headline, offer, description, and contact details for layout."
-  } else if (isNeedsReview) {
-    nextActionLabel = "🔍 Review Postcard Layout Proof"
-    nextActionUrl = selectedPlacement ? `/submit-creative/${selectedPlacement.creativeSubmissionToken}` : "#"
-    nextActionNotes = "Your postcard layout proof is ready! Please review and approve it, or request design revisions."
-  } else if (isCreativeRejected) {
-    nextActionLabel = "Update Creative Details"
-    nextActionUrl = selectedPlacement ? `/submit-creative/${selectedPlacement.creativeSubmissionToken}` : "#"
-    nextActionNotes = `Admin requested creative changes: "${creative?.approvalNotes || "Please review ad details and submit again."}"`
-  } else if (!isApprovedOrBeyond) {
-    nextActionLabel = "Pending Admin Review"
-    nextActionUrl = "#"
-    nextActionNotes = "Creative details were submitted and are awaiting review. Your business page is available for preview."
-  } else if (isMailed) {
-    nextActionLabel = "Postcards Mailed!"
-    nextActionUrl = `/b/${business?.slug}`
-    nextActionNotes = "The campaign has been mailed. Basic QR scan and page activity may now appear in your reporting."
-  } else if (isPrinted) {
-    nextActionLabel = "Postcards Printed!"
-    nextActionUrl = `/b/${business?.slug}`
-    nextActionNotes = "Your postcard campaign has been printed! They are preparing to mail. Your landing page is live and ready."
-  }
+  return <div className="space-y-6 sm:space-y-8">
+    <PageHeader title={`Welcome back, ${business?.name || "Advertiser"}!`} description="Here’s what’s happening with your campaign." actions={<>{publicProfilePath ? <Button asChild variant="outline"><Link href={publicProfilePath} target="_blank" rel="noopener noreferrer">View landing page <ExternalLink aria-hidden="true" /></Link></Button> : <Button variant="outline" disabled title="Finish your profile location and category to enable the public landing page.">View landing page <ExternalLink aria-hidden="true" /></Button>}<Button onClick={copyPublicLink} disabled={!publicProfilePath || !origin} title={!publicProfilePath ? "Finish your profile location and category to enable sharing." : undefined}><Share2 aria-hidden="true" />{copyLabel}</Button></>} />
 
-  // Chart data availability
-  const hasChartData =
-    timeSeries &&
-    timeSeries.length > 0 &&
-    timeSeries.some((item) => item.scans > 0 || item.views > 0 || item.clicks > 0)
+    <SectionCard padding="none" className="overflow-hidden">
+      <div className="grid lg:grid-cols-[270px_minmax(0,1fr)_250px]">
+        <div className="min-h-56 border-b border-border bg-muted/50 p-4 lg:border-b-0 lg:border-r lg:p-5">
+          <div className="flex h-full min-h-48 flex-col justify-between overflow-hidden rounded-lg border border-border bg-card p-4" style={campaign?.frontBackgroundUrl ? { backgroundImage: `linear-gradient(135deg, rgb(29 32 37 / .84), rgb(29 32 37 / .48)), url(${campaign.frontBackgroundUrl})`, backgroundPosition: "center", backgroundSize: "cover" } : undefined}>
+            <div className="flex size-10 items-center justify-center rounded-lg bg-primary text-white"><Megaphone className="size-5" aria-hidden="true" /></div>
+            <div className={campaign?.frontBackgroundUrl ? "text-white" : "text-foreground"}><p className="text-xs font-medium opacity-80">Campaign placement</p><p className="mt-1 text-lg font-semibold leading-tight">{spot?.label || "Your placement"}</p><p className="mt-1 text-xs opacity-80">{campaign?.name || "Campaign"}</p></div>
+          </div>
+        </div>
+        <div className="min-w-0 p-5 sm:p-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between"><div><p className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">Selected placement</p><h2 className="mt-1 text-xl font-semibold tracking-tight text-foreground">{campaign?.name || "Campaign placement"}</h2><div className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground"><span className="inline-flex items-center gap-1.5"><MapPin className="size-4 text-primary" aria-hidden="true" />{campaign?.city}, {campaign?.state}</span><span className="inline-flex items-center gap-1.5"><Users className="size-4 text-primary" aria-hidden="true" />{campaign?.mailingQuantity?.toLocaleString()} households</span><span>Placement {spot?.label}</span></div></div><select value={selectedPlacement.orderId} onChange={(event) => selectPlacement(event.target.value)} aria-label="Select campaign placement" className="h-10 max-w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground outline-none focus:ring-2 focus:ring-ring"><option value={selectedPlacement.orderId}>{campaign?.name} · {spot?.label}</option>{placements.filter((placement) => placement.orderId !== selectedPlacement.orderId).map((placement) => <option key={placement.orderId} value={placement.orderId}>{placement.campaign?.name || "Campaign"} · {placement.campaignSpot?.label || "Placement"}</option>)}</select></div>
+          <div className="mt-7"><WorkflowStepper steps={workflow} /></div>
+        </div>
+        <div className="border-t border-border bg-muted/35 p-5 lg:border-l lg:border-t-0 lg:p-6"><p className="text-sm font-medium text-muted-foreground">Campaign status</p><div className="mt-3"><StatusBadge {...displayStatus} dot /></div><p className="mt-4 text-sm leading-6 text-muted-foreground">{isNeedsReview ? "Your postcard proof is ready. Review it so production can continue." : isMailed ? "Your mailer is on its way. Engagement data will appear as customers interact." : "We’ll notify you when your next campaign milestone is ready."}</p><Button asChild className="mt-5 w-full" variant={isNeedsReview ? "default" : "outline"}><Link href={isNeedsReview || isCreativeRejected || !hasCreativeSubmitted ? `/submit-creative/${selectedPlacement.creativeSubmissionToken}` : "/business/setup"}>{isNeedsReview ? "Review proof" : "View setup checklist"}</Link></Button></div>
+      </div>
+    </SectionCard>
 
-  let chartContent = (
-    <div className="h-72 flex items-center justify-center bg-press/5 border border-dashed border-border select-none">
-      <span className="text-xs text-warm font-medium">Loading timeline statistics...</span>
+    <MetricGrid>
+      <MetricCard label="QR scans" value={currentTotals.scans} icon={QrCode} tone="purple" trend={{ value: metricTrend("scans"), period: `previous ${rangeDays} days`, unavailable: metricTrend("scans") === undefined }} />
+      <MetricCard label="Landing page views" value={currentTotals.views} icon={Eye} tone="blue" trend={{ value: metricTrend("views"), period: `previous ${rangeDays} days`, unavailable: metricTrend("views") === undefined }} />
+      <MetricCard label="Outbound link clicks" value={currentTotals.clicks} icon={Link2} tone="orange" trend={{ value: metricTrend("clicks"), period: `previous ${rangeDays} days`, unavailable: metricTrend("clicks") === undefined }} />
+      <MetricCard label="Phone click-to-calls" value={currentTotals.calls} icon={Phone} tone="green" trend={{ value: metricTrend("calls"), period: `previous ${rangeDays} days`, unavailable: metricTrend("calls") === undefined }} />
+      <MetricCard label="Total engagements" value={totalEngagements} icon={Sparkles} tone="orange" trend={{ value: engagementTrend, period: `previous ${rangeDays} days`, unavailable: engagementTrend === undefined }} />
+    </MetricGrid>
+
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(300px,.85fr)_minmax(300px,.85fr)]">
+      <AnalyticsChartCard title="Daily performance" description={`Placement activity during the last ${rangeDays} days.`} controls={<DateRangeSelector value={rangeDays} onChange={setRangeDays} />}>{isTimeSeriesLoading ? <div className="h-72 animate-pulse rounded-lg bg-muted" /> : hasChartData ? <div className="h-72"><ResponsiveContainer width="100%" height="100%"><LineChart data={timeSeries} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}><CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tickLine={false} axisLine={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} tickFormatter={(value) => value.slice(5).replace("-", "/")} /><YAxis tickLine={false} axisLine={false} allowDecimals={false} tick={{ fill: "var(--muted-foreground)", fontSize: 11 }} /><Tooltip contentStyle={{ borderColor: "var(--border)", borderRadius: 10, fontSize: 12 }} /><Legend wrapperStyle={{ fontSize: 12, paddingTop: 12 }} /><Area type="monotone" dataKey="scans" fill="var(--primary)" fillOpacity={0.06} stroke="none" /><Line type="monotone" dataKey="scans" name="QR scans" stroke="var(--primary)" strokeWidth={2.5} dot={false} /><Line type="monotone" dataKey="views" name="Profile views" stroke="var(--foreground)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="clicks" name="Link clicks" stroke="var(--warning)" strokeWidth={2} dot={false} /><Line type="monotone" dataKey="calls" name="Phone actions" stroke="var(--info)" strokeWidth={2} dot={false} /></LineChart></ResponsiveContainer></div> : <EmptyState icon={BarChart3} title="No analytics data yet" description="Performance will appear here when people scan your mailer and interact with your landing page." />}</AnalyticsChartCard>
+      <SectionCard title="Campaign to-dos" action={<Link href="/business/setup" className="text-sm font-medium text-primary hover:underline">View setup</Link>}><div className="space-y-1">{todos.map((todo) => { const Icon = todo.icon; return <Link key={todo.title} href={todo.href} className="flex gap-3 rounded-lg p-2.5 transition-colors hover:bg-muted/60"><span className={`mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full ${todo.done ? "bg-success-soft text-success" : "bg-primary/10 text-primary"}`}><Icon className="size-4" aria-hidden="true" /></span><span><span className={`block text-sm font-medium ${todo.done ? "text-muted-foreground" : "text-foreground"}`}>{todo.title}</span><span className="mt-0.5 block text-xs leading-5 text-muted-foreground">{todo.description}</span></span></Link> })}</div></SectionCard>
+      <SectionCard title="Recent activity" action={<Link href="/business/profile" className="text-sm font-medium text-primary hover:underline">View profile</Link>}><ActivityFeed items={activityItems} emptyMessage="Your campaign activity will appear here." /></SectionCard>
     </div>
-  )
 
-  if (!mounted) {
-    chartContent = (
-      <div className="h-72 bg-press/5 animate-pulse border border-border" />
-    )
-  } else if (isTimeSeriesLoading) {
-    chartContent = (
-      <div className="h-72 flex items-center justify-center bg-press/5 border border-dashed border-border select-none">
-        <span className="text-xs text-warm font-medium">Loading statistics...</span>
-      </div>
-    )
-  } else if (!hasChartData) {
-    chartContent = (
-      <div className="h-72 flex flex-col items-center justify-center bg-press/5 border border-dashed border-border p-6 text-center select-none">
-        <span className="text-2xl mb-2">📊</span>
-        <h4 className="text-xs font-semibold text-press uppercase tracking-wider">No Analytics Data Yet</h4>
-        <p className="text-[11px] text-warm mt-1 max-w-xs leading-relaxed">
-          Once customers scan your postcard and interact with your landing page, daily metrics will update here.
-        </p>
-      </div>
-    )
-  } else {
-    chartContent = (
-      <div className="h-72 w-full">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={timeSeries || []}
-            margin={{ top: 10, right: 10, left: -20, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="colorScans" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#EA580C" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#EA580C" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorViews" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#2563EB" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#2563EB" stopOpacity={0} />
-              </linearGradient>
-              <linearGradient id="colorClicks" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#D97706" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#D97706" stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-            <XAxis
-              dataKey="date"
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#78716C", fontSize: 10, fontWeight: 500 }}
-              dy={8}
-              tickFormatter={(val) => {
-                if (!val) return ""
-                const parts = val.split("-")
-                if (parts.length >= 3) {
-                  return `${parts[1]}/${parts[2]}`
-                }
-                return val
-              }}
-            />
-            <YAxis
-              tickLine={false}
-              axisLine={false}
-              tick={{ fill: "#78716C", fontSize: 10, fontWeight: 500 }}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: "#211D1C",
-                borderColor: "#211D1C",
-                borderRadius: "0px",
-                color: "#FFFFFF",
-                fontSize: "11px",
-                fontFamily: "monospace",
-              }}
-              itemStyle={{ color: "#FFFFFF" }}
-              labelClassName="font-bold border-b border-white/20 pb-1 mb-1"
-            />
-            <Legend
-              verticalAlign="top"
-              height={36}
-              iconType="circle"
-              iconSize={8}
-              wrapperStyle={{ fontSize: "10px", fontWeight: "bold", fontFamily: "monospace" }}
-            />
-            <Area
-              type="monotone"
-              dataKey="scans"
-              name="QR Scans"
-              stroke="#EA580C"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorScans)"
-            />
-            <Area
-              type="monotone"
-              dataKey="views"
-              name="Page Views"
-              stroke="#2563EB"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorViews)"
-            />
-            <Area
-              type="monotone"
-              dataKey="clicks"
-              name="Link Clicks"
-              stroke="#D97706"
-              strokeWidth={2}
-              fillOpacity={1}
-              fill="url(#colorClicks)"
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-    )
-  }
-
-  return (
-    <div className="space-y-8 text-left animate-fade-up font-sans">
-      {/* Welcome & Profile Header */}
-      <Card className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="space-y-1">
-          <h1 className="font-headline font-black text-2xl uppercase text-press leading-none tracking-tight">
-            Your Campaign Placements: {business?.name || "Advertiser"}
-          </h1>
-          <p className="text-xs text-warm font-medium">
-            Manage campaign setup, creative status, business page details, and basic QR activity.
-          </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3 select-none">
-          <Button onClick={handleCopyLink} variant="outline" size="sm">
-            📋 Copy Public Link
-          </Button>
-          <Button asChild size="sm">
-            <Link href={`/b/${business?.slug}`} target="_blank" rel="noopener noreferrer">
-              👀 View Landing Page
-            </Link>
-          </Button>
-        </div>
-      </Card>
-
-      {/* Campaign Placement Selector */}
-      <div className="space-y-2 select-none">
-        <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
-          Select Campaign Placement
-        </span>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-          {placements.map((p) => {
-            const isSelected = p.orderId === selectedPlacementId
-            const isPlMailed = p.campaign?.status === "MAILED" || p.creativeStatus === "MAILED"
-            const isPlPrinted = p.campaign?.status === "PRINTING" || p.creativeStatus === "PRINTED"
-            const isPlApproved = ["APPROVED", "PRINTED", "MAILED"].includes(p.creativeStatus || "")
-            const isPlNeedsReview = p.creativeStatus === "NEEDS_REVIEW"
-
-            let statusBadge = <Badge variant="secondary">Reviewing</Badge>
-            if (isPlMailed) {
-              statusBadge = <Badge className="bg-purple-600 text-white border-transparent">Mailed</Badge>
-            } else if (isPlPrinted) {
-              statusBadge = <Badge className="bg-indigo-600 text-white border-transparent">Printed</Badge>
-            } else if (isPlNeedsReview) {
-              statusBadge = (
-                <Badge className="bg-amber-500 text-white border-transparent animate-pulse">
-                  Proof Ready
-                </Badge>
-              )
-            } else if (p.creativeStatus === "REJECTED") {
-              statusBadge = <Badge variant="destructive">Rejected</Badge>
-            } else if (isPlApproved) {
-              statusBadge = <Badge className="bg-emerald-600 text-white border-transparent">Approved</Badge>
-            }
-
-            return (
-              <Card
-                key={p.orderId}
-                onClick={() => setSelectedPlacementId(p.orderId)}
-                className={`p-4 cursor-pointer transition-all border-2 text-left relative ${
-                  isSelected ? "border-primary bg-primary/5" : "border-border hover:border-warm/50"
-                }`}
-              >
-                <div className="space-y-2">
-                  <div className="flex justify-between items-start gap-2">
-                    <h3 className="font-headline font-black text-sm uppercase text-press truncate max-w-[70%]">
-                      {p.campaign?.name || "Direct Profile Link"}
-                    </h3>
-                    {statusBadge}
-                  </div>
-                  <div className="text-[11px] text-warm font-mono font-bold uppercase">
-                    ⭐ {p.campaignSpot?.label || "General QR"}
-                  </div>
-                  <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono mt-1">
-                    <span>Scans: {p.stats.scansCount}</span>
-                    <span>Views: {p.stats.pageViewsCount}</span>
-                  </div>
-                </div>
-              </Card>
-            )
-          })}
-        </div>
-      </div>
-
-      {isNeedsReview && selectedPlacement && (
-        <div className="bg-amber-500/10 border-2 border-amber-500 text-amber-900 p-5 rounded-none flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-fade-up">
-          <div className="space-y-1">
-            <h4 className="font-headline font-black text-sm uppercase tracking-tight text-amber-900 leading-tight">
-              Postcard Proof Ready for Review!
-            </h4>
-            <p className="text-xs font-medium">
-              Our designers have uploaded the print proof for your postcard ad space. Please review it as
-              soon as possible.
-            </p>
-          </div>
-          <Button asChild size="sm" className="bg-[#D19F1F] hover:bg-[#D19F1F]/90 text-white border-transparent">
-            <Link href={`/submit-creative/${selectedPlacement.creativeSubmissionToken}`}>
-              Review Design Proof ↗
-            </Link>
-          </Button>
-        </div>
-      )}
-
-      {/* Selected Placement Details Grid */}
-      {selectedPlacement && (
-        <>
-          {/* Onboarding Checklist Section */}
-          <Card className="p-6 space-y-4">
-            <div className="space-y-1 border-b border-border pb-3">
-              <h2 className="font-headline font-extrabold text-base uppercase text-press tracking-tight flex items-center gap-2">
-                Placement Setup & Status: {campaign?.name} ({spot?.label})
-              </h2>
-              <p className="text-xs text-warm font-medium">
-                Track the steps required to prepare your placement and business page for the campaign.
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 py-2 select-none text-left">
-              {/* Item 1: Payment */}
-              <div className="border border-border p-4 flex flex-col justify-between h-24 bg-press/5">
-                <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">
-                  1. Spot Reserved
-                </span>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-emerald-600 text-xl font-bold">✓</span>
-                  <span className="text-xs font-semibold text-press">PAID</span>
-                </div>
-              </div>
-
-              {/* Item 2: Profile Setup */}
-              <div
-                className={`border p-4 flex flex-col justify-between h-24 ${
-                  isProfileComplete ? "border-border bg-press/5" : "border-primary/20 bg-primary/5"
-                }`}
-              >
-                <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">
-                  2. Profile Setup
-                </span>
-                <div className="flex items-center gap-2 mt-2">
-                  {isProfileComplete ? (
-                    <>
-                      <span className="text-emerald-600 text-xl font-bold">✓</span>
-                      <span className="text-xs font-semibold text-press">Complete</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-primary text-base">⏳</span>
-                      <span className="text-xs font-semibold text-primary">Pending</span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Item 3: Creative Submission */}
-              <div
-                className={`border p-4 flex flex-col justify-between h-24 ${
-                  hasCreativeSubmitted ? "border-border bg-press/5" : "border-primary/20 bg-primary/5"
-                }`}
-              >
-                <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">
-                  3. Creative Submitted
-                </span>
-                <div className="flex items-center gap-2 mt-2">
-                  {hasCreativeSubmitted ? (
-                    <>
-                      <span className="text-emerald-600 text-xl font-bold">✓</span>
-                      <span className="text-xs font-semibold text-press">Submitted</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-primary text-base">⏳</span>
-                      <span className="text-xs font-semibold text-primary">Pending</span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Item 4: QR & Redirections */}
-              <div
-                className={`border p-4 flex flex-col justify-between h-24 ${
-                  hasQrGenerated ? "border-border bg-press/5" : "border-primary/20 bg-primary/5"
-                }`}
-              >
-                <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">
-                  4. Tracking Ready
-                </span>
-                <div className="flex items-center gap-2 mt-2">
-                  {hasQrGenerated ? (
-                    <>
-                      <span className="text-emerald-600 text-xl font-bold">✓</span>
-                      <span className="text-xs font-semibold text-press">Generated</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-primary text-base">⏳</span>
-                      <span className="text-xs font-semibold text-primary">Compiling</span>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Item 5: Campaign Status */}
-              <div
-                className={`border p-4 flex flex-col justify-between h-24 ${
-                  isApprovedOrBeyond
-                    ? "border-border bg-press/5"
-                    : isCreativeRejected
-                    ? "border-destructive/20 bg-destructive/5"
-                    : isNeedsReview
-                    ? "border-amber-500/20 bg-amber-500/5 animate-pulse"
-                    : "border-primary/20 bg-primary/5"
-                }`}
-              >
-                <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider">
-                  5. Campaign Status
-                </span>
-                <div className="flex items-center gap-2 mt-2">
-                  {isMailed ? (
-                    <>
-                      <span className="text-purple-600 text-xl font-bold">📬</span>
-                      <span className="text-xs font-semibold text-purple-700">Mailed</span>
-                    </>
-                  ) : isPrinted ? (
-                    <>
-                      <span className="text-indigo-600 text-xl font-bold">🖨️</span>
-                      <span className="text-xs font-semibold text-indigo-700">Printed</span>
-                    </>
-                  ) : isApprovedOrBeyond ? (
-                    <>
-                      <span className="text-emerald-600 text-xl font-bold">✓</span>
-                      <span className="text-xs font-semibold text-press">Approved</span>
-                    </>
-                  ) : isNeedsReview ? (
-                    <>
-                      <span className="text-amber-600 text-base">🔍</span>
-                      <span className="text-xs font-semibold text-amber-700">Proof Ready</span>
-                    </>
-                  ) : isCreativeRejected ? (
-                    <>
-                      <span className="text-destructive text-base">❌</span>
-                      <span className="text-xs font-semibold text-destructive">Rejected</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-primary text-base">⏳</span>
-                      <span className="text-xs font-semibold text-primary">Reviewing</span>
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Dynamic Action Block */}
-            <div className="p-4 bg-background border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
-              <div className="space-y-0.5 max-w-lg">
-                <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider block">
-                  Recommended Next Action
-                </span>
-                <p className="text-xs font-semibold text-press leading-relaxed">{nextActionNotes}</p>
-              </div>
-              {nextActionUrl !== "#" ? (
-                <Button asChild size="sm">
-                  <Link href={nextActionUrl}>{nextActionLabel}</Link>
-                </Button>
-              ) : (
-                <Button disabled size="sm" variant="outline">
-                  {nextActionLabel}
-                </Button>
-              )}
-            </div>
-          </Card>
-
-          {/* Analytics Counter Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6">
-            {/* Scans */}
-            <Card className="p-6 flex items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
-                  QR Code Scans
-                </span>
-                <span className="font-headline font-black text-4xl text-primary leading-none block">
-                  {stats.scansCount}
-                </span>
-              </div>
-              <div className="text-3xl bg-primary/10 w-12 h-12 flex items-center justify-center text-primary border border-primary/20">
-                📱
-              </div>
-            </Card>
-
-            {/* views */}
-            <Card className="p-6 flex items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
-                  Landing Views
-                </span>
-                <span className="font-headline font-black text-4xl text-press leading-none block">
-                  {stats.pageViewsCount}
-                </span>
-              </div>
-              <div className="text-3xl bg-press/5 w-12 h-12 flex items-center justify-center border border-border">
-                👀
-              </div>
-            </Card>
-
-            {/* Outbound Clicks */}
-            <Card className="p-6 flex items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
-                  Outbound Clicks
-                </span>
-                <span className="font-headline font-black text-4xl text-gold leading-none block">
-                  {stats.outboundClicksCount + stats.ctaClicksCount}
-                </span>
-              </div>
-              <div className="text-3xl bg-accent/15 w-12 h-12 flex items-center justify-center border border-accent/40 text-accent">
-                ⚡
-              </div>
-            </Card>
-
-            {/* Call clicks */}
-            <Card className="p-6 flex items-center justify-between gap-4">
-              <div className="space-y-1">
-                <span className="text-[10px] font-mono font-bold text-warm uppercase tracking-widest block">
-                  Phone Click-to-Calls
-                </span>
-                <span className="font-headline font-black text-4xl text-emerald-600 leading-none block">
-                  {stats.callClicksCount}
-                </span>
-              </div>
-              <div className="text-3xl bg-emerald-500/10 w-12 h-12 flex items-center justify-center text-emerald-600 border border-emerald-500/20">
-                📞
-              </div>
-            </Card>
-          </div>
-
-          {/* Daily Timeline Chart */}
-          <Card className="p-6 space-y-4 text-left">
-            <div className="space-y-1 border-b border-border pb-3">
-              <h3 className="font-headline font-extrabold text-base uppercase text-press tracking-wide">
-                Daily Performance Timeline
-              </h3>
-              <p className="text-xs text-warm font-medium">
-                QR scans, profile views, and click engagements over the last 14 days.
-              </p>
-            </div>
-            {chartContent}
-          </Card>
-
-          {/* QR Code and Guidelines Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 select-none">
-            {/* QR Code Graphic Section */}
-            <Card className="p-6 flex flex-col justify-between gap-6">
-              <div className="text-left space-y-1 border-b border-border pb-3">
-                <h3 className="font-headline font-extrabold text-base uppercase text-press tracking-wide">
-                  Unique Spot Placement QR Code
-                </h3>
-                <p className="text-xs text-warm font-medium">
-                  This QR code is unique to this campaign placement. It routes customers to your active
-                  landing page and attributes their scans to this campaign.
-                </p>
-              </div>
-
-              <div className="flex items-center gap-6 text-left">
-                {qrCode ? (
-                  <>
-                    <QRCodeImage value={`${origin}/q/${qrCode.slug}`} size={112} />
-                    <div className="space-y-3">
-                      <div className="space-y-0.5">
-                        <span className="text-[9px] font-mono font-bold text-warm uppercase tracking-wider block">
-                          Tracking Destination Path
-                        </span>
-                        <span className="text-xs font-semibold text-press break-all font-mono">
-                          {`${origin}/q/${qrCode.slug}`}
-                        </span>
-                      </div>
-                      <Button
-                        onClick={() => handleDownloadQr(qrCode.slug, campaign?.name || "profile")}
-                        variant="outline"
-                        size="sm"
-                      >
-                        💾 Download Print QR
-                      </Button>
-                    </div>
-                  </>
-                ) : (
-                  <div className="py-4 text-left text-warm font-medium">
-                    <p className="text-xs">QR Code has not been generated yet.</p>
-                    <p className="text-[10px] text-slate-400 mt-1">
-                      Tracking code is automatically configured once design layouts begin review.
-                    </p>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Print Guidelines */}
-            <Card className="p-6 flex flex-col justify-between gap-4">
-              <div className="text-left space-y-1.5">
-                <h3 className="font-headline font-extrabold text-base uppercase text-primary tracking-wide">
-                  🖨️ Print Reliability Guidelines
-                </h3>
-                <ul className="text-xs text-warm space-y-2 list-disc pl-5 font-semibold leading-relaxed">
-                  <li>
-                    <strong>High Error Correction (Level H):</strong> The downloaded QR code uses a 30% error
-                    correction density layout so scan reliability is preserved if smudged, creased, or stained.
-                  </li>
-                  <li>
-                    <strong>Minimum Print Size:</strong> Ensure design layouts print the QR code at no smaller
-                    than <strong>0.75" x 0.75"</strong> boundary width.
-                  </li>
-                  <li>
-                    <strong>Avoid Color Inversions:</strong> Always keep the background white/light and keep
-                    the QR code blocks high-contrast dark gray/black.
-                  </li>
-                </ul>
-              </div>
-            </Card>
-          </div>
-        </>
-      )}
-
-      {/* Attribution Disclaimer */}
-      <p className="text-[10px] leading-relaxed text-warm font-medium select-none text-left">
-        Reporting reflects recorded QR scans, page views, and tracked outbound links. Phone calls, direct
-        website visits, postcard mentions, and offline redemptions may not be fully attributable.
-      </p>
+    <div className="grid gap-6 lg:grid-cols-2">
+      <SectionCard padding="lg"><div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-4"><span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><Send className="size-7" aria-hidden="true" /></span><div><h2 className="text-base font-semibold text-foreground">Share your campaign and get more exposure</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Invite customers and friends to visit your landing page and discover your offer.</p></div></div><Button onClick={copyPublicLink} disabled={!publicProfilePath || !origin}><ClipboardCopy aria-hidden="true" />{copyLabel}</Button></div></SectionCard>
+      <SectionCard padding="lg"><div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between"><div className="flex gap-4"><span className="flex size-14 shrink-0 items-center justify-center rounded-full bg-info-soft text-info"><Mail className="size-7" aria-hidden="true" /></span><div><h2 className="text-base font-semibold text-foreground">We’re here to help</h2><p className="mt-1 text-sm leading-6 text-muted-foreground">Questions about your placement, proof, or business profile? Our support team is ready.</p></div></div><Button asChild variant="outline"><a href="mailto:support@nearhere.com">Contact support</a></Button></div></SectionCard>
     </div>
-  )
+
+    {qrCode ? <SectionCard title="Placement QR code" description="This code routes customers to your campaign landing page and attributes scans to this placement." action={<Button variant="outline" size="sm" onClick={() => downloadQr(qrCode.slug, campaign?.name || "campaign")}>Download QR</Button>}><div className="flex flex-col gap-4 sm:flex-row sm:items-center"><QRCodeImage value={`${origin}/q/${qrCode.slug}`} size={96} /><div><p className="text-sm font-medium text-foreground">{spot?.label || "Campaign placement"}</p><p className="mt-1 break-all text-sm text-muted-foreground">{origin ? `${origin}/q/${qrCode.slug}` : `/q/${qrCode.slug}`}</p></div></div></SectionCard> : null}
+  </div>
+}
+
+function sumMetrics(items: Array<{ scans: number; views: number; clicks: number; calls: number; ctas: number }>) {
+  return items.reduce((totals, item) => ({ scans: totals.scans + item.scans, views: totals.views + item.views, clicks: totals.clicks + item.clicks + item.ctas, calls: totals.calls + item.calls }), { scans: 0, views: 0, clicks: 0, calls: 0 })
 }

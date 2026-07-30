@@ -25,6 +25,17 @@ export const ourFileRouter = {
     return { fileUrl: file.ufsUrl }
   }),
 
+  // Public profile gallery - 8MB each, up to 10 images per upload.
+  galleryUploader: f({
+    image: {
+      maxFileSize: "8MB",
+      maxFileCount: 10,
+    },
+  }).onUploadComplete(async ({ file }) => {
+    console.log("[UPLOADTHING] Gallery image upload complete:", file.ufsUrl)
+    return { fileUrl: file.ufsUrl }
+  }),
+
   // Draft Proof Uploader - 8MB image / 16MB PDF max sizes
   draftProofUploader: f({
     image: {

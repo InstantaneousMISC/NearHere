@@ -10,15 +10,24 @@ interface CampaignNavProps {
   slug?: string
   isCheckoutPage?: boolean
   isContactPage?: boolean
+  isSubPage?: boolean
 }
 
-export function CampaignNav({ state, city, slug, isCheckoutPage = false, isContactPage = false }: CampaignNavProps) {
+export function CampaignNav({
+  state,
+  city,
+  slug,
+  isCheckoutPage = false,
+  isContactPage = false,
+  isSubPage = false,
+}: CampaignNavProps) {
   const campaignPath = state && city && slug
     ? `/campaigns/${state.toLowerCase()}/${city.toLowerCase()}/${slug.toLowerCase()}`
     : "/"
 
-  const isSubPage = isCheckoutPage || isContactPage
-  const linkPrefix = isSubPage ? campaignPath : ""
+  const isSubPageCalculated = isSubPage || isCheckoutPage || isContactPage
+  const linkPrefix = isSubPageCalculated ? campaignPath : ""
+  const hasCampaignContext = !!(state && city && slug)
 
   const [isPreviewOpen, setIsPreviewOpen] = useState(false)
   const [viewSide, setViewSide] = useState<"front" | "back">("front")
@@ -38,36 +47,52 @@ export function CampaignNav({ state, city, slug, isCheckoutPage = false, isConta
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
-            {!isContactPage && (
-              <Link href={`${linkPrefix}#campaign`} className="hover:text-nh-red transition-colors">Overview</Link>
-            )}
-            <Link href={isContactPage ? "#included" : `${linkPrefix}#included`} className="hover:text-nh-red transition-colors">What's Included</Link>
-            <Link href={isContactPage ? "#inquiry-form" : `${linkPrefix}#placements`} className="hover:text-nh-red transition-colors">Placements</Link>
-            {isContactPage ? (
-              <button
-                onClick={() => {
-                  setIsPreviewOpen(true)
-                  setViewSide("front")
-                }}
-                className="hover:text-nh-red transition-colors cursor-pointer text-left bg-transparent border-0 p-0 font-mono text-xs uppercase tracking-widest font-inherit"
-              >
-                Preview
-              </button>
+            {hasCampaignContext ? (
+              <>
+                {!isContactPage && (
+                  <Link href={`${linkPrefix}#campaign`} className="hover:text-nh-red transition-colors">Overview</Link>
+                )}
+                <Link href={isContactPage ? "#included" : `${linkPrefix}#included`} className="hover:text-nh-red transition-colors">What's Included</Link>
+                <Link href={isContactPage ? "#inquiry-form" : `${linkPrefix}#placements`} className="hover:text-nh-red transition-colors">Placements</Link>
+                {isContactPage ? (
+                  <button
+                    onClick={() => {
+                      setIsPreviewOpen(true)
+                      setViewSide("front")
+                    }}
+                    className="hover:text-nh-red transition-colors cursor-pointer text-left bg-transparent border-0 p-0 font-mono text-xs uppercase tracking-widest font-inherit"
+                  >
+                    Preview
+                  </button>
+                ) : (
+                  <Link href={`${linkPrefix}#postcard`} className="hover:text-nh-red transition-colors">Preview</Link>
+                )}
+                <Link href={isContactPage ? "#faq" : `${linkPrefix}#faq`} className="hover:text-nh-red transition-colors">FAQ</Link>
+              </>
             ) : (
-              <Link href={`${linkPrefix}#postcard`} className="hover:text-nh-red transition-colors">Preview</Link>
+              <>
+                <Link href="/" className="hover:text-nh-red transition-colors">Find a Campaign</Link>
+                <Link href="/directory" className="hover:text-nh-red transition-colors">Directory</Link>
+                <a href="mailto:hello@nearhere.co" className="hover:text-nh-red transition-colors">Contact</a>
+              </>
             )}
-            <Link href={isContactPage ? "#faq" : `${linkPrefix}#faq`} className="hover:text-nh-red transition-colors">FAQ</Link>
           </nav>
-          {!isContactPage && (
-            <div className="flex items-center">
+          <div className="flex items-center gap-4">
+            <Link
+              href="/auth/business/login"
+              className="font-headline font-bold uppercase tracking-wider text-[11px] hover:text-nh-red transition-colors whitespace-nowrap"
+            >
+              Business Login
+            </Link>
+            {hasCampaignContext && !isContactPage && (
               <Link
                 href={`${linkPrefix}#placements`}
                 className="bg-nh-red text-paper px-5 py-2.5 font-headline font-bold uppercase tracking-wider text-xs hover:bg-press transition-colors"
               >
                 Reserve a Spot
               </Link>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </header>
 

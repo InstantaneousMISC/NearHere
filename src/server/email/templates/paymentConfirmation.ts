@@ -44,8 +44,9 @@ export function getPaymentConfirmationTemplate(params: {
 
     <p><strong>What happens next?</strong></p>
     <ol style="color: #4A4542; padding-left: 20px; margin-bottom: 24px;">
-      <li style="margin-bottom: 8px;"><strong>Claim your business profile:</strong> Add your description, contact links, and business page details.</li>
-      <li><strong>Submit creative details:</strong> Provide your logo, offer, description, and preferred call to action.</li>
+      <li style="margin-bottom: 8px;"><strong>Verify your account:</strong> We&apos;ll send a separate secure verification email to the purchaser.</li>
+      <li style="margin-bottom: 8px;"><strong>Open your business dashboard:</strong> After verification, you&apos;ll be taken there automatically.</li>
+      <li><strong>Complete guided onboarding:</strong> Add or update business information first, then prepare your campaign creative.</li>
     </ol>
     <p>NearHere will coordinate the placement layout, print preparation, and mailing. Your unique QR destination will support basic scan and page activity reporting.</p>
     <p style="font-size: 12px; color: #77706A;">Direct mail results vary. NearHere does not guarantee leads, calls, sales, revenue, or return on investment.</p>

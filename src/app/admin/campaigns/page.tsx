@@ -5,10 +5,13 @@ import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card } from "@/components/ui/card"
+import { requireAdminAccess } from "@/server/auth/access"
 
 export const revalidate = 0
 
 export default async function CampaignsListPage() {
+  await requireAdminAccess()
+
   const campaigns = await db.campaign.findMany({
     orderBy: { createdAt: "desc" },
     include: {

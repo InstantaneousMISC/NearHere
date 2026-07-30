@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableHeader, TableBody, TableHead, TableRow, TableCell } from "@/components/ui/table"
+import { requireAdminAccess } from "@/server/auth/access"
 
 export const revalidate = 0 // Disable cache for live stats
 
@@ -20,6 +21,8 @@ interface OrdersListPageProps {
 }
 
 export default async function OrdersListPage({ searchParams }: OrdersListPageProps) {
+  await requireAdminAccess()
+
   const { status, campaignId, search } = await searchParams
 
   // Build prisma filter conditions

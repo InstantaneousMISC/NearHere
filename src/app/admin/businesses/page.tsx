@@ -24,6 +24,24 @@ export default function AdminBusinessesPage() {
   // Mutations
   const approveMutation = trpc.business.approveProfileChange.useMutation()
   const rejectMutation = trpc.business.rejectProfileChange.useMutation()
+  const publishDirectoryMutation = trpc.business.publishDirectoryProfile.useMutation()
+
+  const handlePublishDirectory = async (business: { id: string; name: string }) => {
+    const confirmed = confirm(
+      `Publish ${business.name} to the public directory? This overrides the normal completeness check, but suspended or deleted businesses remain blocked.`
+    )
+    if (!confirmed) return
+
+    setIsSubmitting(true)
+    try {
+      await publishDirectoryMutation.mutateAsync({ id: business.id })
+      refetchBusinesses()
+    } catch (err: any) {
+      alert(err.message || "Failed to publish the directory profile.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
 
   const handleApprove = async (requestId: string) => {
     if (confirm("Are you sure you want to approve this profile update? These changes will go live immediately.")) {
@@ -122,13 +140,15 @@ export default function AdminBusinessesPage() {
                   <TableHead className="px-6 py-4">Advertiser Owner Email</TableHead>
                   <TableHead className="px-6 py-4">Location</TableHead>
                   <TableHead className="px-6 py-4">Standing Status</TableHead>
+                  <TableHead className="px-6 py-4">Directory Status</TableHead>
                   <TableHead className="px-6 py-4 text-right">Created Date</TableHead>
+                  <TableHead className="px-6 py-4 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {!businesses || businesses.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="py-10 text-center text-warm italic">
+                    <TableCell colSpan={8} className="py-10 text-center text-warm italic">
                       No businesses found in directory.
                     </TableCell>
                   </TableRow>
@@ -156,8 +176,29 @@ export default function AdminBusinessesPage() {
                           {biz.goodStanding ? "Good Standing" : "Suspended / Deactivated"}
                         </Badge>
                       </TableCell>
+                      <TableCell className="px-6 py-4 text-left">
+                        <Badge variant={biz.directoryProfile?.status === "PUBLISHED" ? "success" : "secondary"}>
+                          {biz.directoryProfile?.status === "PUBLISHED" ? "Published" : "Draft"}
+                        </Badge>
+                      </TableCell>
                       <TableCell className="px-6 py-4 text-right text-xs text-warm">
                         {formatDate(new Date(biz.createdAt))}
+                      </TableCell>
+                      <TableCell className="px-6 py-4 text-right">
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={
+                            isSubmitting ||
+                            !biz.goodStanding ||
+                            Boolean(biz.deletedAt) ||
+                            biz.directoryProfile?.status === "PUBLISHED"
+                          }
+                          onClick={() => handlePublishDirectory(biz)}
+                          className="text-[10px] font-mono font-bold uppercase tracking-wider"
+                        >
+                          {biz.directoryProfile?.status === "PUBLISHED" ? "Published" : "Publish"}
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))

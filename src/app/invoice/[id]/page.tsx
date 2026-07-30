@@ -19,8 +19,19 @@ export default function InvoicePage({ params }: InvoicePageProps) {
 
   const { data: order, isLoading, error } = trpc.order.getInvoice.useQuery({ id })
   const payInvoiceMutation = trpc.order.getOrRenewStripeSession.useMutation()
+  // Hooks must be declared before loading/error returns because this query
+  // resolves after the component's first render.
+  const [resendStatus, setResendStatus] = useState<string | null>(null)
+  const [resending, setResending] = useState(false)
+  const resendClaimEmailMutation = trpc.business.resendClaimEmail.useMutation()
+  const business = order ? (order as any).business : null
 
   const handlePay = async () => {
+    if (order?.status !== "PENDING") {
+      setPayError("This invoice is no longer awaiting payment.")
+      return
+    }
+
     setPaying(true)
     setPayError(null)
     try {
@@ -79,6 +90,20 @@ export default function InvoicePage({ params }: InvoicePageProps) {
   const isCancelled = order.status === "CANCELLED" || order.status === "REFUNDED"
   const isExpired = order.status === "EXPIRED"
 
+  const handleResendEmail = async () => {
+    if (!business?.id) return
+    setResending(true)
+    setResendStatus(null)
+    try {
+      const res = await resendClaimEmailMutation.mutateAsync({ businessId: business.id })
+      setResendStatus(res.message || "Verification email sent!")
+    } catch (err: any) {
+      setResendStatus(`Error: ${err.message || "Failed to resend email."}`)
+    } finally {
+      setResending(false)
+    }
+  }
+
   return (
     <main className="min-h-screen bg-[#FAF8F4] text-[#211D1C] font-sans">
       <CampaignNav 
@@ -119,7 +144,9 @@ export default function InvoicePage({ params }: InvoicePageProps) {
           </div>
 
           <p className="text-xs text-[#77706A] leading-relaxed">
-            Please review the campaign details and placement specifications below. To finalize your booking and secure your industry-exclusive slot on the postcard, click the payment button to proceed to our secure checkout powered by Stripe.
+            {isPaid
+              ? "This invoice has already been paid. No further payment is needed."
+              : "Please review the campaign details and placement specifications below. To finalize your booking and secure your industry-exclusive slot on the postcard, click the payment button to proceed to our secure checkout powered by Stripe."}
           </p>
 
           {/* Advertiser Info */}
@@ -198,8 +225,35 @@ export default function InvoicePage({ params }: InvoicePageProps) {
           {/* Action Row */}
           <div className="space-y-4 pt-2">
             {isPaid ? (
-              <div className="text-center py-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">
-                ✓ This invoice has been paid. Thank you! If you have not done so already, please check your email for the link to submit your ad creative assets.
+              <div className="space-y-3">
+                <div className="text-center py-4 bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold">
+                  ✓ This invoice has already been paid. Please check the purchaser&apos;s email to verify and claim the business account.
+                </div>
+                {!business?.isClaimed && (
+                  <div className="border border-[#E7E0D8] bg-[#FAF8F4] p-4 space-y-3 text-left">
+                    {resendStatus && (
+                      <div className={`p-3 text-xs font-mono border ${resendStatus.startsWith("Error") ? "bg-red-50 text-red-700 border-red-200" : "bg-emerald-50 text-emerald-800 border-emerald-200"}`}>
+                        {resendStatus}
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleResendEmail}
+                      disabled={resending || !business?.id}
+                      className="w-full py-2.5 bg-white hover:bg-[#FAF8F4] text-[#211D1C] border border-[#211D1C] font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {resending ? "Resending Email..." : "📩 Resend Verification Email"}
+                    </button>
+                    {process.env.NODE_ENV !== "production" && business?.claimToken && (
+                      <Link
+                        href={`/business/claim/${business.claimToken}`}
+                        className="w-full py-2.5 text-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-wider transition-colors cursor-pointer block"
+                      >
+                        🛠️ Claim & Verify Account Now (Dev Mode)
+                      </Link>
+                    )}
+                  </div>
+                )}
               </div>
             ) : isCancelled ? (
               <div className="text-center py-4 bg-red-50 border border-red-200 text-red-800 text-sm font-semibold">

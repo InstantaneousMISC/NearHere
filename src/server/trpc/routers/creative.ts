@@ -9,6 +9,41 @@ import { getApprovedForPrintTemplate } from "@/server/email/templates/approvedFo
 import { getPrintedMailedNotificationTemplate } from "@/server/email/templates/printedMailedNotification"
 import { validatePhone, formatPhone, validateAndNormalizeUrl } from "@/lib/validation"
 
+async function requireCreativeOwner(ctx: any, order: { advertiserId: string; status: string }) {
+  if (!ctx.user) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Sign in to your business account to manage campaign creative.",
+    })
+  }
+
+  if (order.status !== "PAID") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Campaign creative is available after payment is complete.",
+    })
+  }
+
+  const business = await ctx.db.business.findFirst({
+    where: {
+      ownerUserId: ctx.user.id,
+      advertiserId: order.advertiserId,
+      status: "ACTIVE",
+      deletedAt: null,
+    },
+    select: { id: true },
+  })
+
+  if (!business) {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This campaign creative does not belong to your business account.",
+    })
+  }
+
+  return business
+}
+
 export const creativeRouter = createTRPCRouter({
   // Public procedures
   getByToken: publicProcedure
@@ -16,7 +51,7 @@ export const creativeRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const order = await ctx.db.order.findUnique({
         where: { creativeSubmissionToken: input.token },
-        select: { id: true },
+        select: { id: true, advertiserId: true, status: true },
       })
 
       if (!order) {
@@ -25,6 +60,8 @@ export const creativeRouter = createTRPCRouter({
           message: "Invalid creative submission link token",
         })
       }
+
+      await requireCreativeOwner(ctx, order)
 
       const submission = await ctx.db.creativeSubmission.findUnique({
         where: { orderId: order.id },
@@ -74,6 +111,8 @@ export const creativeRouter = createTRPCRouter({
           message: "Invalid submission token",
         })
       }
+
+      await requireCreativeOwner(ctx, order)
 
       // Enforce input validations and sanitization
       if (input.phone && !validatePhone(input.phone)) {
@@ -474,6 +513,7 @@ export const creativeRouter = createTRPCRouter({
           message: "Invalid creative submission link token",
         })
       }
+      await requireCreativeOwner(ctx, order)
       const submission = await ctx.db.creativeSubmission.update({
         where: { orderId: order.id },
         data: {
@@ -528,6 +568,7 @@ export const creativeRouter = createTRPCRouter({
           message: "Invalid creative submission link token",
         })
       }
+      await requireCreativeOwner(ctx, order)
       const submission = await ctx.db.creativeSubmission.update({
         where: { orderId: order.id },
         data: {

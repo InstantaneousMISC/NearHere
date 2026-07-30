@@ -5,18 +5,18 @@ export function getClaimBusinessProfileTemplate(params: {
   businessName: string
   claimLink: string
 }) {
-  const subject = `Claim your NearHere business profile for ${params.businessName}`
+  const subject = `Verify and claim your NearHere business account for ${params.businessName}`
   const businessName = escapeHtml(params.businessName)
   const claimLink = escapeHtml(params.claimLink)
 
   const contentHtml = `
-    <h2>Claim Your NearHere Business Profile</h2>
+    <h2>Verify Your NearHere Business Account</h2>
     <p>Hi there,</p>
     <p>Your campaign reservation includes a dedicated business page and unique QR destination for <strong>${businessName}</strong>.</p>
-    <p>Claim the profile to add the business details residents should see when they scan your postcard placement.</p>
+    <p>Use this secure link to verify your account and claim the profile. After verification, we&apos;ll take you to your business dashboard for guided onboarding and business information updates.</p>
 
     <div class="cta-container">
-      <a href="${claimLink}" class="btn">Claim Your Profile</a>
+      <a href="${claimLink}" class="btn">Verify &amp; Claim Account</a>
     </div>
 
     <p><strong>Inside your NearHere dashboard, you can:</strong></p>
@@ -36,8 +36,8 @@ export function getClaimBusinessProfileTemplate(params: {
   `
 
   const html = getNearHereEmailWrapper({
-    title: "Claim Your NearHere Profile",
-    preheader: `Set up the business page and response links for ${params.businessName}.`,
+    title: "Verify Your NearHere Account",
+    preheader: `Verify your account to set up ${params.businessName}.`,
     contentHtml,
   })
 

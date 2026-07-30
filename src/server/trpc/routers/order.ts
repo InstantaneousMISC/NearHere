@@ -310,7 +310,7 @@ export const orderRouter = createTRPCRouter({
   getByStripeSessionId: publicProcedure
     .input(z.object({ sessionId: z.string() }))
     .query(async ({ ctx, input }) => {
-      const order = await ctx.db.order.findUnique({
+      let order = await ctx.db.order.findUnique({
         where: { stripeCheckoutSessionId: input.sessionId },
         include: {
           campaign: true,
@@ -326,6 +326,57 @@ export const orderRouter = createTRPCRouter({
           code: "NOT_FOUND",
           message: "Order not found for Stripe session ID",
         })
+      }
+
+      // Auto-reconcile fallback if order is PENDING but Stripe session completed
+      if (order.status === OrderStatus.PENDING && !input.sessionId.startsWith("mock_")) {
+        try {
+          const session = await stripe.checkout.sessions.retrieve(input.sessionId)
+          if (session && (session.payment_status === "paid" || session.status === "complete")) {
+            await ctx.db.order.update({
+              where: { id: order.id },
+              data: {
+                status: OrderStatus.PAID,
+                paidAt: new Date(),
+                stripePaymentIntentId: typeof session.payment_intent === "string" ? session.payment_intent : null,
+              },
+            })
+            await ctx.db.campaignSpot.update({
+              where: { id: order.campaignSpotId },
+              data: {
+                status: SpotStatus.SOLD,
+                heldUntil: null,
+                heldBySessionId: null,
+              },
+            })
+
+            const {
+              ensureBusinessForOrder,
+              ensureQrForOrder,
+              ensureCreativeSubmissionForOrder,
+              ensurePostPaymentEmailsForOrder,
+            } = await import("@/server/helpers/postPayment")
+
+            await ensureBusinessForOrder(order.id)
+            await ensureQrForOrder(order.id)
+            await ensureCreativeSubmissionForOrder(order.id)
+            await ensurePostPaymentEmailsForOrder(order.id)
+
+            // Re-fetch updated order
+            order = await ctx.db.order.findUniqueOrThrow({
+              where: { id: order.id },
+              include: {
+                campaign: true,
+                campaignSpot: {
+                  include: { category: true },
+                },
+                advertiser: true,
+              },
+            })
+          }
+        } catch (err) {
+          console.warn("[CHECKOUT RECONCILIATION] Fallback check failed:", err)
+        }
       }
 
       const business = await ctx.db.business.findFirst({
@@ -1062,10 +1113,17 @@ export const orderRouter = createTRPCRouter({
       if (order.stripeCheckoutSessionId) {
         try {
           const session = await stripe.checkout.sessions.retrieve(order.stripeCheckoutSessionId)
+          if (session.status === "complete" || session.payment_status === "paid") {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "This invoice payment has already been completed and is being confirmed. Please refresh this page shortly.",
+            })
+          }
           if (session && session.status === "open" && session.url) {
             sessionUrl = session.url
           }
         } catch (err) {
+          if (err instanceof TRPCError) throw err
           console.warn("Could not retrieve existing Stripe session, will create a new one:", err)
         }
       }
@@ -1136,7 +1194,11 @@ export const orderRouter = createTRPCRouter({
         })
       }
 
-      // Return a strictly sanitized DTO payload for public invoices (excludes creativeSubmissionToken, claimToken, etc.)
+      const business = order.status === OrderStatus.PAID ? await ctx.db.business.findFirst({
+        where: { advertiserId: order.advertiserId },
+        select: { id: true, ownerUserId: true, claimToken: true }
+      }) : null
+
       return {
         id: order.id,
         status: order.status,
@@ -1173,8 +1235,12 @@ export const orderRouter = createTRPCRouter({
           email: order.advertiser.email,
           phone: order.advertiser.phone,
         },
+        business: business ? {
+          id: business.id,
+          isClaimed: !!business.ownerUserId,
+          claimToken: business.claimToken,
+        } : null,
       }
     }),
 })
-
 

@@ -9,6 +9,7 @@ const tests = [
   "src/server/helpers/email.test.ts",
   "src/server/helpers/validation.test.ts",
   "src/server/helpers/safeguards.test.ts",
+  "src/server/helpers/authAccess.test.ts",
   "src/server/helpers/claim.test.ts",
   "src/server/helpers/webhook.test.ts",
   "src/server/helpers/campaignOffers.test.ts",

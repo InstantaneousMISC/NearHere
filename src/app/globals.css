@@ -31,36 +31,65 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+  --color-purple: var(--purple);
+  --color-purple-soft: var(--purple-soft);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-muted: var(--sidebar-muted);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-active: var(--sidebar-active);
 }
 
 :root {
-  --radius: 0.25rem;
-  --nh-press-gray: #211D1C;
-  --nh-paper-white: #FAF8F4;
-  --nh-red: #D13F1F;
-  --nh-warm-gray: #77706A;
-  --nh-border-gray: #E7E0D8;
-  --nh-featured-gold: #C9993E;
+  /* NearHere product design tokens. Legacy aliases keep public routes stable. */
+  --radius: 0.75rem;
+  --background: #FAF9F7;
+  --foreground: #1D2025;
+  --card: #FFFFFF;
+  --card-foreground: #1D2025;
+  --popover: #FFFFFF;
+  --popover-foreground: #1D2025;
+  --primary: #F05223;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F7F4F0;
+  --secondary-foreground: #25282D;
+  --muted: #F4F1ED;
+  --muted-foreground: #6B7280;
+  --accent: #F05223;
+  --accent-foreground: #FFFFFF;
+  --destructive: #DC3F3F;
+  --destructive-foreground: #FFFFFF;
+  --border: #E7E3DE;
+  --input: #E7E3DE;
+  --ring: #F05223;
+  --success: #22A55B;
+  --success-soft: #E8F8EE;
+  --warning: #E89A15;
+  --warning-soft: #FFF6DF;
+  --info: #4387F5;
+  --info-soft: #EAF3FF;
+  --purple: #7959EA;
+  --purple-soft: #F1EFFF;
+  --sidebar: #141618;
+  --sidebar-foreground: #F5F5F4;
+  --sidebar-muted: #A8AAAD;
+  --sidebar-border: #303236;
+  --sidebar-active: #F05223;
+  --shadow-card: 0 1px 2px rgb(20 24 28 / 0.03), 0 8px 24px rgb(20 24 28 / 0.025);
+  --shadow-hover: 0 8px 30px rgb(20 24 28 / 0.08);
 
-  --background: var(--nh-paper-white);
-  --foreground: var(--nh-press-gray);
-  --card: var(--nh-paper-white);
-  --card-foreground: var(--nh-press-gray);
-  --popover: var(--nh-paper-white);
-  --popover-foreground: var(--nh-press-gray);
-  --primary: var(--nh-red);
-  --primary-foreground: var(--nh-paper-white);
-  --secondary: var(--nh-press-gray);
-  --secondary-foreground: var(--nh-paper-white);
-  --muted: #F1ECE3;
-  --muted-foreground: var(--nh-warm-gray);
-  --accent: var(--nh-featured-gold);
-  --accent-foreground: var(--nh-press-gray);
-  --destructive: #B53A1A;
-  --destructive-foreground: var(--nh-paper-white);
-  --border: var(--nh-border-gray);
-  --input: var(--nh-border-gray);
-  --ring: var(--nh-red);
+  --nh-press-gray: var(--foreground);
+  --nh-paper-white: var(--background);
+  --nh-red: var(--primary);
+  --nh-warm-gray: var(--muted-foreground);
+  --nh-border-gray: var(--border);
+  --nh-featured-gold: #C9993E;
 
   /* Retain old custom vars just in case they are used in dashboard */
   --brand-primary: #211D1C;
@@ -83,10 +112,16 @@
   }
 
   h1, h2, h3, h4 {
-    font-family: var(--font-headline);
-    font-stretch: condensed;
-    letter-spacing: -0.01em;
+    letter-spacing: -0.025em;
   }
+}
+
+@utility shadow-card {
+  box-shadow: var(--shadow-card);
+}
+
+@utility shadow-hover {
+  box-shadow: var(--shadow-hover);
 }
 
 @utility label-mono {
@@ -117,18 +152,19 @@
 
 /* ─── Directory Dark Theme Override ───────────────────────────────────────── */
 .directory-dark {
+  --background: #12100F;
+  --foreground: #FAF8F4;
+  --card: #1A1716;
+  --card-foreground: #FAF8F4;
+  --popover: #1A1716;
+  --popover-foreground: #FAF8F4;
+  --border: #2E2A28;
+  --input: #2E2A28;
   --nh-paper-white: #12100F;
   --nh-press-gray: #FAF8F4;
   --nh-red: #FF4A1C;
   --nh-warm-gray: #A39E98;
   --nh-border-gray: #2E2A28;
-
-  --background: #12100F;
-  --foreground: #FAF8F4;
-  --card: #1A1716;
-  --card-foreground: #FAF8F4;
-  --border: #2E2A28;
-  --input: #2E2A28;
 }
 
 /* Ensure background of directory pages uses the overridden paper color */
@@ -212,5 +248,4 @@
   background-color: #FAF8F4 !important;
   color: #12100F !important;
 }
-
 

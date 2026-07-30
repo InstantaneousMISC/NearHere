@@ -1,7 +1,42 @@
-"use client"
+import Link from "next/link"
 
 export default function CampaignFooter() {
   const year = new Date().getFullYear()
+
+  const getLinkHref = (label: string) => {
+    switch (label) {
+      case "Shared Postcards":
+      case "NearHere Postcards":
+        return "/#postcard"
+      case "Campaigns":
+      case "NearHere Drop":
+        return "/#coverage"
+      case "Business Pages":
+      case "Local Page":
+        return "/local-page"
+      case "For Advertisers":
+      case "For Business":
+        return "/#why"
+      case "Our Mission":
+        return "/our-mission"
+      case "Communities":
+        return "/communities"
+      case "Press Kit":
+        return "/press-kit"
+      case "Contact":
+        return "/contact"
+      case "How It Works":
+        return "/#how"
+      case "Pricing":
+        return "/#why"
+      case "FAQ":
+        return "/#faq"
+      case "Media Kit":
+        return "/media-kit"
+      default:
+        return "#"
+    }
+  }
 
   return (
     <footer className="border-t border-rule bg-press text-paper">
@@ -25,7 +60,11 @@ export default function CampaignFooter() {
             <p className="font-mono uppercase tracking-[0.14em] text-[10px] text-paper/50">{title}</p>
             <ul className="mt-4 space-y-2">
               {(items as string[]).map((it) => (
-                <li key={it}><a href="#" className="font-headline text-paper/90 hover:text-nh-red text-sm uppercase tracking-wide">{it}</a></li>
+                <li key={it}>
+                  <Link href={getLinkHref(it)} className="font-headline text-paper/90 hover:text-nh-red text-sm uppercase tracking-wide">
+                    {it}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
@@ -41,7 +80,12 @@ export default function CampaignFooter() {
       <div className="border-t border-paper/15">
         <div className="max-w-7xl mx-auto px-6 py-6 flex flex-wrap items-center justify-between gap-3">
           <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/50">© {year} NearHere — Support Local. Discover Nearby.</p>
-          <p className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/50">Local Advertising Campaigns</p>
+          <Link
+            href="/advertise/directory"
+            className="font-mono text-[10px] uppercase tracking-[0.14em] text-paper/50 hover:text-nh-red"
+          >
+            Browse Industries
+          </Link>
         </div>
       </div>
     </footer>

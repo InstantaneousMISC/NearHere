@@ -264,13 +264,13 @@ async function runBrowserE2E() {
       }
     })
     
-    // Check that we got all 4 post-payment emails
+    // Account verification replaces the old unauthenticated creative-link email.
     const templateKeys = postPaymentEmails.map(e => e.templateKey)
     console.log("📧 Generated Post-Payment Emails:", templateKeys)
     assert.ok(templateKeys.includes("payment_confirmation"), "Should have sent payment_confirmation email.")
     assert.ok(templateKeys.includes("admin_purchase_notification"), "Should have sent admin_purchase_notification email.")
     assert.ok(templateKeys.includes("claim_business_profile"), "Should have sent claim_business_profile email.")
-    assert.ok(templateKeys.includes("submit_postcard_creative"), "Should have sent submit_postcard_creative email.")
+    assert.ok(!templateKeys.includes("submit_postcard_creative"), "Should not send an unauthenticated creative submission email.")
     console.log("✅ Post-payment email validation successful.")
 
     // -------------------------------------------------------------

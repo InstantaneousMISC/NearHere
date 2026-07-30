@@ -1,6 +1,7 @@
 import { db } from "@/server/db"
 import InquiriesList from "@/components/admin/InquiriesList"
-import { CampaignInquiryStatus } from "@prisma/client"
+import { CampaignInquiryStatus, SpotStatus } from "@prisma/client"
+import { requireAdminAccess } from "@/server/auth/access"
 
 export const revalidate = 0 // Disable cache for live updates
 
@@ -15,6 +16,8 @@ interface InquiriesPageProps {
 export default async function AdminInquiriesPage({
   searchParams,
 }: InquiriesPageProps) {
+  await requireAdminAccess()
+
   const resolvedParams = await searchParams
   const { status, campaignId, search } = resolvedParams
 
@@ -52,6 +55,14 @@ export default async function AdminInquiriesPage({
             name: true,
             city: true,
             state: true,
+            spots: {
+              where: { status: SpotStatus.OPEN },
+              select: {
+                id: true,
+                label: true,
+                price: true,
+              },
+            },
           },
         },
         assignedToAdmin: {

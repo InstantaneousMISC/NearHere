@@ -42,6 +42,21 @@ export function validateAndNormalizeUrl(url: string): string | null {
   }
 }
 
+/**
+ * Validates a web URL and normalizes it to HTTPS. Use this for advertiser
+ * profile links so users can enter `example.com` without supplying a scheme.
+ */
+export function validateAndNormalizeHttpsUrl(url: string): string | null {
+  const trimmed = url.trim()
+  if (!trimmed) return null
+
+  const withHttps = /^https:\/\//i.test(trimmed)
+    ? trimmed
+    : `https://${trimmed.replace(/^http:\/\//i, "")}`
+
+  return validateAndNormalizeUrl(withHttps)
+}
+
 export function calculateCostPerHousehold(priceCents: number, householdCount: number): number {
   if (!householdCount || householdCount <= 0) return 0
   // Cost in cents per household, rounded to two decimal places

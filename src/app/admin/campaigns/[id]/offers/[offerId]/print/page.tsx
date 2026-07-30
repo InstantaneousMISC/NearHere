@@ -1,9 +1,9 @@
-import type { Metadata } from "next"
 import { notFound } from "next/navigation"
 import Link from "next/link"
 import { db } from "@/server/db"
 import { CampaignOfferDiscountType } from "@prisma/client"
 import QRCodeImage from "@/components/postcard/QRCodeImage"
+import { requireAdminAccess } from "@/server/auth/access"
 
 interface PrintOfferPageProps {
   params: Promise<{
@@ -12,21 +12,11 @@ interface PrintOfferPageProps {
   }>
 }
 
-export async function generateMetadata({
-  params,
-}: PrintOfferPageProps): Promise<Metadata> {
-  const { offerId } = await params
-  const offer = await db.campaignOffer.findUnique({
-    where: { id: offerId },
-    select: { name: true },
-  })
-
-  return {
-    title: offer ? `Print Card - ${offer.name}` : "Print Offer Card",
-  }
-}
+export const metadata = { title: "Print Offer Card" }
 
 export default async function PrintOfferPage({ params }: PrintOfferPageProps) {
+  await requireAdminAccess()
+
   const { id: campaignId, offerId } = await params
 
   const offer = await db.campaignOffer.findUnique({
