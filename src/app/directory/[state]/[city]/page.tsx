@@ -3,6 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { CampaignNav } from "@/components/campaign/CampaignNav"
 import CampaignFooter from "@/components/campaign/CampaignFooter"
+import { getAdvertiserCategory, getAllAdvertiserCategories } from "@/data/advertiserCategories"
 import type { Metadata } from "next"
 
 interface CityPageProps {
@@ -106,25 +107,24 @@ export default async function CityDirectoryPage({ params }: CityPageProps) {
   const activeLocations = city.locations
   const allProfiles = activeLocations.map((loc) => loc.directoryProfile)
 
-  // Popular categories in this city (categories that have profiles here)
-  const categoryMap: Record<string, { id: string; name: string; slug: string; count: number }> = {}
+  // Category counts are joined to the advertiser dataset below so the browse
+  // list stays in sync with buyer-selectable business types.
+  const categoryCounts: Record<string, number> = {}
   allProfiles.forEach((profile) => {
     profile.categories.forEach((pCat) => {
       const cat = pCat.directoryCategory
-      if (cat.status === "PUBLISHED") {
-        if (!categoryMap[cat.slug]) {
-          categoryMap[cat.slug] = {
-            id: cat.id,
-            name: cat.name,
-            slug: cat.slug,
-            count: 0,
-          }
-        }
-        categoryMap[cat.slug].count++
+      if (cat.status === "PUBLISHED" && getAdvertiserCategory(cat.slug)) {
+        categoryCounts[cat.slug] = (categoryCounts[cat.slug] || 0) + 1
       }
     })
   })
-  const popularCategories = Object.values(categoryMap).sort((a, b) => b.count - a.count)
+  const browseCategories = getAllAdvertiserCategories()
+    .map((category) => ({
+      name: category.label,
+      slug: category.slug,
+      count: categoryCounts[category.slug] || 0,
+    }))
+    .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
 
   // Split profiles into Featured (has active advertiser paid order) and Recently Added
   const featuredProfiles = allProfiles.filter((profile) => {
@@ -177,27 +177,27 @@ export default async function CityDirectoryPage({ params }: CityPageProps) {
       <main className="flex-1 max-w-7xl w-full mx-auto px-6 py-12 space-y-16 animate-fade-up">
         {/* Filters/Lists */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-start">
-          {/* Sidebar - Popular Categories in this City */}
+          {/* Sidebar - Supported business types in this city */}
           <aside className="lg:col-span-3 space-y-6 bg-[#FAF8F4] border border-rule p-5 rounded-lg shadow-md">
             <div className="space-y-4">
               <h3 className="font-headline font-bold text-xs uppercase tracking-widest text-press border-b border-rule pb-2 text-left">
-                Browse By Category
+                Browse By Business Type
               </h3>
-              {popularCategories.length > 0 ? (
-                <div className="flex flex-col gap-1.5 font-mono text-[11px] font-bold uppercase text-left">
-                  {popularCategories.map((cat) => (
+              {browseCategories.length > 0 ? (
+                <div className="max-h-[32rem] overflow-y-auto pr-2 flex flex-col gap-1.5 font-mono text-[11px] font-bold uppercase text-left">
+                  {browseCategories.map((cat) => (
                     <Link
                       key={cat.slug}
                       href={`/directory/${city.state.slug}/${city.slug}/${cat.slug}`}
                       className="text-warm hover:text-[#FF4A1C] transition-colors flex items-center justify-between"
                     >
                       <span>🏷️ {cat.name}</span>
-                      <span>({cat.count})</span>
+                      <span className={cat.count > 0 ? "text-press" : "text-warm/55"}>({cat.count})</span>
                     </Link>
                   ))}
                 </div>
               ) : (
-                <p className="text-xs text-warm italic text-left">No categories active in {cityName} yet.</p>
+                <p className="text-xs text-warm italic text-left">No supported business types configured.</p>
               )}
             </div>
           </aside>

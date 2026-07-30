@@ -3,6 +3,7 @@ import Link from "next/link"
 import { notFound } from "next/navigation"
 import { CampaignNav } from "@/components/campaign/CampaignNav"
 import CampaignFooter from "@/components/campaign/CampaignFooter"
+import { getAdvertiserCategory, getAllAdvertiserCategories } from "@/data/advertiserCategories"
 import type { Metadata } from "next"
 
 interface CategoryPageProps {
@@ -10,7 +11,9 @@ interface CategoryPageProps {
 }
 
 // Check index conditions: >= 2 published profiles, or 1 profile + strong category copy
-async function getIndexStatus(cityId: string, categoryId: string, categoryDesc: string | null) {
+async function getIndexStatus(cityId: string, categoryId: string | null, categoryDesc: string | null) {
+  if (!categoryId) return false
+
   const count = await db.businessDirectoryCategory.count({
     where: {
       directoryCategoryId: categoryId,
@@ -33,6 +36,7 @@ async function getIndexStatus(cityId: string, categoryId: string, categoryDesc: 
 
 export async function generateMetadata({ params }: CategoryPageProps): Promise<Metadata> {
   const { state: stateSlug, city: citySlug, category: categorySlug } = await params
+  const advertiserCategory = getAdvertiserCategory(categorySlug)
   
   const city = await db.city.findFirst({
     where: {
@@ -42,27 +46,27 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
     include: { state: true },
   })
 
-  const category = await db.directoryCategory.findUnique({
-    where: { slug: categorySlug },
-  })
-
-  if (!city || !category || city.status !== "PUBLISHED" || category.status !== "PUBLISHED" || city.state.status !== "PUBLISHED") {
+  if (!city || !advertiserCategory || advertiserCategory.slug !== categorySlug || city.status !== "PUBLISHED" || city.state.status !== "PUBLISHED") {
     return {
       title: "Category Directory Not Found | NearHere",
       description: "The requested category list was not found.",
     }
   }
 
-  const isIndexable = await getIndexStatus(city.id, category.id, category.description)
+  const directoryCategory = await db.directoryCategory.findUnique({
+    where: { slug: advertiserCategory.slug },
+  })
+  const categoryDescription = directoryCategory?.description || advertiserCategory.description
+  const isIndexable = await getIndexStatus(city.id, directoryCategory?.id ?? null, categoryDescription)
 
   return {
-    title: `Best ${category.name} in ${city.name}, ${city.state.slug.toUpperCase()} | NearHere`,
-    description: `Find top-rated ${category.name.toLowerCase()} in ${city.name}, ${city.state.name}. View contact info, verified business profiles, and postcard specials.`,
+    title: `Best ${advertiserCategory.label} in ${city.name}, ${city.state.slug.toUpperCase()} | NearHere`,
+    description: `Find top-rated ${advertiserCategory.label.toLowerCase()} in ${city.name}, ${city.state.name}. View contact info, verified business profiles, and postcard specials.`,
     alternates: {
-      canonical: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/directory/${city.state.slug}/${city.slug}/${category.slug}`,
+      canonical: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/directory/${city.state.slug}/${city.slug}/${advertiserCategory.slug}`,
     },
     robots: {
-      index: isIndexable && city.isIndexed === "INDEX" && category.isIndexed === "INDEX" && city.state.isIndexed === "INDEX",
+      index: isIndexable && city.isIndexed === "INDEX" && city.state.isIndexed === "INDEX" && (directoryCategory?.isIndexed ?? "INDEX") === "INDEX",
       follow: true,
     },
   }
@@ -70,6 +74,7 @@ export async function generateMetadata({ params }: CategoryPageProps): Promise<M
 
 export default async function CityCategoryDirectoryPage({ params }: CategoryPageProps) {
   const { state: stateSlug, city: citySlug, category: categorySlug } = await params
+  const advertiserCategory = getAdvertiserCategory(categorySlug)
   const stateSlugUpper = stateSlug.toUpperCase()
 
   const city = await db.city.findFirst({
@@ -80,60 +85,69 @@ export default async function CityCategoryDirectoryPage({ params }: CategoryPage
     include: { state: true },
   })
 
-  const category = await db.directoryCategory.findUnique({
-    where: { slug: categorySlug },
-  })
-
-  if (!city || !category || city.status !== "PUBLISHED" || category.status !== "PUBLISHED" || city.state.status !== "PUBLISHED") {
+  if (!city || !advertiserCategory || advertiserCategory.slug !== categorySlug || city.status !== "PUBLISHED" || city.state.status !== "PUBLISHED") {
     notFound()
   }
 
+  const directoryCategory = await db.directoryCategory.findUnique({
+    where: { slug: advertiserCategory.slug },
+  })
+  const category = {
+    id: directoryCategory?.id ?? null,
+    name: advertiserCategory.label,
+    slug: advertiserCategory.slug,
+    description: directoryCategory?.description || advertiserCategory.description,
+    isIndexed: directoryCategory?.isIndexed ?? "INDEX",
+  }
+
   // Fetch all profiles in this city and category
-  const profileJoins = await db.businessDirectoryCategory.findMany({
-    where: {
-      directoryCategoryId: category.id,
-      directoryProfile: {
-        status: "PUBLISHED",
-        locations: {
-          some: {
-            cityId: city.id,
+  const profileJoins = category.id
+    ? await db.businessDirectoryCategory.findMany({
+        where: {
+          directoryCategoryId: category.id,
+          directoryProfile: {
             status: "PUBLISHED",
+            locations: {
+              some: {
+                cityId: city.id,
+                status: "PUBLISHED",
+              },
+            },
+            OR: [
+              { businessId: null },
+              {
+                business: {
+                  deletedAt: null,
+                  goodStanding: true,
+                  isDirectoryVisible: true,
+                }
+              }
+            ]
           },
         },
-        OR: [
-          { businessId: null },
-          {
-            business: {
-              deletedAt: null,
-              goodStanding: true,
-              isDirectoryVisible: true,
-            }
-          }
-        ]
-      },
-    },
-    include: {
-      directoryProfile: {
         include: {
-          locations: {
-            where: { cityId: city.id },
-          },
-          business: {
+          directoryProfile: {
             include: {
-              advertiser: {
+              locations: {
+                where: { cityId: city.id },
+              },
+              business: {
                 include: {
-                  orders: {
-                    where: { status: "PAID" },
-                    include: { creativeSubmission: true },
+                  advertiser: {
+                    include: {
+                      orders: {
+                        where: { status: "PAID" },
+                        include: { creativeSubmission: true },
+                      },
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-    },
-  })
+      })
+    : []
 
   const profiles = profileJoins.map((join) => join.directoryProfile)
   const isIndexable = await getIndexStatus(city.id, category.id, category.description)
@@ -150,16 +164,20 @@ export default async function CityCategoryDirectoryPage({ params }: CategoryPage
           },
         },
       },
-      directoryCategoryId: { not: category.id },
+      directoryCategoryId: category.id ? { not: category.id } : undefined,
     },
     include: { directoryCategory: true },
   })
 
   const nearbyCategoryMap: Record<string, { name: string; slug: string }> = {}
+  const advertiserCategoriesBySlug = new Map(
+    getAllAdvertiserCategories().map((advertiserCat) => [advertiserCat.slug, advertiserCat])
+  )
   otherCategoryJoins.forEach((join) => {
     const cat = join.directoryCategory
-    if (cat.status === "PUBLISHED") {
-      nearbyCategoryMap[cat.slug] = { name: cat.name, slug: cat.slug }
+    const advertiserCat = advertiserCategoriesBySlug.get(cat.slug)
+    if (cat.status === "PUBLISHED" && advertiserCat) {
+      nearbyCategoryMap[advertiserCat.slug] = { name: advertiserCat.label, slug: advertiserCat.slug }
     }
   })
   const nearbyCategories = Object.values(nearbyCategoryMap).slice(0, 6)
